@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { TrendingUp, AlertCircle, Bell, Calendar } from 'lucide-react'
 import { AvisosLista } from './AvisosLista'
 import type { AvisoDetalhado } from './types'
 
@@ -8,6 +9,17 @@ export interface CatalogoProduto {
   nome: string
   preco_sugerido: number | null
   comissionavel_recompra: boolean
+}
+
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+function addDias(base: string, n: number): string {
+  const [y, m, d] = base.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() + n)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
 export default async function AvisosPage() {
@@ -35,9 +47,10 @@ export default async function AvisosPage() {
   const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
   const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
   const hoje = new Date().toISOString().split('T')[0]
+  const isVendedora = (membro.role as string) === 'vendedora'
 
-  // Avisos pendentes
-  const { data: avisosRaw } = await supabase
+  // Avisos pendentes — vendedora vê apenas os próprios; dono/gerente veem toda a loja
+  let avisosQuery = supabase
     .from('avisos')
     .select(`
       id, data_aviso, status, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
@@ -49,6 +62,8 @@ export default async function AvisosPage() {
     .eq('loja_id', loja.id)
     .eq('status', 'pendente')
     .order('data_aviso', { ascending: true })
+  if (isVendedora) avisosQuery = avisosQuery.eq('vendedora_id', user!.id)
+  const { data: avisosRaw } = await avisosQuery
 
   // Catálogo de produtos para o form de recompra
   const { data: catalogoRaw } = await supabase
@@ -115,12 +130,91 @@ export default async function AvisosPage() {
     }
   })
 
+  // Resumo — mesmo critério do "Dinheiro na Mesa" da DashboardDono
+  const potencialAberto = avisos
+    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
+    .reduce((s, a) => s + a.valor_venda, 0)
+  const qtdAtrasados = avisos.filter(a => a.data_aviso < hoje).length
+  const qtdHoje = avisos.filter(a => a.data_aviso === hoje).length
+  const em7Dias = addDias(hoje, 7)
+  const qtdProximos7 = avisos.filter(a => a.data_aviso > hoje && a.data_aviso <= em7Dias).length
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 pb-6">
+
+      {/* ── Cabeçalho ── */}
       <div>
-        <h1 className="text-xl font-semibold">Avisos de hoje</h1>
-        <p className="text-sm text-muted-foreground">{loja.nome}</p>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {isVendedora ? 'Minha fila de recompra' : 'Fila de recompra'}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
+        <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
+          Priorize clientes com recompra vencendo e recupere dinheiro parado.
+        </p>
       </div>
+
+      {/* ── Cards de resumo ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+        {/* Potencial em aberto */}
+        <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
+            <TrendingUp className="h-3 w-3 flex-none" />
+            Potencial em aberto
+          </p>
+          <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
+            {fmt(potencialAberto)}
+          </p>
+          <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
+            em recompras e ofertas
+          </p>
+        </div>
+
+        {/* Atrasados */}
+        <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
+            <AlertCircle className="h-3 w-3 flex-none" />
+            Atrasados
+          </p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+            {qtdAtrasados}
+          </p>
+          <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">
+            precisam de ação agora
+          </p>
+        </div>
+
+        {/* Para hoje */}
+        <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
+            <Bell className="h-3 w-3 flex-none" />
+            Para hoje
+          </p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
+            {qtdHoje}
+          </p>
+          <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">
+            clientes para acionar
+          </p>
+        </div>
+
+        {/* Próximos 7 dias */}
+        <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 flex-none" />
+            Próximos 7 dias
+          </p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdProximos7 > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {qtdProximos7}
+          </p>
+          <p className="text-[11px] text-muted-foreground/55 leading-tight">
+            oportunidades chegando
+          </p>
+        </div>
+
+      </div>
+
+      {/* ── Lista de avisos ── */}
       <AvisosLista
         avisos={avisos}
         hoje={hoje}
@@ -128,6 +222,7 @@ export default async function AvisosPage() {
         percentuaisPorVendedora={percentuaisPorVendedora}
         loja_id={loja.id}
       />
+
     </div>
   )
 }
