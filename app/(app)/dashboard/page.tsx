@@ -137,7 +137,7 @@ export default async function DashboardPage() {
   }
   const hojeDia = agora.getDate()
 
-  const [vendasRes, avisosRes, recomprasRes, enviadosRes, produtosRes, membrosRes, perfilRes, metasRes] = await Promise.all([
+  const [vendasRes, avisosRes, recomprasRes, enviadosRes, produtosRes, membrosRes, perfilRes, metasRes, comissaoVendaRes] = await Promise.all([
     (() => {
       let q = supabase
         .from('vendas')
@@ -173,8 +173,7 @@ export default async function DashboardPage() {
         .from('recompras')
         .select(`
           id, criado_em, valor_total, vendedora_id,
-          perfis!recompras_vendedora_id_fkey(nome),
-          comissao_venda(valor_comissao)
+          perfis!recompras_vendedora_id_fkey(nome)
         `)
         .eq('loja_id', loja_id)
         .gte('criado_em', data30.toISOString())
@@ -213,6 +212,16 @@ export default async function DashboardPage() {
     isVendedora
       ? supabase.from('metas_vendedora').select('valor_meta, vendedora_id').eq('loja_id', loja_id).eq('mes', inicioMes).eq('vendedora_id', user.id)
       : createAdminClient().from('metas_vendedora').select('valor_meta, vendedora_id').eq('loja_id', loja_id).eq('mes', inicioMes),
+    // Comissão canônica: vendas + comissao_venda (inclui venda_manual e recompra)
+    (() => {
+      let q = supabase
+        .from('vendas')
+        .select('data_compra, vendedora_id, comissao_venda!inner(valor_comissao)')
+        .eq('loja_id', loja_id)
+        .gte('criado_em', data30.toISOString())
+      if (vidFilter) q = q.eq('vendedora_id', vidFilter)
+      return q
+    })(),
   ])
 
   // Build vendedora name map
@@ -270,27 +279,35 @@ export default async function DashboardPage() {
     }
   })
 
-  // Normalize recompras
+  // Normalize recompras (contagem e valor para métricas de funil)
   const recompras = (recomprasRes.data ?? []).map(r => {
     const perfil = r.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
     const perfilObj = Array.isArray(perfil) ? perfil[0] : perfil
-    const comissaoRaw = r.comissao_venda as unknown as
-      | Array<{ valor_comissao: number }> | { valor_comissao: number } | null
-    const comissao = Array.isArray(comissaoRaw) ? comissaoRaw[0] : comissaoRaw
     return {
       id: r.id as string,
       criado_em: r.criado_em as string,
       valor_total: r.valor_total as number,
-      valor_comissao: comissao?.valor_comissao ?? 0,
       vendedora_id: r.vendedora_id as string,
       vendedora_nome: perfilObj?.nome ?? '—',
+    }
+  })
+
+  // Comissão canônica: soma venda_manual + recompra via comissao_venda JOIN vendas
+  const comissoesCanon = ((comissaoVendaRes as { data: Array<{ data_compra: string; vendedora_id: string; comissao_venda: unknown }> | null }).data ?? []).map(v => {
+    const cvRaw = v.comissao_venda as unknown as
+      | Array<{ valor_comissao: number }> | { valor_comissao: number } | null
+    const cv = Array.isArray(cvRaw) ? cvRaw[0] : cvRaw
+    return {
+      data_compra: v.data_compra as string,
+      vendedora_id: v.vendedora_id as string,
+      valor_comissao: cv?.valor_comissao ?? 0,
     }
   })
 
   // Aggregate metrics
   const totalVendasValor = vendas.reduce((s, v) => s + v.valor, 0)
   const totalRecomprasValor = recompras.reduce((s, r) => s + r.valor_total, 0)
-  const totalComissoes = recompras.reduce((s, r) => s + r.valor_comissao, 0)
+  const totalComissoes = comissoesCanon.reduce((s, c) => s + c.valor_comissao, 0)
   const avisosAtrasados = avisos.filter(a => a.atrasado)
   const avisosHojeList = avisos.filter(a => a.data_aviso === hoje && !a.atrasado)
   const avisosEnviadosCount = enviadosRes.count ?? 0
@@ -299,9 +316,9 @@ export default async function DashboardPage() {
 
   // Chart de comissão acumulada do mês
   const comissaoBucket: Record<string, number> = Object.fromEntries(diasMes.map(d => [d, 0]))
-  recompras.forEach(r => {
-    const d = r.criado_em.split('T')[0]
-    if (d in comissaoBucket) comissaoBucket[d] += r.valor_comissao
+  comissoesCanon.forEach(c => {
+    const d = c.data_compra
+    if (d in comissaoBucket) comissaoBucket[d] += c.valor_comissao
   })
   const comissaoDiaria = diasMes.map(d => comissaoBucket[d] ?? 0)
   const metasData = (metasRes as { data: Array<{ valor_meta: number; vendedora_id: string }> | null }).data ?? []
