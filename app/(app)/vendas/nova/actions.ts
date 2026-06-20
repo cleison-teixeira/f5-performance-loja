@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
 import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
 import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
+import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
 
 export async function buscarCliente(
   whatsapp: string,
@@ -201,6 +202,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         vendedora_id: dados.vendedora_id,
         valor: valor_total,
         data_compra: dados.data_compra,
+        origem: 'venda_manual',
       })
       .select('id')
       .single()
@@ -220,6 +222,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
           produto_id: item.produto_id,
           produto_nome: item.produto_nome,
           recorrente: item.recorrente,
+          comissionavel: item.comissionavel_recompra,
           quantidade: item.quantidade,
           valor_unitario: item.preco_unitario,
           subtotal: item.quantidade * item.preco_unitario,
@@ -229,6 +232,24 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
 
     if (itensError || !itensVendaData) {
       return { ok: false, erro: 'Erro ao registrar itens: ' + (itensError?.message ?? 'desconhecido') }
+    }
+
+    // 5.5. Gravar comissão real via helper canônico
+    const comissaoResult = await gravarComissaoVenda({
+      loja_id: dados.loja_id,
+      venda_id,
+      vendedora_id: dados.vendedora_id,
+      data_venda: dados.data_compra,
+      itens: itensProcessados.map(item => ({
+        produto_id: item.produto_id,
+        produto_nome: item.produto_nome,
+        subtotal: item.quantidade * item.preco_unitario,
+        comissionavel: item.comissionavel_recompra,
+      })),
+    })
+
+    if (!comissaoResult.ok) {
+      return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
     // 6. Gerar avisos para cada item recorrente (com previsão de comissão)
