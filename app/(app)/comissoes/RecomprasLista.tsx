@@ -3,11 +3,11 @@
 import { useState, useMemo } from 'react'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { RecompraExtrato } from './page'
+import type { ComissaoExtrato } from './page'
 import type { TipoComissao } from '@/types/app'
 
 interface RecomprasListaProps {
-  recompras: RecompraExtrato[]
+  recompras: ComissaoExtrato[]
   isVendedora: boolean
   vendedoras: { id: string; nome: string }[]
 }
@@ -47,11 +47,31 @@ const TIPO_CLASS: Record<TipoComissao, string> = {
   padrao: 'bg-muted text-muted-foreground',
 }
 
+const ORIGEM_LABELS: Record<string, string> = {
+  venda_manual: 'Venda',
+  recompra: 'Recompra',
+  oferta: 'Oferta',
+}
+
 function BadgeTipo({ tipo }: { tipo: TipoComissao | null }) {
   if (!tipo || tipo === 'padrao') return null
   return (
     <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', TIPO_CLASS[tipo])}>
       {TIPO_LABELS[tipo]}
+    </span>
+  )
+}
+
+function BadgeOrigem({ origem }: { origem: string }) {
+  const label = ORIGEM_LABELS[origem] ?? origem
+  return (
+    <span className={cn(
+      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+      origem === 'recompra'
+        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+        : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
+    )}>
+      {label}
     </span>
   )
 }
@@ -170,18 +190,18 @@ export function RecomprasLista({ recompras, isVendedora, vendedoras }: Recompras
           {formatarBRL(totalComissao)}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {filtradas.length} recompra{filtradas.length !== 1 ? 's' : ''} confirmada{filtradas.length !== 1 ? 's' : ''}
+          {filtradas.length} comissão{filtradas.length !== 1 ? 'ões' : ''} no período
         </p>
       </div>
 
       {filtradas.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma recompra confirmada no período.</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma comissão no período.</p>
       ) : (
         <>
           {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
             {filtradas.map(r => (
-              <RecompraCard key={r.id} recompra={r} isVendedora={isVendedora} />
+              <ComissaoCard key={r.id} comissao={r} isVendedora={isVendedora} />
             ))}
           </div>
 
@@ -196,7 +216,7 @@ export function RecomprasLista({ recompras, isVendedora, vendedoras }: Recompras
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Vendedora</th>
                   )}
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Produtos</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem / Tipo</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Base</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">%</th>
@@ -217,7 +237,10 @@ export function RecomprasLista({ recompras, isVendedora, vendedoras }: Recompras
                       <ProdutosCell produtos={r.produtos} />
                     </td>
                     <td className="px-4 py-3">
-                      <BadgeTipo tipo={r.tipo_comissao} />
+                      <div className="flex flex-wrap gap-1.5">
+                        <BadgeOrigem origem={r.origem} />
+                        <BadgeTipo tipo={r.tipo_comissao} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
                       {formatarBRL(r.valor_total)}
@@ -307,7 +330,7 @@ export function RecomprasLista({ recompras, isVendedora, vendedoras }: Recompras
   )
 }
 
-function RecompraCard({ recompra: r, isVendedora }: { recompra: RecompraExtrato; isVendedora: boolean }) {
+function ComissaoCard({ comissao: r, isVendedora }: { comissao: ComissaoExtrato; isVendedora: boolean }) {
   return (
     <div className="rounded-lg border bg-card p-4 space-y-2">
       <div className="flex items-start justify-between gap-3">
@@ -328,6 +351,7 @@ function RecompraCard({ recompra: r, isVendedora }: { recompra: RecompraExtrato;
       </p>
 
       <div className="flex flex-wrap gap-2 items-center">
+        <BadgeOrigem origem={r.origem} />
         <BadgeTipo tipo={r.tipo_comissao} />
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span>Total: <span className="text-foreground font-medium">{formatarBRL(r.valor_total)}</span></span>

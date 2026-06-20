@@ -1,9 +1,11 @@
+'use server'
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { RecomprasLista } from './RecomprasLista'
 import type { TipoComissao } from '@/types/app'
 
-export interface RecompraExtrato {
+export interface ComissaoExtrato {
   id: string
   criado_em: string
   cliente_nome: string
@@ -14,6 +16,7 @@ export interface RecompraExtrato {
   percentual: number
   valor_comissao: number
   tipo_comissao: TipoComissao | null
+  origem: string
   produtos: string[]
 }
 
@@ -48,24 +51,26 @@ export default async function ComissoesPage() {
   const dataInicio = new Date()
   dataInicio.setDate(dataInicio.getDate() - 90)
 
+  // Fonte canônica: comissao_venda via JOIN em vendas (inclui venda_manual e recompra)
   let baseQuery = supabase
-    .from('recompras')
+    .from('vendas')
     .select(`
-      id, criado_em, valor_total, valor_base_comissao, vendedora_id,
+      id, criado_em, data_compra, valor, origem, vendedora_id,
       clientes(nome),
-      perfis!recompras_vendedora_id_fkey(nome),
-      itens_recompra(produto_nome),
-      comissao_venda(percentual, valor_comissao, tipo_comissao)
+      perfis!vendas_vendedora_id_fkey(nome),
+      comissao_venda!inner(id, valor_venda, percentual, valor_comissao, tipo_comissao),
+      itens_venda(produto_nome)
     `)
     .eq('loja_id', loja_id)
     .gte('criado_em', dataInicio.toISOString())
+    .order('data_compra', { ascending: false })
     .order('criado_em', { ascending: false })
 
   if (isVendedora) {
     baseQuery = baseQuery.eq('vendedora_id', user.id)
   }
 
-  const { data: recomprasRaw } = await baseQuery
+  const { data: vendasRaw } = await baseQuery
 
   let vendedoras: { id: string; nome: string }[] = []
   if (!isVendedora) {
@@ -83,29 +88,30 @@ export default async function ComissoesPage() {
     })
   }
 
-  const recompras: RecompraExtrato[] = (recomprasRaw ?? []).map(r => {
-    const clienteRaw = r.clientes as unknown as { nome: string } | Array<{ nome: string }> | null
+  const comissoes: ComissaoExtrato[] = (vendasRaw ?? []).map(v => {
+    const clienteRaw = v.clientes as unknown as { nome: string } | Array<{ nome: string }> | null
     const clienteObj = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw
-    const perfil = r.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
+    const perfil = v.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
     const perfilObj = Array.isArray(perfil) ? perfil[0] : perfil
-    const itensArr = r.itens_recompra as unknown as Array<{ produto_nome: string }> | null
-    const comissaoRaw = r.comissao_venda as unknown as
-      | Array<{ percentual: number; valor_comissao: number; tipo_comissao: TipoComissao | null }>
-      | { percentual: number; valor_comissao: number; tipo_comissao: TipoComissao | null }
+    const itensArr = v.itens_venda as unknown as Array<{ produto_nome: string }> | null
+    const cvRaw = v.comissao_venda as unknown as
+      | Array<{ id: string; valor_venda: number; percentual: number; valor_comissao: number; tipo_comissao: TipoComissao | null }>
+      | { id: string; valor_venda: number; percentual: number; valor_comissao: number; tipo_comissao: TipoComissao | null }
       | null
-    const comissao = Array.isArray(comissaoRaw) ? comissaoRaw[0] : comissaoRaw
+    const cv = Array.isArray(cvRaw) ? cvRaw[0] : cvRaw
 
     return {
-      id: r.id as string,
-      criado_em: r.criado_em as string,
+      id: v.id as string,
+      criado_em: (v.data_compra ?? v.criado_em) as string,
       cliente_nome: clienteObj?.nome ?? '—',
       vendedora_nome: perfilObj?.nome ?? '—',
-      vendedora_id: r.vendedora_id as string,
-      valor_total: r.valor_total as number,
-      valor_base_comissao: r.valor_base_comissao as number,
-      percentual: comissao?.percentual ?? 0,
-      valor_comissao: comissao?.valor_comissao ?? 0,
-      tipo_comissao: comissao?.tipo_comissao ?? null,
+      vendedora_id: v.vendedora_id as string,
+      valor_total: v.valor as number,
+      valor_base_comissao: cv?.valor_venda ?? 0,
+      percentual: cv?.percentual ?? 0,
+      valor_comissao: cv?.valor_comissao ?? 0,
+      tipo_comissao: cv?.tipo_comissao ?? null,
+      origem: v.origem as string,
       produtos: (itensArr ?? []).map(i => i.produto_nome),
     }
   })
@@ -119,7 +125,7 @@ export default async function ComissoesPage() {
         <p className="text-sm text-muted-foreground">{lojaNome}</p>
       </div>
       <RecomprasLista
-        recompras={recompras}
+        recompras={comissoes}
         isVendedora={isVendedora}
         vendedoras={vendedoras}
       />
