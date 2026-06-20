@@ -47,11 +47,17 @@ export async function gravarComissaoVenda(
     const admin = createAdminClient()
 
     // ── Guard: evita comissão duplicada para a mesma venda ──────────────────
-    const { data: existente } = await supabase
+    // Usa admin para bypassar RLS — o guard deve enxergar registros de qualquer vendedora.
+    const { data: existente, error: guardError } = await admin
       .from('comissao_venda')
       .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
       .eq('venda_id', venda_id)
       .maybeSingle()
+
+    // PGRST116 = múltiplas linhas (duplicata já no banco): retorna a primeira via .limit(1)
+    if (guardError && guardError.code !== 'PGRST116') {
+      return { ok: false, erro: 'Erro ao verificar comissão existente: ' + guardError.message }
+    }
 
     if (existente) {
       return {
@@ -62,6 +68,28 @@ export async function gravarComissaoVenda(
         tipo_comissao: (existente.tipo_comissao as TipoComissao) ?? null,
         comissao_id: existente.id as string,
         ja_existia: true,
+      }
+    }
+
+    // Fallback para PGRST116: busca a primeira comissão existente e retorna sem inserir
+    if (guardError?.code === 'PGRST116') {
+      const { data: primeira } = await admin
+        .from('comissao_venda')
+        .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
+        .eq('venda_id', venda_id)
+        .order('criado_em', { ascending: true })
+        .limit(1)
+        .single()
+      if (primeira) {
+        return {
+          ok: true,
+          valor_base: primeira.valor_venda as number,
+          percentual: primeira.percentual as number,
+          valor_comissao: primeira.valor_comissao as number,
+          tipo_comissao: (primeira.tipo_comissao as TipoComissao) ?? null,
+          comissao_id: primeira.id as string,
+          ja_existia: true,
+        }
       }
     }
 
@@ -262,11 +290,36 @@ export async function gravarComissaoVenda(
       .select('id')
       .single()
 
-    if (comissaoError || !comissaoData) {
+    if (comissaoError) {
+      // 23505 = unique_violation: race condition — outra requisição inseriu primeiro
+      if (comissaoError.code === '23505') {
+        const { data: existenteRace } = await admin
+          .from('comissao_venda')
+          .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
+          .eq('venda_id', venda_id)
+          .order('criado_em', { ascending: true })
+          .limit(1)
+          .single()
+        if (existenteRace) {
+          return {
+            ok: true,
+            valor_base: existenteRace.valor_venda as number,
+            percentual: existenteRace.percentual as number,
+            valor_comissao: existenteRace.valor_comissao as number,
+            tipo_comissao: (existenteRace.tipo_comissao as TipoComissao) ?? null,
+            comissao_id: existenteRace.id as string,
+            ja_existia: true,
+          }
+        }
+      }
       return {
         ok: false,
-        erro: 'Erro ao gravar comissão: ' + (comissaoError?.message ?? 'desconhecido'),
+        erro: 'Erro ao gravar comissão: ' + comissaoError.message,
       }
+    }
+
+    if (!comissaoData) {
+      return { ok: false, erro: 'Erro ao gravar comissão: sem retorno do banco' }
     }
 
     return {
