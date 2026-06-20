@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { VendasLista } from './VendasLista'
 
@@ -22,30 +21,9 @@ export interface VendaExtrato {
   valor_total: number
   itens: VendaItemExtrato[]
   tem_recorrente: boolean
-  previsao_comissao: number
+  valor_comissao: number
+  origem: string
   qtd_avisos: number
-}
-
-function calcPrevisaoVenda(
-  itens: Array<{ produto_id: string | null; subtotal: number; recorrente: boolean }>,
-  vendedora_id: string,
-  fixasPorVend: Record<string, Record<string, number>>,
-  percentualPorVend: Record<string, number>
-): number {
-  const fixasVend = fixasPorVend[vendedora_id] ?? {}
-  const percentual = percentualPorVend[vendedora_id] ?? 0
-  let fixaTotal = 0
-  let baseTotal = 0
-  for (const item of itens) {
-    if (!item.recorrente) continue
-    const fixo = item.produto_id ? fixasVend[item.produto_id] : undefined
-    if (fixo != null) {
-      fixaTotal += fixo
-    } else {
-      baseTotal += item.subtotal
-    }
-  }
-  return Math.round((fixaTotal + baseTotal * percentual / 100) * 100) / 100
 }
 
 export default async function VendasPage() {
@@ -82,11 +60,12 @@ export default async function VendasPage() {
   let baseQuery = supabase
     .from('vendas')
     .select(`
-      id, valor, criado_em, data_compra, vendedora_id,
+      id, valor, criado_em, data_compra, vendedora_id, origem,
       clientes(nome, whatsapp),
       perfis!vendas_vendedora_id_fkey(nome),
       itens_venda(produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente),
-      avisos(id, previsao_comissao)
+      comissao_venda(valor_comissao),
+      avisos(id)
     `)
     .eq('loja_id', loja_id)
     .gte('criado_em', dataInicio.toISOString())
@@ -98,30 +77,6 @@ export default async function VendasPage() {
   }
 
   const { data: vendasRaw } = await baseQuery
-
-  const admin = createAdminClient()
-  const [fixasRes, regrasRes] = await Promise.all([
-    admin.from('comissao_fixa_produto')
-      .select('vendedora_id, produto_id, valor_fixo')
-      .eq('loja_id', loja_id)
-      .eq('ativo', true),
-    admin.from('regras_comissao')
-      .select('vendedora_id, percentual')
-      .eq('loja_id', loja_id)
-      .eq('ativo', true),
-  ])
-
-  const fixasPorVendedoraProduto: Record<string, Record<string, number>> = {}
-  for (const f of fixasRes.data ?? []) {
-    const vid = f.vendedora_id as string
-    const pid = f.produto_id as string
-    if (!fixasPorVendedoraProduto[vid]) fixasPorVendedoraProduto[vid] = {}
-    fixasPorVendedoraProduto[vid][pid] = f.valor_fixo as number
-  }
-  const percentualPorVendedora: Record<string, number> = {}
-  for (const r of regrasRes.data ?? []) {
-    percentualPorVendedora[r.vendedora_id as string] = r.percentual as number
-  }
 
   let vendedoras: { id: string; nome: string }[] = []
   if (!isVendedora) {
@@ -147,7 +102,10 @@ export default async function VendasPage() {
     const itensRaw = v.itens_venda as unknown as Array<{
       produto_id: string | null; produto_nome: string; quantidade: number; valor_unitario: number; subtotal: number; recorrente: boolean
     }> | null
-    const avisosArr = v.avisos as unknown as Array<{ id: string; previsao_comissao: number | null }> | null
+    const avisosArr = v.avisos as unknown as Array<{ id: string }> | null
+    const cvRaw = v.comissao_venda as unknown as
+      | Array<{ valor_comissao: number }> | { valor_comissao: number } | null
+    const cv = Array.isArray(cvRaw) ? cvRaw[0] : cvRaw
 
     const itens = (itensRaw ?? []).map(i => ({
       produto_nome: i.produto_nome,
@@ -157,14 +115,6 @@ export default async function VendasPage() {
       recorrente: i.recorrente ?? false,
     }))
 
-    const mappedItens = (itensRaw ?? []).map(i => ({
-      produto_id: i.produto_id ?? null,
-      subtotal: i.subtotal,
-      recorrente: i.recorrente ?? false,
-    }))
-
-    const vendedora_id = v.vendedora_id as string
-
     return {
       id: v.id as string,
       criado_em: v.criado_em as string,
@@ -172,11 +122,12 @@ export default async function VendasPage() {
       cliente_nome: cliente?.nome ?? 'Cliente',
       cliente_whatsapp: cliente?.whatsapp ?? '',
       vendedora_nome: perfilObj?.nome ?? '—',
-      vendedora_id,
+      vendedora_id: v.vendedora_id as string,
       valor_total: v.valor as number,
       itens,
       tem_recorrente: itens.some(i => i.recorrente),
-      previsao_comissao: calcPrevisaoVenda(mappedItens, vendedora_id, fixasPorVendedoraProduto, percentualPorVendedora),
+      valor_comissao: cv?.valor_comissao ?? 0,
+      origem: (v as unknown as { origem: string }).origem ?? 'venda_manual',
       qtd_avisos: (avisosArr ?? []).length,
     }
   })

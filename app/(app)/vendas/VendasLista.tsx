@@ -6,6 +6,28 @@ import { cn } from '@/lib/utils'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import type { VendaExtrato, VendaItemExtrato } from './page'
 
+const ORIGEM_LABELS: Record<string, string> = {
+  venda_manual: 'Venda',
+  recompra: 'Recompra',
+  oferta: 'Oferta',
+}
+
+function BadgeOrigem({ origem }: { origem: string }) {
+  const label = ORIGEM_LABELS[origem] ?? origem
+  return (
+    <span className={cn(
+      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+      origem === 'recompra'
+        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+        : origem === 'oferta'
+        ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+        : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
+    )}>
+      {label}
+    </span>
+  )
+}
+
 interface VendasListaProps {
   vendas: VendaExtrato[]
   isVendedora: boolean
@@ -60,7 +82,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
   }, [vendas, periodo, vendedoraId, busca, soRecorrente, produtoNome])
 
   const totalValor = filtradas.reduce((s, v) => s + v.valor_total, 0)
-  const totalPrevisao = filtradas.reduce((s, v) => s + v.previsao_comissao, 0)
+  const totalComissao = filtradas.reduce((s, v) => s + v.valor_comissao, 0)
   const temFiltrosAtivos = !!(vendedoraId || busca.trim() || soRecorrente || produtoNome)
 
   return (
@@ -181,13 +203,13 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
             {filtradas.length} venda{filtradas.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {totalPrevisao > 0 && (
+        {totalComissao > 0 && (
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-xs text-muted-foreground">Prev. comissão futura</p>
-            <p className="text-xl font-bold mt-0.5 text-amber-600 dark:text-amber-400">
-              {formatarBRL(totalPrevisao)}
+            <p className="text-xs text-muted-foreground">Comissão real</p>
+            <p className="text-xl font-bold mt-0.5 text-green-600 dark:text-green-400">
+              {formatarBRL(totalComissao)}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">se recomprarem</p>
+            <p className="text-xs text-muted-foreground mt-0.5">via comissão registrada</p>
           </div>
         )}
       </div>
@@ -214,8 +236,9 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Vendedora</th>
                   )}
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Produtos</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Prev. comissão</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Comissão</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Avisos</th>
                 </tr>
               </thead>
@@ -237,13 +260,16 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                     <td className="px-4 py-3 max-w-[220px]">
                       <ProdutosCell itens={v.itens} />
                     </td>
+                    <td className="px-4 py-3">
+                      <BadgeOrigem origem={v.origem} />
+                    </td>
                     <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
                       {formatarBRL(v.valor_total)}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {v.previsao_comissao > 0 ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-medium">
-                          {formatarBRL(v.previsao_comissao)}
+                      {v.valor_comissao > 0 ? (
+                        <span className="text-green-600 dark:text-green-400 font-semibold">
+                          {formatarBRL(v.valor_comissao)}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -405,6 +431,7 @@ function VendaCard({ venda: v, isVendedora }: { venda: VendaExtrato; isVendedora
       )}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <BadgeOrigem origem={v.origem} />
         {!isVendedora && (
           <span className="text-muted-foreground">
             {v.vendedora_nome}
@@ -420,9 +447,9 @@ function VendaCard({ venda: v, isVendedora }: { venda: VendaExtrato; isVendedora
             {v.qtd_avisos} aviso{v.qtd_avisos !== 1 ? 's' : ''}
           </span>
         )}
-        {v.previsao_comissao > 0 && (
-          <span className="text-amber-600 dark:text-amber-400">
-            Prev. {formatarBRL(v.previsao_comissao)}
+        {v.valor_comissao > 0 && (
+          <span className="text-green-600 dark:text-green-400 font-medium">
+            {formatarBRL(v.valor_comissao)}
           </span>
         )}
       </div>
