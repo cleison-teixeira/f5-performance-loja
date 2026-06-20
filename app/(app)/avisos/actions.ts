@@ -2,7 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { calcularComissao, calcularComissaoAvancada } from '@/lib/comissoes/calculador'
+import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
+import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
+import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
 
 export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -73,6 +75,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     const supabase = await createClient()
     const admin = createAdminClient()
 
+    const hoje = new Date().toISOString().slice(0, 10)
     const valor_total = dados.itens.reduce(
       (acc, item) => acc + item.quantidade * item.preco_unitario, 0
     )
@@ -80,7 +83,48 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       .filter(item => item.comissionavel)
       .reduce((acc, item) => acc + item.quantidade * item.preco_unitario, 0)
 
-    // 1. INSERT recompra
+    // 1. Criar venda canônica com origem='recompra'
+    const { data: vendaData, error: vendaError } = await supabase
+      .from('vendas')
+      .insert({
+        loja_id: dados.loja_id,
+        cliente_id: dados.cliente_id,
+        vendedora_id: dados.vendedora_id,
+        valor: valor_total,
+        data_compra: hoje,
+        origem: 'recompra',
+      })
+      .select('id')
+      .single()
+
+    if (vendaError || !vendaData) {
+      return { ok: false, erro: 'Erro ao criar venda: ' + (vendaError?.message ?? 'desconhecido') }
+    }
+
+    const nova_venda_id = vendaData.id as string
+
+    // 2. INSERT itens_venda
+    const { data: itensVendaData, error: itensVendaError } = await supabase
+      .from('itens_venda')
+      .insert(
+        dados.itens.map(item => ({
+          venda_id: nova_venda_id,
+          produto_id: item.produto_id,
+          produto_nome: item.produto_nome,
+          recorrente: true,
+          comissionavel: item.comissionavel,
+          quantidade: item.quantidade,
+          valor_unitario: item.preco_unitario,
+          subtotal: item.quantidade * item.preco_unitario,
+        }))
+      )
+      .select('id, produto_id, produto_nome')
+
+    if (itensVendaError || !itensVendaData) {
+      return { ok: false, erro: 'Erro ao registrar itens da venda: ' + (itensVendaError?.message ?? 'desconhecido') }
+    }
+
+    // 3. INSERT recompra com venda_id canônico
     const { data: recompraData, error: recompraError } = await supabase
       .from('recompras')
       .insert({
@@ -91,6 +135,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
         venda_original_id: dados.venda_original_id,
         valor_total,
         valor_base_comissao,
+        venda_id: nova_venda_id,
       })
       .select('id')
       .single()
@@ -101,8 +146,8 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
 
     const recompra_id = recompraData.id as string
 
-    // 2. INSERT itens_recompra
-    const { error: itensError } = await supabase.from('itens_recompra').insert(
+    // 4. INSERT itens_recompra (mantidos)
+    const { error: itensRecompraError } = await supabase.from('itens_recompra').insert(
       dados.itens.map(item => ({
         recompra_id,
         produto_id: item.produto_id,
@@ -114,154 +159,30 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       }))
     )
 
-    if (itensError) {
-      return { ok: false, erro: 'Erro ao registrar itens: ' + itensError.message }
+    if (itensRecompraError) {
+      return { ok: false, erro: 'Erro ao registrar itens da recompra: ' + itensRecompraError.message }
     }
 
-    // 3. Calcular comissão com lógica de prioridade (admin client para burlar RLS restritivo)
-    const itensComissionaveis = dados.itens.filter(i => i.comissionavel)
-    const produtosComissionaveis = [
-      ...new Set(itensComissionaveis.map(i => i.produto_id).filter((id): id is string => !!id))
-    ]
-
-    // Prioridade 1: comissão fixa por produto + vendedora
-    let fixasPorProduto: Record<string, { id: string; valor_fixo: number }> = {}
-    if (produtosComissionaveis.length > 0) {
-      const { data: fixasData } = await admin
-        .from('comissao_fixa_produto')
-        .select('produto_id, valor_fixo, id')
-        .eq('loja_id', dados.loja_id)
-        .eq('vendedora_id', dados.vendedora_id)
-        .eq('ativo', true)
-        .in('produto_id', produtosComissionaveis)
-      for (const f of fixasData ?? []) {
-        fixasPorProduto[f.produto_id as string] = { id: f.id as string, valor_fixo: f.valor_fixo as number }
-      }
-    }
-
-    let valorComissaoFixa = 0
-    let valorBaseSemFixo = 0
-    let comissaoFixaProdutoId: string | null = null
-
-    for (const item of itensComissionaveis) {
-      const fixa = item.produto_id ? fixasPorProduto[item.produto_id] : null
-      if (fixa) {
-        valorComissaoFixa += fixa.valor_fixo
-        if (!comissaoFixaProdutoId) comissaoFixaProdutoId = fixa.id
-      } else {
-        valorBaseSemFixo += item.quantidade * item.preco_unitario
-      }
-    }
-
-    // Prioridade 2: campanha ativa (usa produto da venda original)
-    let campanha: { id: string; comissao_fixa: number } | null = null
-    if (valorBaseSemFixo > 0) {
-      const { data: vendaData } = await admin
-        .from('vendas')
-        .select('produto_id')
-        .eq('id', dados.venda_original_id)
-        .maybeSingle()
-
-      if (vendaData?.produto_id) {
-        const hoje = new Date().toISOString().slice(0, 10)
-        const { data: campanhaData } = await admin
-          .from('campanhas_produto')
-          .select('id, comissao_fixa')
-          .eq('produto_id', vendaData.produto_id)
-          .eq('ativo', true)
-          .lte('data_inicio', hoje)
-          .gte('data_fim', hoje)
-          .or(`loja_id.eq.${dados.loja_id},loja_id.is.null`)
-          .order('loja_id', { ascending: false, nullsFirst: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (campanhaData) {
-          campanha = { id: campanhaData.id as string, comissao_fixa: campanhaData.comissao_fixa as number }
-        }
-      }
-    }
-
-    // Prioridade 3: meta mensal
-    let meta: { valor_meta: number; comissao_base: number; comissao_meta: number; multiplicador: number | null } | null = null
-    let totalVendasMes = 0
-    if (valorBaseSemFixo > 0 && !campanha) {
-      const mesAtual = new Date()
-      mesAtual.setDate(1)
-      const mesFmt = mesAtual.toISOString().slice(0, 10)
-
-      const { data: metaData } = await admin
-        .from('metas_vendedora')
-        .select('valor_meta, comissao_base, comissao_meta, multiplicador')
-        .eq('loja_id', dados.loja_id)
-        .eq('vendedora_id', dados.vendedora_id)
-        .eq('mes', mesFmt)
-        .maybeSingle()
-
-      if (metaData) {
-        meta = {
-          valor_meta: metaData.valor_meta as number,
-          comissao_base: metaData.comissao_base as number,
-          comissao_meta: metaData.comissao_meta as number,
-          multiplicador: metaData.multiplicador as number | null,
-        }
-
-        const inicioMes = mesFmt + 'T00:00:00.000Z'
-        const { data: totalData } = await admin
-          .from('recompras')
-          .select('valor_base_comissao')
-          .eq('loja_id', dados.loja_id)
-          .eq('vendedora_id', dados.vendedora_id)
-          .gte('criado_em', inicioMes)
-
-        totalVendasMes = (totalData ?? []).reduce(
-          (sum, r) => sum + ((r.valor_base_comissao as number) ?? 0), 0
-        )
-      }
-    }
-
-    // Prioridade 4: comissão padrão
-    let regraPadrao: { percentual: number } | null = null
-    if (valorBaseSemFixo > 0 && !campanha && !meta) {
-      const { data: regraData } = await admin
-        .from('regras_comissao')
-        .select('percentual')
-        .eq('loja_id', dados.loja_id)
-        .eq('vendedora_id', dados.vendedora_id)
-        .eq('ativo', true)
-        .maybeSingle()
-
-      if (regraData) {
-        regraPadrao = { percentual: regraData.percentual as number }
-      }
-    }
-
-    const resultado = calcularComissaoAvancada({
-      valor_base_sem_fixo: valorBaseSemFixo,
-      valor_comissao_fixa: valorComissaoFixa,
-      comissao_fixa_produto_id: comissaoFixaProdutoId,
-      campanha,
-      meta,
-      total_vendas_mes: totalVendasMes,
-      regra_padrao: regraPadrao,
+    // 5. Gerar comissão via helper canônico
+    const comissaoResult = await gravarComissaoVenda({
+      loja_id: dados.loja_id,
+      venda_id: nova_venda_id,
+      vendedora_id: dados.vendedora_id,
+      data_venda: hoje,
+      recompra_id,
+      itens: dados.itens.map(item => ({
+        produto_id: item.produto_id,
+        produto_nome: item.produto_nome,
+        subtotal: item.quantidade * item.preco_unitario,
+        comissionavel: item.comissionavel,
+      })),
     })
 
-    // 4. INSERT comissao_venda
-    if (resultado.valor_comissao > 0 || valor_base_comissao > 0) {
-      await supabase.from('comissao_venda').insert({
-        venda_id: dados.venda_original_id,
-        vendedora_id: dados.vendedora_id,
-        valor_venda: valor_base_comissao,
-        percentual: resultado.percentual,
-        valor_comissao: resultado.valor_comissao,
-        tipo_comissao: resultado.tipo,
-        campanha_id: resultado.campanha_id,
-        comissao_fixa_produto_id: resultado.comissao_fixa_produto_id,
-        recompra_id,
-      })
+    if (!comissaoResult.ok) {
+      return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
-    // 5. Marcar aviso como enviado e vincular à recompra
+    // 6. Marcar aviso como enviado e vincular à recompra
     await supabase
       .from('avisos')
       .update({
@@ -272,13 +193,90 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       })
       .eq('id', dados.aviso_id)
 
+    // 7. Gerar novos avisos futuros para produtos com mensagens configuradas
+    const produtoIds = [...new Set(
+      itensVendaData
+        .map(i => i.produto_id)
+        .filter((id): id is string => !!id)
+    )]
+
+    if (produtoIds.length > 0) {
+      const [clienteRes, vendedoraRes, lojaRes] = await Promise.all([
+        admin.from('clientes').select('nome').eq('id', dados.cliente_id).single(),
+        admin.from('perfis').select('nome').eq('id', dados.vendedora_id).single(),
+        admin.from('lojas').select('nome').eq('id', dados.loja_id).single(),
+      ])
+
+      const cliente_nome = (clienteRes.data?.nome as string) ?? ''
+      const vendedora_nome = (vendedoraRes.data?.nome as string) ?? ''
+      const loja_nome = (lojaRes.data?.nome as string) ?? ''
+
+      const todosAvisosNovos: AvisoParaInserir[] = []
+
+      for (const itemVenda of itensVendaData) {
+        if (!itemVenda.produto_id) continue
+
+        const { data: produtoData } = await supabase
+          .from('produtos')
+          .select('qtd_mensagens')
+          .eq('id', itemVenda.produto_id)
+          .single()
+
+        const qtd_mensagens = (
+          (produtoData as unknown as { qtd_mensagens: number } | null)?.qtd_mensagens ?? 3
+        ) as 1 | 2 | 3 | 4
+
+        const { data: mensagensData } = await supabase
+          .from('mensagens_produto')
+          .select('id, ordem, tipo, texto, dias_apos_venda')
+          .eq('produto_id', itemVenda.produto_id)
+          .order('ordem')
+
+        if (!mensagensData || mensagensData.length === 0) continue
+
+        const ordensAtivas = ORDENS_POR_MODELO[qtd_mensagens]
+        const mensagens = mensagensData
+          .filter(m => ordensAtivas.includes(m.ordem as number))
+          .map(m => ({
+            id: m.id as string,
+            tipo: (m as unknown as { tipo: string }).tipo ?? 'recompra',
+            texto: m.texto as string,
+            dias_apos_venda: m.dias_apos_venda as number,
+          }))
+
+        if (mensagens.length === 0) continue
+
+        const avisos = gerarAvisos(
+          mensagens,
+          {
+            venda_id: nova_venda_id,
+            item_venda_id: itemVenda.id as string,
+            loja_id: dados.loja_id,
+            cliente_id: dados.cliente_id,
+            vendedora_id: dados.vendedora_id,
+            cliente_nome,
+            produto_nome: itemVenda.produto_nome as string,
+            vendedora_nome,
+            loja_nome,
+          },
+          hoje
+        )
+
+        todosAvisosNovos.push(...avisos)
+      }
+
+      if (todosAvisosNovos.length > 0) {
+        await supabase.from('avisos').insert(todosAvisosNovos)
+      }
+    }
+
     return {
       ok: true,
       recompra_id,
       valor_total,
       valor_base_comissao,
-      valor_comissao: resultado.valor_comissao,
-      percentual: resultado.percentual,
+      valor_comissao: comissaoResult.valor_comissao,
+      percentual: comissaoResult.percentual,
     }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
