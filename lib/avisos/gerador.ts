@@ -26,7 +26,6 @@ export interface AvisoParaInserir {
   cliente_id: string
   vendedora_id: string
   mensagem_id: string
-  tipo: string
   texto_renderizado: string
   data_aviso: string
   status: 'pendente'
@@ -55,7 +54,6 @@ export function gerarAvisos(
       cliente_id: ctx.cliente_id,
       vendedora_id: ctx.vendedora_id,
       mensagem_id: msg.id,
-      tipo: msg.tipo,
       texto_renderizado: interpolar(msg.texto, {
         cliente: ctx.cliente_nome,
         produto: ctx.produto_nome,

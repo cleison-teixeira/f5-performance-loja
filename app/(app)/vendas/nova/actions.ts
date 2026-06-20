@@ -254,6 +254,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
 
     // 6. Gerar avisos para cada item recorrente (com previsão de comissão)
     const todosAvisos: AvisoParaInserir[] = []
+    const mensagemTipo: Record<string, string> = {}
 
     for (let i = 0; i < itensVendaData.length; i++) {
       const itemVendaRow = itensVendaData[i]
@@ -286,6 +287,8 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       const mensagens = (mensagensData ?? [])
         .filter(m => ordensAtivas.includes(m.ordem as number))
         .map(m => ({ id: m.id as string, tipo: (m as unknown as { tipo: string }).tipo ?? 'agradecimento', texto: m.texto as string, dias_apos_venda: m.dias_apos_venda as number }))
+
+      for (const m of mensagens) { mensagemTipo[m.id] = m.tipo }
 
       const avisos = gerarAvisos(mensagens, {
         venda_id,
@@ -324,7 +327,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       avisos: todosAvisos.map(a => ({
         data_aviso: a.data_aviso,
         texto_renderizado: a.texto_renderizado,
-        tipo: a.tipo,
+        tipo: mensagemTipo[a.mensagem_id] ?? 'agradecimento',
       })),
     }
   } catch (err) {
