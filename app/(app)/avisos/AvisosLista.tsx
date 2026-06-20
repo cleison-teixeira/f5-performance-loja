@@ -13,6 +13,7 @@ interface AvisosListaProps {
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
+  isVendedora: boolean
 }
 
 type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
@@ -51,11 +52,12 @@ interface SecaoProps {
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
+  isVendedora: boolean
 }
 
 function SecaoAvisos({
   titulo, subtitulo, avisos, corCls, badgeCls, icone, valorPotencial,
-  onMarcado, catalogo, percentuaisPorVendedora, loja_id,
+  onMarcado, catalogo, percentuaisPorVendedora, loja_id, isVendedora,
 }: SecaoProps) {
   if (avisos.length === 0) return null
 
@@ -91,6 +93,7 @@ function SecaoAvisos({
             catalogo={catalogo}
             percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
             loja_id={loja_id}
+            isVendedora={isVendedora}
           />
         ))}
       </div>
@@ -100,7 +103,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora }: AvisosListaProps) {
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
   const [lista, setLista] = useState<AvisoDetalhado[]>(avisosIniciais)
@@ -231,6 +234,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
+            isVendedora={isVendedora}
           />
           <SecaoAvisos
             titulo="Hoje"
@@ -244,6 +248,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
+            isVendedora={isVendedora}
           />
           <SecaoAvisos
             titulo="Próximos dias"
@@ -257,6 +262,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
+            isVendedora={isVendedora}
           />
           {grupos.futuros.length > 0 && (
             <SecaoAvisos
@@ -271,6 +277,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               catalogo={catalogo}
               percentuaisPorVendedora={percentuaisPorVendedora}
               loja_id={loja_id}
+              isVendedora={isVendedora}
             />
           )}
           {listaPorTipo.length === 0 && (
@@ -296,6 +303,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                   catalogo={catalogo}
                   percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
                   loja_id={loja_id}
+                  isVendedora={isVendedora}
                 />
               ))}
             </div>

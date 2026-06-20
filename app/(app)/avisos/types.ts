@@ -16,5 +16,6 @@ export interface AvisoDetalhado {
   previsao_comissao: number
   venda_id: string
   vendedora_id: string
+  vendedora_nome: string
   atrasado: boolean
 }

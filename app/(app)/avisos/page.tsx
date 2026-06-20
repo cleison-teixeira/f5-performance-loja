@@ -80,20 +80,29 @@ export default async function AvisosPage() {
     comissionavel_recompra: (p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra ?? true,
   }))
 
-  // Percentuais de comissão das vendedoras que aparecem nos avisos
+  // Percentuais de comissão + nomes das vendedoras que aparecem nos avisos
   const vendedoraIds = [...new Set((avisosRaw ?? []).map(a => a.vendedora_id as string).filter(Boolean))]
   const percentuaisPorVendedora: Record<string, number> = {}
+  const vendedoraNomeMap = new Map<string, string>()
 
   if (vendedoraIds.length > 0) {
-    const { data: regras } = await supabase
-      .from('regras_comissao')
-      .select('vendedora_id, percentual')
-      .in('vendedora_id', vendedoraIds)
-      .eq('loja_id', loja.id)
-      .eq('ativo', true)
-
-    for (const r of regras ?? []) {
+    const [regrasRes, perfisRes] = await Promise.all([
+      supabase
+        .from('regras_comissao')
+        .select('vendedora_id, percentual')
+        .in('vendedora_id', vendedoraIds)
+        .eq('loja_id', loja.id)
+        .eq('ativo', true),
+      supabase
+        .from('perfis')
+        .select('id, nome')
+        .in('id', vendedoraIds),
+    ])
+    for (const r of regrasRes.data ?? []) {
       percentuaisPorVendedora[r.vendedora_id as string] = r.percentual as number
+    }
+    for (const p of perfisRes.data ?? []) {
+      vendedoraNomeMap.set(p.id as string, p.nome as string)
     }
   }
 
@@ -126,6 +135,7 @@ export default async function AvisosPage() {
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
       vendedora_id: a.vendedora_id as string,
+      vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
       atrasado: a.data_aviso < hoje,
     }
   })
@@ -221,6 +231,7 @@ export default async function AvisosPage() {
         catalogo={catalogo}
         percentuaisPorVendedora={percentuaisPorVendedora}
         loja_id={loja.id}
+        isVendedora={isVendedora}
       />
 
     </div>
