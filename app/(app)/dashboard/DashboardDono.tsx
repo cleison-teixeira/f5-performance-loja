@@ -210,8 +210,8 @@ export function DashboardDono({
       {/* ── Header ── */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground capitalize mt-0.5">{loja.nome} · {mesLabel}</p>
+          <h1 className="text-xl font-semibold tracking-tight">Painel da loja</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · visão geral de vendas, metas e recompras</p>
         </div>
       </div>
 

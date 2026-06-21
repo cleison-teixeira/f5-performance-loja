@@ -89,10 +89,10 @@ export function DashboardGerente({
   }
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-5 pb-10">
       <div>
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">{loja.nome} · últimos 30 dias</p>
+        <h1 className="text-xl font-semibold tracking-tight">Painel da operação</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · acompanhe pendências, vendas e equipe</p>
       </div>
 
       {/* Headline — premium card */}

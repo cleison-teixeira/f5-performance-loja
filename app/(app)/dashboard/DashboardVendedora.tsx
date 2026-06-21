@@ -92,10 +92,10 @@ export function DashboardVendedora({
   }
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-5 pb-10">
       <div>
-        <h1 className="text-xl font-semibold">Meu painel</h1>
-        <p className="text-sm text-muted-foreground">{nomeVendedora} · últimos 30 dias</p>
+        <h1 className="text-xl font-semibold tracking-tight">Meu painel</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{nomeVendedora} · suas metas, avisos e recompras</p>
       </div>
 
       {/* Headline de ação — premium card */}
