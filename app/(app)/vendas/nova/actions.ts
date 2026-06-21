@@ -63,7 +63,7 @@ type ResultadoVenda =
   | { ok: false; erro: string }
 
 interface ItemProcessado {
-  produto_id: string
+  produto_id: string | null  // null = item livre/granel (não-recorrente, sem catálogo)
   produto_nome: string
   produto_qtd_mensagens: 1 | 2 | 3 | 4
   recorrente: boolean
@@ -97,28 +97,36 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     const itensProcessados: ItemProcessado[] = []
 
     for (const item of dados.itens) {
-      let produto_id: string
+      let produto_id: string | null
       let produto_nome: string
       let produto_qtd_mensagens: 1 | 2 | 3 | 4 = 3
 
       if (!item.produto_id) {
-        const { data: produtoData, error: produtoError } = await supabase
-          .from('produtos')
-          .insert({ loja_id: dados.loja_id, nome: item.produto_nome, ativo: true })
-          .select('id, nome')
-          .single()
+        if (item.recorrente) {
+          // Novo produto recorrente → cria no catálogo + mensagens de recompra
+          const { data: produtoData, error: produtoError } = await supabase
+            .from('produtos')
+            .insert({ loja_id: dados.loja_id, nome: item.produto_nome, ativo: true })
+            .select('id, nome')
+            .single()
 
-        if (produtoError || !produtoData) {
-          return { ok: false, erro: 'Erro ao criar produto: ' + (produtoError?.message ?? 'desconhecido') }
+          if (produtoError || !produtoData) {
+            return { ok: false, erro: 'Erro ao criar produto: ' + (produtoError?.message ?? 'desconhecido') }
+          }
+
+          produto_id = produtoData.id as string
+          produto_nome = produtoData.nome as string
+          produto_qtd_mensagens = 3
+
+          await supabase.from('mensagens_produto').insert(
+            TEMPLATES_PADRAO.map(t => ({ produto_id: produto_id!, ...t }))
+          )
+        } else {
+          // Item livre/granel/pontual → sem criação no catálogo, sem avisos de recompra
+          produto_id = null
+          produto_nome = item.produto_nome
+          produto_qtd_mensagens = 3
         }
-
-        produto_id = produtoData.id as string
-        produto_nome = produtoData.nome as string
-        produto_qtd_mensagens = 3
-
-        await supabase.from('mensagens_produto').insert(
-          TEMPLATES_PADRAO.map(t => ({ produto_id, ...t }))
-        )
       } else {
         const { data: produtoData, error: produtoError } = await supabase
           .from('produtos')
@@ -149,7 +157,9 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     // 3. Calcular previsão de comissão com lógica de prioridade (admin para bypass RLS)
     const admin = createAdminClient()
     const itensComissionaveisRecorrentes = itensProcessados.filter(i => i.recorrente && i.comissionavel_recompra)
-    const produtosIds = itensComissionaveisRecorrentes.map(i => i.produto_id)
+    const produtosIds = itensComissionaveisRecorrentes
+      .map(i => i.produto_id)
+      .filter((id): id is string => id !== null)
 
     let fixasPorProduto: Record<string, number> = {}
     if (produtosIds.length > 0) {
@@ -168,7 +178,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     let previsaoFixa = 0
     let previsaoBase = 0
     for (const item of itensComissionaveisRecorrentes) {
-      const fixo = fixasPorProduto[item.produto_id]
+      const fixo = item.produto_id ? fixasPorProduto[item.produto_id] : undefined
       if (fixo != null) {
         previsaoFixa += fixo
       } else {

@@ -138,7 +138,9 @@ export function FormNovaVenda({
 
   function handleProdutoChange(key: string, value: string) {
     if (value === '' || value === '__novo__') {
-      atualizarItem(key, { produtoId: value, produtoNome: '', precoBRL: '', recorrente: true, comissionavel: true })
+      // __novo__ → recorrente: false por padrão (granel/item livre é pontual)
+      // Vendedora pode ligar o toggle se for um produto real de recompra
+      atualizarItem(key, { produtoId: value, produtoNome: '', precoBRL: '', recorrente: false, comissionavel: true })
       return
     }
     const prod = produtos.find(p => p.id === value)
