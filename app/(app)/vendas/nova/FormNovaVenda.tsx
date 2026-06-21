@@ -282,82 +282,84 @@ export function FormNovaVenda({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-4">
 
-      {/* WhatsApp */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium" htmlFor="whatsapp">
-          WhatsApp do cliente
-        </label>
-        <input
-          id="whatsapp"
-          type="tel"
-          inputMode="numeric"
-          autoFocus
-          placeholder="(XX) XXXXX-XXXX"
-          value={whatsapp}
-          onChange={e => {
-            const d = normalizarWhatsapp(e.target.value)
-            setWhatsapp(formatarWhatsapp(d))
-          }}
-          className={inputClass}
-        />
-        {buscandoCliente && (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Buscando cliente…
-          </p>
-        )}
-        {!buscandoCliente && digits.length >= 10 && clienteEncontrado && (
-          <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-            <CheckCircle className="h-3 w-3" />
-            Cliente encontrado: <strong>{clienteEncontrado.nome}</strong>
-          </p>
-        )}
-        {!buscandoCliente && digits.length >= 10 && !clienteEncontrado && (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <UserPlus className="h-3 w-3" />
-            Cliente novo — preencha o nome abaixo
-          </p>
-        )}
+      {/* Bloco: Cliente */}
+      <div className="rounded-xl border bg-card p-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cliente</p>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium" htmlFor="whatsapp">
+            WhatsApp
+          </label>
+          <input
+            id="whatsapp"
+            type="tel"
+            inputMode="numeric"
+            autoFocus
+            placeholder="(XX) XXXXX-XXXX"
+            value={whatsapp}
+            onChange={e => {
+              const d = normalizarWhatsapp(e.target.value)
+              setWhatsapp(formatarWhatsapp(d))
+            }}
+            className={inputClass}
+          />
+          {buscandoCliente && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Buscando cliente…
+            </p>
+          )}
+          {!buscandoCliente && digits.length >= 10 && clienteEncontrado && (
+            <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+              <CheckCircle className="h-3 w-3" />
+              Cliente encontrado: <strong>{clienteEncontrado.nome}</strong>
+            </p>
+          )}
+          {!buscandoCliente && digits.length >= 10 && !clienteEncontrado && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <UserPlus className="h-3 w-3" />
+              Cliente novo — preencha o nome abaixo
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium" htmlFor="clienteNome">
+            Nome
+          </label>
+          <input
+            id="clienteNome"
+            type="text"
+            placeholder="Nome completo"
+            value={clienteNome}
+            onChange={e => setClienteNome(e.target.value)}
+            disabled={!!clienteEncontrado}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium" htmlFor="dataCompra">
+            Data da compra
+          </label>
+          <input
+            id="dataCompra"
+            type="date"
+            value={dataCompra}
+            max={hojeLocal()}
+            onChange={e => setDataCompra(e.target.value)}
+            className={inputClass}
+          />
+        </div>
       </div>
 
-      {/* Nome do cliente */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium" htmlFor="clienteNome">
-          Nome do cliente
-        </label>
-        <input
-          id="clienteNome"
-          type="text"
-          placeholder="Nome completo"
-          value={clienteNome}
-          onChange={e => setClienteNome(e.target.value)}
-          disabled={!!clienteEncontrado}
-          className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-        />
-      </div>
-
-      {/* Data da compra */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium" htmlFor="dataCompra">
-          Data da compra
-        </label>
-        <input
-          id="dataCompra"
-          type="date"
-          value={dataCompra}
-          max={hojeLocal()}
-          onChange={e => setDataCompra(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-
-      {/* Itens */}
-      <div className="space-y-3">
-        <label className="block text-sm font-medium">
+      {/* Bloco: Produtos */}
+      <div className="rounded-xl border bg-card p-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           {itens.length === 1 ? 'Produto' : 'Produtos'}
-        </label>
+        </p>
 
         {itens.map((item, idx) => {
           const precoNum = parseBRL(item.precoBRL)
@@ -379,7 +381,6 @@ export function FormNovaVenda({
                 </div>
               )}
 
-              {/* Seletor de produto */}
               <select
                 value={item.produtoId}
                 onChange={e => handleProdutoChange(item.key, e.target.value)}
@@ -395,14 +396,13 @@ export function FormNovaVenda({
               {item.produtoId === '__novo__' && (
                 <input
                   type="text"
-                  placeholder="Nome do novo produto"
+                  placeholder="Nome do produto"
                   value={item.produtoNome}
                   onChange={e => atualizarItem(item.key, { produtoNome: e.target.value })}
                   className={inputClass}
                 />
               )}
 
-              {/* Qtd × Preço */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Qtd</label>
@@ -428,7 +428,6 @@ export function FormNovaVenda({
                 </div>
               </div>
 
-              {/* Subtotal + Recorrente */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button
@@ -460,38 +459,41 @@ export function FormNovaVenda({
           <Plus className="h-4 w-4" />
           Adicionar produto
         </button>
+
+        <p className="text-xs text-muted-foreground">
+          Para granel ou item pontual, use um produto novo com valor final aberto.
+        </p>
+
+        {valorTotal > 0 && (
+          <div className="rounded-md bg-muted/60 px-4 py-2.5 space-y-1">
+            <div className="text-sm flex justify-between items-center">
+              <span className="text-muted-foreground">Total da venda</span>
+              <span className="font-semibold">{formatarBRL(valorTotal)}</span>
+            </div>
+            {previsaoBaseSemFixo > 0 && (previsaoBaseSemFixo + previsaoFixa) < valorTotal && (
+              <div className="text-sm flex justify-between items-center">
+                <span className="text-muted-foreground">Base prevista de recompra</span>
+                <span className="font-medium">{formatarBRL(previsaoBaseSemFixo + previsaoFixa)}</span>
+              </div>
+            )}
+            {previsaoComissao > 0 && (
+              <div className="text-sm flex justify-between items-center">
+                <span className="text-muted-foreground">
+                  {apenasFixo
+                    ? 'Previsão de comissão (fixo)'
+                    : temFixo
+                      ? 'Previsão de comissão (fixo + %)'
+                      : `Previsão de comissão (${percentualComissao}%)`}
+                </span>
+                <span className="font-medium text-amber-600 dark:text-amber-400">{formatarBRL(previsaoComissao)}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Total + base prevista + previsão de comissão */}
-      {valorTotal > 0 && (
-        <div className="rounded-md bg-muted/60 px-4 py-2.5 space-y-1">
-          <div className="text-sm flex justify-between items-center">
-            <span className="text-muted-foreground">Total da venda original</span>
-            <span className="font-semibold">{formatarBRL(valorTotal)}</span>
-          </div>
-          {previsaoBaseSemFixo > 0 && (previsaoBaseSemFixo + previsaoFixa) < valorTotal && (
-            <div className="text-sm flex justify-between items-center">
-              <span className="text-muted-foreground">Base prevista de recompra</span>
-              <span className="font-medium">{formatarBRL(previsaoBaseSemFixo + previsaoFixa)}</span>
-            </div>
-          )}
-          {previsaoComissao > 0 && (
-            <div className="text-sm flex justify-between items-center">
-              <span className="text-muted-foreground">
-                {apenasFixo
-                  ? 'Previsão de comissão (fixo)'
-                  : temFixo
-                    ? 'Previsão de comissão (fixo + %)'
-                    : `Previsão de comissão (${percentualComissao}%)`}
-              </span>
-              <span className="font-medium text-amber-600 dark:text-amber-400">{formatarBRL(previsaoComissao)}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Vendedora responsável */}
-      <div className="space-y-1.5">
+      {/* Bloco: Responsável */}
+      <div className="rounded-xl border bg-card p-4 space-y-1.5">
         <label className="block text-sm font-medium" htmlFor="vendedora">
           Vendedora responsável
         </label>

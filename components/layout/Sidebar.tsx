@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 const operacaoItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
   { href: '/avisos', label: 'Avisos de hoje', icon: Bell },
-  { href: '/vendas/nova', label: 'Nova venda', icon: ShoppingCart },
+  { href: '/vendas/nova', label: 'Venda Rápida', icon: ShoppingCart },
   { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
   { href: '/produtos', label: 'Produtos', icon: Package },

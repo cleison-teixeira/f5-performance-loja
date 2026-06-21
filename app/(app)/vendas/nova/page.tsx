@@ -25,7 +25,7 @@ export default async function NovaVendaPage() {
   if (!membro) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Nova Venda</h1>
+        <h1 className="text-xl font-semibold">Venda Rápida</h1>
         <p className="text-sm text-muted-foreground">
           Você ainda não pertence a nenhuma loja. Entre em contato com o administrador.
         </p>
@@ -113,8 +113,8 @@ export default async function NovaVendaPage() {
   return (
     <div className="space-y-4 max-w-lg mx-auto">
       <div>
-        <h1 className="text-xl font-semibold">Nova Venda</h1>
-        <p className="text-sm text-muted-foreground">{loja.nome}</p>
+        <h1 className="text-xl font-semibold">Venda Rápida</h1>
+        <p className="text-sm text-muted-foreground">{loja.nome} · Registre a venda em poucos segundos.</p>
       </div>
       <FormNovaVenda
         loja_id={loja.id}
