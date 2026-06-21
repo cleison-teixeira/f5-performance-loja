@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
-  Users, DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, Megaphone, BookOpen, ClipboardList
+  DollarSign, Building2, UsersRound, SlidersHorizontal,
+  ClipboardList
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -21,7 +21,6 @@ const drawerSections = [
   {
     label: 'Operação',
     items: [
-      { href: '/clientes', label: 'Clientes', icon: Users },
       { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
       { href: '/comissoes', label: 'Comissões', icon: DollarSign },
     ],
@@ -31,9 +30,6 @@ const drawerSections = [
     items: [
       { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
       { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
-      { href: '/metas', label: 'Metas', icon: Target },
-      { href: '/campanhas', label: 'Campanhas', icon: Megaphone },
-      { href: '/treinamentos', label: 'Treinamentos', icon: BookOpen },
     ],
   },
   {

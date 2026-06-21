@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Bell, ShoppingCart, Users, Package,
+  LayoutDashboard, Bell, ShoppingCart, Package,
   DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, Megaphone, BookOpen, Settings, ClipboardList
+  Settings, ClipboardList
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,7 +14,6 @@ const operacaoItems = [
   { href: '/avisos', label: 'Avisos de hoje', icon: Bell },
   { href: '/vendas/nova', label: 'Nova venda', icon: ShoppingCart },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
-  { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/comissoes', label: 'Comissões', icon: DollarSign },
 ]
@@ -22,9 +21,6 @@ const operacaoItems = [
 const gestaoItems = [
   { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
-  { href: '/metas', label: 'Metas', icon: Target },
-  { href: '/campanhas', label: 'Campanhas', icon: Megaphone },
-  { href: '/treinamentos', label: 'Treinamentos', icon: BookOpen },
 ]
 
 const configuracaoItems = [
