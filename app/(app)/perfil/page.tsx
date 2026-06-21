@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { LogOut, User, Building2, ShieldCheck } from 'lucide-react'
+import { LogOut, Building2, ShieldCheck } from 'lucide-react'
 
 const ROLE_LABEL: Record<string, string> = {
   dono: 'Dono',
@@ -58,56 +58,68 @@ export default async function PerfilPage() {
     .toUpperCase() || '?'
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
+    <div className="space-y-5 pb-6">
+
+      {/* ── Cabeçalho ── */}
       <div>
-        <h1 className="text-xl font-semibold">Meu Perfil</h1>
-        <p className="text-sm text-muted-foreground">
-          Veja as informações da sua conta e da loja conectada.
+        <h1 className="text-xl font-semibold tracking-tight">Meu Perfil</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{loja?.nome ?? ''}</p>
+        <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
+          Informações da sua conta e do acesso conectado à loja.
         </p>
       </div>
 
-      {/* Grid principal — 3 colunas iguais no desktop */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-
-        {/* Card Conta */}
-        <div className="rounded-xl border bg-card p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Conta</p>
+      {/* ── Card de destaque — perfil do usuário ── */}
+      <div className="rounded-xl border bg-muted/40 border-border/60 p-5">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-xl shrink-0">
+            {iniciais}
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-base shrink-0">
-              {iniciais}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <p className="font-semibold text-base text-foreground leading-snug truncate">
+                  {nomeUsuario || '—'}
+                </p>
+                <p className="text-sm text-muted-foreground truncate" title={user.email ?? ''}>
+                  {user.email ?? '—'}
+                </p>
+              </div>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0 ${roleBadgeColor}`}>
+                {roleLabel}
+              </span>
             </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-foreground leading-snug truncate">{nomeUsuario || '—'}</p>
-              <p className="text-sm text-muted-foreground leading-snug truncate" title={user.email ?? ''}>{user.email ?? '—'}</p>
-            </div>
+            {loja?.nome && (
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <p className="text-xs text-muted-foreground truncate">{loja.nome}</p>
+              </div>
+            )}
           </div>
-
-          <p className="text-xs text-muted-foreground">Conta conectada ao Recway.</p>
         </div>
+      </div>
+
+      {/* ── Cards secundários ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
         {/* Card Acesso */}
         <div className="rounded-xl border bg-card p-5 space-y-4">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Acesso</p>
+            <ShieldCheck className="h-3 w-3 flex-none text-muted-foreground" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65">
+              Acesso
+            </p>
           </div>
-
           <div className="space-y-3">
             <div className="space-y-0.5">
-              <p className="text-xs text-muted-foreground">Loja</p>
+              <p className="text-xs text-muted-foreground">Loja conectada</p>
               <div className="flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <p className="text-sm font-medium truncate">{loja?.nome ?? '—'}</p>
               </div>
             </div>
-
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Perfil</p>
+              <p className="text-xs text-muted-foreground">Nível de acesso</p>
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${roleBadgeColor}`}>
                 {roleLabel}
               </span>
@@ -118,8 +130,10 @@ export default async function PerfilPage() {
         {/* Card Sessão */}
         <div className="rounded-xl border bg-card p-5 space-y-4">
           <div className="flex items-center gap-2">
-            <LogOut className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sessão</p>
+            <LogOut className="h-3 w-3 flex-none text-muted-foreground" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65">
+              Sessão
+            </p>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
             Use esta opção apenas se quiser encerrar o acesso neste dispositivo.
