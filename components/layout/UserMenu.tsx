@@ -45,7 +45,7 @@ export function UserMenu({ nomeUsuario = '' }: UserMenuProps) {
           <p className="text-sm font-medium truncate">{nomeUsuario || 'Usuário'}</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled className="gap-2 text-muted-foreground">
+        <DropdownMenuItem onClick={() => router.push('/perfil')} className="gap-2 cursor-pointer">
           <User className="h-4 w-4" />
           Meu perfil
         </DropdownMenuItem>
