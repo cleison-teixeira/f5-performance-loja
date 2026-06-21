@@ -285,3 +285,31 @@ Fase 8.8   — Briefing e onboarding da loja Cia Cidade Azul Angeloni
 ---
 
 *Documento gerado na Fase 8.7A — Não aplicar sem revisão do Cleison.*
+
+---
+
+## Atualização Fase 8.7B · 2026-06-21
+
+### Itens resolvidos nesta fase
+
+| Item | Status | Detalhe |
+|---|---|---|
+| `/debug/auth` | ✅ Já protegido | Tinha `notFound()` em produção desde antes da auditoria |
+| `/debug/logout` | ✅ Protegido agora | Adicionado `return NextResponse.json({ error: 'Not found' }, { status: 404 })` quando `NODE_ENV !== 'development'` |
+| Label "Admin F5" | ✅ Corrigido | `TabelaEquipe.tsx` linha 29: `admin_f5: 'Admin F5'` → `admin_f5: 'Admin Recway'` |
+| `package.json name` | ✅ Corrigido | `"f5-recompra-temp"` → `"recway"` |
+| Favicon/logotipo | ⚠️ Pendente | Apenas `app/favicon.ico` padrão Next.js encontrado — nenhum asset Recway disponível. Cleison deve enviar `favicon.ico` e `apple-icon.png` oficiais para aplicar antes do go-live. |
+| Identificador técnico `admin_f5` | ✅ Não alterado | Role de banco, lógica, policies e tipos mantidos como estão |
+| Banco / RLS / env / domínio | ✅ Não alterados | Escopo desta fase: código apenas |
+
+### Build após 8.7B
+
+```
+✓ Compiled successfully
+✓ TypeScript sem erros
+29 rotas geradas
+```
+
+### Commit
+
+`fix(fase8.7b): harden pre-production branding and debug routes`

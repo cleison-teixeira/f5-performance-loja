@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   const supabase = await createClient()
   await supabase.auth.signOut()
 

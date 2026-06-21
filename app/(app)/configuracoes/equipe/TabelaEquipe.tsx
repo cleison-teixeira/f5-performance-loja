@@ -26,7 +26,7 @@ const roleLabel: Record<string, string> = {
   dono: 'Dono',
   gerente: 'Gerente',
   vendedora: 'Vendedora',
-  admin_f5: 'Admin F5',
+  admin_f5: 'Admin Recway',
 }
 
 export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, userRole, currentUserId }: Props) {
