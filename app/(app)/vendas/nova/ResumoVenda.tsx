@@ -154,7 +154,7 @@ export function ResumoVenda({
         onClick={onNovaVenda}
         className="w-full rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
       >
-        Registrar Nova Venda
+        Registrar nova venda
       </button>
     </div>
   )

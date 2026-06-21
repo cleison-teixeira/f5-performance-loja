@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { headers } from 'next/headers'
 import Link from 'next/link'
@@ -15,6 +16,10 @@ function Row({ label, value, ok }: { label: string; value: string; ok?: boolean 
 }
 
 export default async function DebugAuthPage() {
+  if (process.env.NODE_ENV !== 'development') {
+    notFound()
+  }
+
   const headersList = await headers()
   const host = headersList.get('host') ?? '—'
   const xForwardedFor = headersList.get('x-forwarded-for') ?? '—'
