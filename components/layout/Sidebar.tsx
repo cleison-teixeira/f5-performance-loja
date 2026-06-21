@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Settings, ClipboardList
+  Target, Settings, ClipboardList
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +21,7 @@ const operacaoItems = [
 const gestaoItems = [
   { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
+  { href: '/metas', label: 'Metas', icon: Target },
 ]
 
 const configuracaoItems = [
