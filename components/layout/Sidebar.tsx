@@ -78,7 +78,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
       <div className="flex items-center h-14 px-4 border-b">
-        <span className="font-semibold text-lg tracking-tight">F5 Recompra</span>
+        <span className="font-semibold text-lg tracking-tight">Recway</span>
       </div>
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />

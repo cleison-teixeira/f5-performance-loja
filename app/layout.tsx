@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'F5 Recompra',
-  description: 'Troque a caderneta do balcão por avisos automáticos no WhatsApp.',
+  title: 'Recway',
+  description: 'Performance de Loja para recompra, metas e oportunidades de venda.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
