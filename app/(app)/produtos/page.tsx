@@ -6,6 +6,13 @@ function formatarBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function cicloRecompra(mensagens: Array<{ tipo: string; dias_apos_venda: number }>): number | null {
+  if (mensagens.length === 0) return null
+  const recompra = mensagens.find(m => m.tipo === 'recompra')
+  if (recompra) return recompra.dias_apos_venda
+  return Math.max(...mensagens.map(m => m.dias_apos_venda))
+}
+
 export default async function ProdutosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,45 +42,127 @@ export default async function ProdutosPage() {
 
   const { data: produtos } = await supabase
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url')
+    .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, mensagens_produto(tipo, dias_apos_venda)')
     .eq('loja_id', loja_id)
     .eq('ativo', true)
     .order('nome')
 
+  type ProdutoRaw = {
+    id: string
+    nome: string
+    preco_sugerido: number | null
+    foto_url: string | null
+    recorrente: boolean
+    qtd_mensagens: number | null
+    mensagens_produto: Array<{ tipo: string; dias_apos_venda: number }>
+  }
+
+  const lista = ((produtos ?? []) as unknown as ProdutoRaw[])
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold">Produtos</h1>
-          <p className="text-sm text-muted-foreground">{lojaNome}</p>
+          <p className="text-sm text-muted-foreground">
+            {lojaNome} · Produtos cadastrados e ciclos de recompra da loja.
+          </p>
         </div>
         {podeEditar && (
-          <Link href="/configuracoes/produtos" className="text-sm text-primary hover:underline">
+          <Link href="/configuracoes/produtos" className="shrink-0 text-sm text-primary hover:underline whitespace-nowrap">
             Gerenciar →
           </Link>
         )}
       </div>
 
-      {(produtos ?? []).length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhum produto cadastrado ainda.</p>
+      {podeEditar && (
+        <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2 leading-relaxed">
+          Use esta tela para consultar produtos. Para editar, acesse{' '}
+          <Link href="/configuracoes/produtos" className="text-primary hover:underline">
+            Produtos e mensagens
+          </Link>.
+        </p>
+      )}
+
+      {lista.length === 0 ? (
+        <div className="rounded-xl border bg-card p-8 text-center space-y-2">
+          <p className="text-sm font-medium">Nenhum produto ativo cadastrado.</p>
+          {podeEditar && (
+            <p className="text-xs text-muted-foreground">
+              Cadastre produtos em{' '}
+              <Link href="/configuracoes/produtos" className="text-primary hover:underline">
+                Produtos e mensagens
+              </Link>.
+            </p>
+          )}
+        </div>
       ) : (
-        <div className="space-y-2">
-          {(produtos ?? []).map(p => {
-            const fotoUrl = (p as unknown as { foto_url: string | null }).foto_url
+        <div className="space-y-3">
+          {lista.map(p => {
+            const mensagens = Array.isArray(p.mensagens_produto) ? p.mensagens_produto : []
+            const dias = p.recorrente ? cicloRecompra(mensagens) : null
+            const qtd = p.qtd_mensagens ?? mensagens.length
+
             return (
-              <div key={p.id as string} className="rounded-lg border bg-card px-4 py-3 flex items-center gap-3">
-                {fotoUrl ? (
-                  <img src={fotoUrl} alt={p.nome as string} className="w-10 h-10 rounded object-cover shrink-0 border" />
-                ) : (
-                  <div className="w-10 h-10 rounded bg-muted shrink-0 flex items-center justify-center text-muted-foreground text-xs">
-                    {(p.nome as string).charAt(0).toUpperCase()}
+              <div key={p.id} className="rounded-xl border bg-card p-4 space-y-2.5">
+                <div className="flex items-start gap-3">
+                  {p.foto_url ? (
+                    <img
+                      src={p.foto_url}
+                      alt={p.nome}
+                      className="w-10 h-10 rounded-lg object-cover shrink-0 border"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-muted shrink-0 flex items-center justify-center text-muted-foreground text-sm font-semibold">
+                      {p.nome.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold leading-tight">{p.nome}</p>
+                      {p.preco_sugerido != null && (
+                        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 shrink-0">
+                          {formatarBRL(p.preco_sugerido)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {p.recorrente ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                          Recompra
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          Pontual
+                        </span>
+                      )}
+                      <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400">
+                        Ativo
+                      </span>
+                    </div>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.nome as string}</p>
                 </div>
-                {p.preco_sugerido != null && (
-                  <p className="text-sm text-muted-foreground shrink-0">{formatarBRL(p.preco_sugerido as number)}</p>
+
+                {p.recorrente && (
+                  <div className="text-xs text-muted-foreground border-t pt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    {dias != null ? (
+                      <span>
+                        Recompra em{' '}
+                        <strong className="text-foreground">{dias} dias</strong>
+                      </span>
+                    ) : (
+                      <span>Sem ciclo de recompra definido</span>
+                    )}
+                    {qtd > 0 ? (
+                      <span>
+                        {qtd} aviso{qtd !== 1 ? 's' : ''} configurado{qtd !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span>Sem avisos configurados</span>
+                    )}
+                  </div>
                 )}
               </div>
             )
