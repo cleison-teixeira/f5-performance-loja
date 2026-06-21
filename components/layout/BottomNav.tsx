@@ -6,7 +6,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
   DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, ClipboardList, Clock
+  Target, ClipboardList, Clock, GraduationCap
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -39,6 +39,12 @@ const drawerSections = [
     items: [
       { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
       { href: '/configuracoes/comissoes', label: 'Comissões da equipe', icon: SlidersHorizontal },
+    ],
+  },
+  {
+    label: 'Aprender',
+    items: [
+      { href: '/treinamentos', label: 'Academia Recway', icon: GraduationCap },
     ],
   },
 ]

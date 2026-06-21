@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, Settings, ClipboardList, Clock
+  Target, Settings, ClipboardList, Clock, GraduationCap
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +28,10 @@ const gestaoItems = [
 const configuracaoItems = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
   { href: '/configuracoes/comissoes', label: 'Comissões da equipe', icon: SlidersHorizontal },
+]
+
+const aprenderItems = [
+  { href: '/treinamentos', label: 'Academia Recway', icon: GraduationCap },
 ]
 
 type NavItem = { href: string; label: string; icon: React.ElementType }
@@ -80,6 +84,7 @@ export function Sidebar() {
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />
         <Section label="Gestão" Icon={Building2} items={gestaoItems} />
         <Section label="Configuração" Icon={Settings} items={configuracaoItems} />
+        <Section label="Aprender" Icon={GraduationCap} items={aprenderItems} />
       </nav>
     </aside>
   )
