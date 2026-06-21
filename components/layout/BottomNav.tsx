@@ -6,7 +6,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
   DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, ClipboardList, Clock, GraduationCap
+  Target, ClipboardList, Clock, GraduationCap, Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +22,7 @@ const drawerSections = [
     label: 'Operação',
     items: [
       { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
+      { href: '/clientes', label: 'Clientes', icon: Users },
       { href: '/comissoes', label: 'Comissões', icon: DollarSign },
       { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
     ],

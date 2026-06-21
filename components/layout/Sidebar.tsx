@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, Settings, ClipboardList, Clock, GraduationCap
+  Target, Settings, ClipboardList, Clock, GraduationCap, Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +14,7 @@ const operacaoItems = [
   { href: '/avisos', label: 'Avisos de hoje', icon: Bell },
   { href: '/vendas/nova', label: 'Venda Rápida', icon: ShoppingCart },
   { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
+  { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/comissoes', label: 'Comissões', icon: DollarSign },
