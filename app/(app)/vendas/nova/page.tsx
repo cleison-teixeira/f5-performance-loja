@@ -111,7 +111,7 @@ export default async function NovaVendaPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-lg mx-auto">
+    <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Venda Rápida</h1>
         <p className="text-sm text-muted-foreground">{loja.nome} · Registre a venda em poucos segundos.</p>

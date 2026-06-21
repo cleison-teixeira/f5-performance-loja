@@ -288,56 +288,59 @@ export function FormNovaVenda({
       <div className="rounded-xl border bg-card p-4 space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cliente</p>
 
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium" htmlFor="whatsapp">
-            WhatsApp
-          </label>
-          <input
-            id="whatsapp"
-            type="tel"
-            inputMode="numeric"
-            autoFocus
-            placeholder="(XX) XXXXX-XXXX"
-            value={whatsapp}
-            onChange={e => {
-              const d = normalizarWhatsapp(e.target.value)
-              setWhatsapp(formatarWhatsapp(d))
-            }}
-            className={inputClass}
-          />
-          {buscandoCliente && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Buscando cliente…
-            </p>
-          )}
-          {!buscandoCliente && digits.length >= 10 && clienteEncontrado && (
-            <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-              <CheckCircle className="h-3 w-3" />
-              Cliente encontrado: <strong>{clienteEncontrado.nome}</strong>
-            </p>
-          )}
-          {!buscandoCliente && digits.length >= 10 && !clienteEncontrado && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <UserPlus className="h-3 w-3" />
-              Cliente novo — preencha o nome abaixo
-            </p>
-          )}
-        </div>
+        {/* WhatsApp + Nome — lado a lado no desktop */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium" htmlFor="whatsapp">
+              WhatsApp
+            </label>
+            <input
+              id="whatsapp"
+              type="tel"
+              inputMode="numeric"
+              autoFocus
+              placeholder="(XX) XXXXX-XXXX"
+              value={whatsapp}
+              onChange={e => {
+                const d = normalizarWhatsapp(e.target.value)
+                setWhatsapp(formatarWhatsapp(d))
+              }}
+              className={inputClass}
+            />
+            {buscandoCliente && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Buscando cliente…
+              </p>
+            )}
+            {!buscandoCliente && digits.length >= 10 && clienteEncontrado && (
+              <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                <CheckCircle className="h-3 w-3" />
+                Cliente encontrado: <strong>{clienteEncontrado.nome}</strong>
+              </p>
+            )}
+            {!buscandoCliente && digits.length >= 10 && !clienteEncontrado && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <UserPlus className="h-3 w-3" />
+                Cliente novo — preencha o nome abaixo
+              </p>
+            )}
+          </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium" htmlFor="clienteNome">
-            Nome
-          </label>
-          <input
-            id="clienteNome"
-            type="text"
-            placeholder="Nome completo"
-            value={clienteNome}
-            onChange={e => setClienteNome(e.target.value)}
-            disabled={!!clienteEncontrado}
-            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-          />
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium" htmlFor="clienteNome">
+              Nome
+            </label>
+            <input
+              id="clienteNome"
+              type="text"
+              placeholder="Nome completo"
+              value={clienteNome}
+              onChange={e => setClienteNome(e.target.value)}
+              disabled={!!clienteEncontrado}
+              className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">
