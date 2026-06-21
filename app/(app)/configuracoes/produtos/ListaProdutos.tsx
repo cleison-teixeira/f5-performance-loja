@@ -281,8 +281,8 @@ function FormMensagens({ produto_id, mensagensIniciais, qtdMensagens, onSucesso,
             rows={3}
             placeholder={
               m.tipo === 'oferta'
-                ? 'Opcional. Ex: Oi {cliente}! Temos uma oferta especial de {produto} para você…'
-                : 'Olá {cliente}! Aqui é {vendedora} da {loja}…'
+                ? 'Opcional. Ex: Oi {cliente_nome}! Temos uma oferta especial de {produto_nome} para você…'
+                : 'Olá {cliente_nome}! Aqui é {vendedora_nome} da {loja_nome}…'
             }
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
@@ -290,7 +290,7 @@ function FormMensagens({ produto_id, mensagensIniciais, qtdMensagens, onSucesso,
       ))}
 
       <p className="text-xs text-muted-foreground">
-        Variáveis disponíveis: {'{cliente}'}, {'{vendedora}'}, {'{loja}'}, {'{produto}'}
+        Variáveis disponíveis: {'{cliente_nome}'}, {'{vendedora_nome}'}, {'{loja_nome}'}, {'{produto_nome}'}
       </p>
 
       {erro && <p className="text-sm text-destructive">{erro}</p>}
