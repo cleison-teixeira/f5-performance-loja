@@ -539,3 +539,134 @@ Os itens a seguir requerem browser em `https://recway.com.br`.
 | 7 | `www.recway.com.br` redirect para apex | Painel Vercel |
 | 8 | Logout via menu | Browser manual |
 | 9 | Favicon/logotipo oficial Recway | Asset pendente do Cleison |
+
+---
+
+## Achados do smoke manual — Fase 8.7D.3 · 2026-06-22
+
+**Smoke executado por:** Cleison  
+**Ambiente:** `https://recway.com.br`  
+**Status:** Smoke parcial concluído — achados catalogados, correções NÃO aplicadas nesta fase
+
+---
+
+### Resultados confirmados no smoke
+
+| Item | Status |
+|---|---|
+| Login funcionando — 3 perfis | ✅ |
+| Dashboard abre com loja correta | ✅ |
+| Perfil correto exibido por role | ✅ |
+| Logout pelo menu → volta para `/login` | ✅ |
+| Lista de espera — item de teste apareceu | ✅ |
+| Venda com múltiplos produtos recorrentes — avisos criados | ✅ (12 avisos para venda com 4+ produtos) |
+| Item livre não recorrente — gerou aviso de agradecimento | ⚠️ ver Achado 9 |
+
+---
+
+### Tabela de achados
+
+| # | Achado | Tipo | Severidade | Fase sugerida | Decisão recomendada |
+|---|---|---|---|---|---|
+| 1 | Senha da Cintya Teste (`cintya.teste@f5recompra.test`) divergente — não conseguiu logar | Bug | **Bloqueador** | Antes do onboarding | Resetar senha da Cintya no painel Supabase Auth antes de entregar acesso à lojista |
+| 2 | Gerente não tem acesso completo operacional: Venda Rápida, Avisos, Lista de Espera, Comissões | UX / regra de negócio | **Alto** | 8.7D.4 | Auditar middleware/menu para Gerente ter visão operacional completa (gerente também vende na operação real) |
+| 3 | Dashboard Vendedora sem destaque de comissão do mês, meta, recompras, atrasados, resultado 30 dias | UX | **Alto** | 8.7D.5 | Redesenhar cards do dashboard da vendedora para evidenciar indicadores de desempenho |
+| 4 | Dashboard Vendedora: quando há atrasados, bloqueia visualização de resultado 30 dias | UX | **Alto** | 8.7D.5 | Mostrar alerta de atrasados + resultado 30 dias simultaneamente, não substituir |
+| 5 | Comissão da vendedora parece calcular apenas recompras, não todas as vendas comissionáveis | Bug / regra de negócio | **Alto** | 8.7D.6 | Auditar query de cálculo de comissão — verificar se `comissionavel = true` está sendo aplicado em todas as vendas |
+| 6 | Gerente sem visão/opção de comissão conforme regra de negócio | Regra de negócio | **Alto** | 8.7D.6 | Definir regra: gerente vê comissão da equipe? Só a própria? Auditar e implementar |
+| 7 | Lista de Espera sem máscara de WhatsApp, máscara de valor e validação consistente | UX | **Médio** | 8.7D.4 | Aplicar mesma qualidade de formulário da Venda Rápida: máscara WA, valor e validação |
+| 8 | Dashboards exibem produtos legados inativos (Whey EXX, MounJaro Natural, Cesta Amor de Mãe, Creatina Teste) em Top Produtos/Radar | Bug | **Médio** | 8.7D.4 | Auditar queries de dashboard — filtrar por `ativo = true` ou separar histórico legado |
+| 9 | Item livre não recorrente gerou aviso de agradecimento | Regra de negócio | **Médio** | 8.7D.4 | Definir e documentar regra: item livre não recorrente → agradecimento OK, sem recompra/relacionamento. Auditar código e confirmar |
+| 10 | Menu "Equipe" visível para vendedora pode expor dados sensíveis de comissão | Segurança / UX | **Médio** | 8.7D.4 | Ocultar menu Equipe para vendedora ou remover acesso a valores de comissão da equipe |
+| 11 | "Academia Recway" deve ser renomeado para "Recway Academy" | UX / nomenclatura | **Baixo** | 8.7D.4 | Alterar label no menu/sidebar — não renomear rota `/treinamentos` nesta etapa |
+| 12 | Venda com múltiplos produtos recorrentes gera muitos avisos (ex: 12 para 4 produtos) | UX / backlog | **Baixo** | Pós-pré-piloto | Registrar como backlog: agrupamento de mensagens por cliente/data para reduzir volume percebido |
+| 13 | Ciclo das mensagens fixo — não considera dose diária do produto (1 ou 2 cápsulas/dia) | Backlog | **Baixo** | Pós-pré-piloto | Backlog: permitir regra de consumo por produto (quantidade, consumo diário, ciclo calculado) |
+| 14 | Sistema não suporta multi-role (mesma pessoa como dona, gerente e vendedora) | Backlog | **Baixo** | Pós-pré-piloto | Backlog: suporte a múltiplos roles por perfil/loja |
+| 15 | Mobile: alguns botões com aparência de duplo clique, margens estouram em telas pequenas | UX | **Médio** | 8.7D.4–8.7D.5 | Auditoria mobile: Dashboard, Venda Rápida, Lista de Espera, Produtos, Avisos, Perfil |
+| 16 | Cashback / Clube Recway não implementado | Backlog estratégico | **Baixo** | Pós-pré-piloto | Backlog enterprise: Clube Recway / cashback de recompra |
+| 17 | Integração PDV/ERP não implementada | Backlog estratégico | **Baixo** | Pós-pré-piloto | Backlog enterprise: integração para redes com ERP |
+| 18 | Portal/Aba de Parceiros não implementada | Backlog estratégico | **Baixo** | Pós-pré-piloto | Backlog enterprise: fornecedores acompanham vendas agregadas em tempo real |
+
+---
+
+### Plano de correção — fases sugeridas
+
+#### Fase 8.7D.4 — Correções rápidas pré-onboarding
+
+**Objetivo:** resolver bloqueadores e achados médios antes de entregar à lojista.
+
+| # | Item | Ação |
+|---|---|---|
+| 1 | **Senha Cintya Teste** | Resetar no painel Supabase Auth — `cintya.teste@f5recompra.test` |
+| 2 | **Acesso operacional do Gerente** | Auditar middleware/menu — garantir Venda Rápida, Avisos, Lista de Espera, Clientes, Produtos, Metas, Equipe, Comissões, Configurações e Recway Academy |
+| 3 | **Lista de Espera — máscaras e validação** | Aplicar máscara de WhatsApp, máscara/normalização de valor e validação consistente (paridade com Venda Rápida) |
+| 4 | **Dashboards — produtos inativos** | Auditar queries de Top Produtos e Radar — adicionar filtro `p.ativo = true` para não exibir legados |
+| 5 | **Regra item livre** | Auditar código de `gerarAvisos` — confirmar e documentar: item livre não recorrente → apenas agradecimento, sem recompra |
+| 6 | **Menu Equipe para vendedora** | Ocultar menu Equipe do role `vendedora` ou remover acesso a valores de comissão da equipe |
+| 7 | **"Recway Academy"** | Alterar label "Academia Recway" → "Recway Academy" em menu e sidebar |
+| 8 | **Mobile — bloqueadores** | Auditoria mobile rápida: identificar e corrigir o que é bloqueador (estouro de layout, botão inoperante) |
+
+#### Fase 8.7D.5 — Dashboards Gerente e Vendedora
+
+**Objetivo:** dashboards operacionais que "brilhem os olhos" e orientem a ação.
+
+| # | Item | Ação |
+|---|---|---|
+| 1 | **Dashboard Vendedora** | Destacar: comissão do mês, oportunidades de recompra, alerta de meta, avisos atrasados, resultado 30 dias |
+| 2 | **Dashboard Vendedora — atrasados** | Mostrar alerta de atrasados + resultado 30 dias simultaneamente (não substituir) |
+| 3 | **Dashboard Gerente** | Garantir visão gerencial completa: equipe, vendas, meta, comissão |
+| 4 | **Mobile polish** | Margens, touch targets e UX mobile nos dashboards |
+
+#### Fase 8.7D.6 — Auditoria de comissão
+
+**Objetivo:** garantir que o cálculo de comissão está correto por perfil e tipo de venda.
+
+| # | Item | Ação |
+|---|---|---|
+| 1 | **Comissão vendedora** | Auditar query — verificar se todas as vendas com `comissionavel = true` entram no cálculo, não apenas recompras |
+| 2 | **Comissão gerente** | Definir e implementar regra: gerente vê só a própria comissão? Comissão da equipe? Percentual diferente? |
+| 3 | **Validação DB** | Confirmar valores no banco contra vendas registradas no smoke test |
+
+#### Fase 8.7D.7 — Smoke final curto
+
+**Objetivo:** smoke rápido de validação pós-correções, antes do onboarding.
+
+| # | Item |
+|---|---|
+| 1 | Login/logout — 3 perfis com senha correta |
+| 2 | Venda rápida — produto PiùVita — verificar avisos no banco |
+| 3 | Link WhatsApp — nome real do cliente |
+| 4 | Dashboard Vendedora — comissão e meta visíveis |
+| 5 | Dashboard Gerente — visão operacional completa |
+| 6 | Comissão — conferir valor calculado |
+| 7 | Mobile — dashboard e venda rápida |
+
+#### Pós-pré-piloto — Backlog registrado
+
+| Item | Descrição |
+|---|---|
+| Agrupamento de mensagens | Reduzir volume de avisos para vendas com múltiplos produtos — agrupar por cliente/data |
+| Ciclo inteligente por produto | Suporte a regra de consumo: dose diária, ciclo calculado, override manual |
+| Multi-role | Mesma pessoa como dono + gerente + vendedora na mesma loja |
+| Cashback / Clube Recway | Cashback de recompra — programa de fidelidade do lojista |
+| Integração PDV/ERP | Backlog enterprise para redes com sistema de gestão |
+| Portal de Parceiros | Fornecedores acompanham vendas agregadas em tempo real |
+| Pedido B2B | Backlog para redes e distribuidores |
+
+---
+
+### Status da Fase 8.7D.3
+
+| Item | Status |
+|---|---|
+| Smoke manual executado (parcial) | ✅ |
+| Achados catalogados (18 itens) | ✅ |
+| Código alterado | ✅ NÃO — apenas documentação |
+| Banco alterado | ✅ NÃO |
+| RLS alterado | ✅ NÃO |
+| Plano de fases 8.7D.4–8.7D.7 criado | ✅ |
+| Backlog pós-pré-piloto registrado | ✅ |
+
+**Bloqueador imediato antes do onboarding:** senha da Cintya Teste deve ser resetada (Achado #1).
+
+**Próxima fase:** 8.7D.4 — Correções rápidas pré-onboarding.
