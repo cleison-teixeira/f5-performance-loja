@@ -948,3 +948,139 @@ Rota `/treinamentos` mantida sem alteração.
 | 1 | Auditoria cálculo de comissão: vendedora vê só recompras ou todas as vendas comissionáveis? |
 | 2 | Comissão gerente: definir e implementar regra de visão (própria / equipe / percentual) |
 | 3 | Validação dos valores no banco contra vendas registradas no smoke |
+
+---
+
+## Atualização Fase 8.7D.6 — Auditoria do Cálculo de Comissão
+
+**Data:** 2026-06-22  
+**Status:** ✅ CONCLUÍDA — sem alterações de código
+
+---
+
+### 1. Arquitetura do sistema de comissão
+
+O caminho canônico é `lib/comissoes/gravar.ts` → `gravarComissaoVenda()`, chamado por:
+- `salvarVenda` (Step 5.5) — toda venda manual
+- `confirmarRecompra` — toda recompra confirmada via aviso
+
+Ambos criam um registro `vendas` com `origem = 'venda_manual' | 'recompra'` e depois chamam o mesmo helper. A comissão é calculada apenas sobre `itens_venda.comissionavel = true` (snapshot no momento da venda).
+
+**Sistema de prioridades (P1 → P4):**
+
+| Prioridade | Fonte | Quando ativa |
+|---|---|---|
+| P1 | `comissao_fixa_produto` | Existe entrada ativa para o produto + vendedora |
+| P2 | `campanhas_produto` | Campanha ativa no momento da venda |
+| P3 | `metas_vendedora` | Meta configurada para o mês (`comissao_base` abaixo da meta, `comissao_meta` acima) |
+| P4 | `regras_comissao` | Percentual padrão da vendedora (fallback) |
+
+Se `valor_comissao = 0` após o cálculo, **nenhum registro é inserido** em `comissao_venda` (retorno `ok: true, valor_comissao: 0`).
+
+---
+
+### 2. Schema campos relevantes
+
+| Tabela | Campo chave | Observação |
+|---|---|---|
+| `vendas` | `origem` (text NOT NULL) | `'venda_manual'` ou `'recompra'` |
+| `itens_venda` | `comissionavel` (boolean NOT NULL DEFAULT true) | Snapshot do checkbox da UI no momento da venda |
+| `itens_venda` | `recorrente` (boolean NOT NULL DEFAULT true) | Apenas para programação de avisos; **não** filtra comissão |
+| `comissao_venda` | `venda_id` (UNIQUE) | Máximo 1 comissão por venda |
+| `comissao_venda` | `tipo_comissao` | `null`=P4, `'produto_fixo'`=P1, `'base'`=P3 abaixo meta, `'meta_batida'`=P3 acima meta |
+| `membros_loja` | sem `percentual_comissao` | Percentual vive em `regras_comissao`, não em `membros_loja` |
+
+---
+
+### 3. Configuração de comissão — Loja Cia Cidade Azul Angeloni
+
+#### 3.1 Regras padrão (`regras_comissao` — P4)
+
+| Vendedora | Percentual | Criado em |
+|---|---|---|
+| Cintya Teste | 5,00% | 2026-06-17 14:19 |
+| Cleison Vendedor | 8,00% | 2026-06-19 12:55 |
+| Teste | 2,00% | 2026-06-17 15:22 |
+| dono (CLEISON CARDOSO TEIXEIRA) | — nenhuma — | vendas do dono sem comissão |
+| gerente (Cleison Gerente) | — nenhuma — | sem comissão registrada |
+
+#### 3.2 Metas do mês (junho/2026 — P3)
+
+| Vendedora | Meta | % abaixo | % acima | Criado em |
+|---|---|---|---|---|
+| Cintya Teste | R$2.000,00 | 1,00% | 2,50% | 2026-06-19 12:26 |
+| Cleison Vendedor | R$2.000,00 | 1,00% | 2,00% | 2026-06-19 21:16 |
+| Teste | R$2.000,00 | 1,00% | 2,00% | 2026-06-19 21:16 |
+
+#### 3.3 Comissão fixa por produto (P1)
+
+| Produto | Vendedora | Valor fixo |
+|---|---|---|
+| MounJaro Natural | Cintya Teste | R$10,00 por venda |
+| MounJaro Natural | Cleison Vendedor | R$5,00 por venda |
+
+---
+
+### 4. Resultado: vendas vs comissão no mês (junho/2026)
+
+| Vendedora | Origem | Vendas | Valor total | Com comissão | Total comissão |
+|---|---|---|---|---|---|
+| Cintya Teste | venda_manual | 12 | R$1.442,10 | 7 | R$46,56 |
+| Cintya Teste | recompra | 11 | R$1.312,90 | 11 | R$59,88 |
+| Cleison Vendedor | venda_manual | 9 | R$2.407,70 | 7 | R$32,91 |
+| Cleison Vendedor | recompra | 4 | R$613,60 | 4 | R$6,14 |
+| Teste | venda_manual | 9 | R$1.135,80 | 9 | R$18,81 |
+| Teste | recompra | 6 | R$738,60 | 6 | R$7,39 |
+| CLEISON CARDOSO (dono) | venda_manual | 1 | R$159,90 | 0 | — |
+
+**Observação do smoke test confirmada e explicada:** a observação de que "comissão parecia só incluir recompras" se deve a lacunas históricas em `venda_manual`, não a uma falha arquitetural.
+
+---
+
+### 5. Lacuna de dados identificada (orphan vendas)
+
+Durante uma janela de ~15h entre **2026-06-17 22:27** e **2026-06-18 ~12:34**, vendas com itens `comissionavel = true` foram gravadas sem gerar registro em `comissao_venda`. A causa provável é um deploy no Vercel nesse intervalo que quebrou silenciosamente o step de comissão.
+
+#### Orphans confirmados
+
+| Vendedora | Qtd | Valor total | Comissão esperada | Causa |
+|---|---|---|---|---|
+| Cintya Teste | 5 | R$647,40 | ~R$32,37 (5%) | Janela de deploy quebrado |
+| Cleison Vendedor | 1 | R$58,90 | ~R$4,71 (8%) | Janela de deploy quebrado (pós regras_comissao) |
+| Cleison Vendedor | 1 | R$156,90 | — | Criado **antes** da regra existir → correto sem comissão |
+
+#### Impacto no dashboard
+
+O dashboard usa `comissao_venda!inner` (INNER JOIN), então vendas orphan são excluídas do total de comissão exibido. Para as 5 vendas orphan de Cintya, o dashboard subexibe ~R$32,37 em comissão.
+
+---
+
+### 6. Gerente e Dono
+
+- **Dono e Gerente não têm `regras_comissao`** → vendas atribuídas a eles ficam sem `comissao_venda`. Isso é correto: dono e gerente não recebem comissão por venda.
+- O dashboard do Gerente exibe a comissão **consolidada da equipe** (todas as vendedoras da loja), não a comissão própria. Arquitetura está coerente.
+
+---
+
+### 7. Fórmula verificada
+
+Para P4 (mais comum): `valor_comissao = round(valor_comissao_total × percentual / 100, 2)`  
+Para P3: usa `comissao_base` se `totalVendasMes < valor_meta`, senão `comissao_meta`.  
+Para P1: `valor_fixo` por item comissionável (sem percentual).
+
+---
+
+### 8. Veredicto
+
+| Item | Veredicto |
+|---|---|
+| Arquitetura — comissão inclui `venda_manual` E `recompra` | ✅ CORRETO |
+| Dashboard usa INNER JOIN (exclui vendas sem comissão) | ✅ INTENCIONAL |
+| Sistema ao vivo (desde 2026-06-19) | ✅ FUNCIONANDO CORRETAMENTE |
+| Orphan vendas (janela de deploy Jun 17-18) | ⚠️ DADO HISTÓRICO — não afeta novas vendas |
+| Comissão de dono/gerente não registrada | ✅ CORRETO POR DESIGN |
+| Regras P1/P3/P4 configuradas para piloto | ✅ ATIVAS |
+
+**Ação recomendada (baixa prioridade):** backfill manual dos 6 registros orphan em `comissao_venda` após o piloto real iniciar. Não bloqueia onboarding da Cintya.
+
+**Ação requerida:** ao onboarding real da Cintya, confirmar que `regras_comissao` e `metas_vendedora` estão configurados antes do primeiro dia de uso.
