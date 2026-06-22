@@ -4,7 +4,7 @@ import {
   TrendingUp, ChevronRight, Clock, Target,
 } from 'lucide-react'
 import { ComissaoChart } from './ComissaoChart'
-import type { DashboardAviso } from './page'
+import type { DashboardAviso, FunilStep } from './page'
 
 interface Props {
   nomeVendedora: string
@@ -23,6 +23,7 @@ interface Props {
   totalVendasMes: number
   metaVendasMes: number | null
   diasRestantes: number
+  funil: FunilStep[]
 }
 
 function fmt(val: number) {
@@ -60,6 +61,7 @@ export function DashboardVendedora({
   totalVendasMes,
   metaVendasMes,
   diasRestantes,
+  funil,
 }: Props) {
   const totalAtrasados = avisosAtrasados.length
   const totalHoje = avisosHoje.length
@@ -100,14 +102,22 @@ export function DashboardVendedora({
     headlineHref = '/vendas/nova'
   }
 
+  // Meta de vendas
   const metaPct = metaVendasMes && metaVendasMes > 0
     ? Math.min(100, Math.round((totalVendasMes / metaVendasMes) * 100))
     : null
   const faltaMeta = metaVendasMes && totalVendasMes < metaVendasMes ? metaVendasMes - totalVendasMes : 0
   const metaAtingida = metaVendasMes != null && totalVendasMes >= metaVendasMes
 
-  // Resultado strip appears when urgency headline hides the positive result
+  // Meta de comissão
+  const comissaoPct = metaComissao && metaComissao > 0
+    ? Math.min(100, Math.round((totalComissoes / metaComissao) * 100))
+    : null
+  const comissaoFalta = metaComissao && totalComissoes < metaComissao ? metaComissao - totalComissoes : 0
+
   const showResultadoStrip = (totalAtrasados > 0 || totalHoje > 0) && totalRecomprasValor > 0
+
+  const funilMax = funil[0]?.value ?? 1
 
   return (
     <div className="space-y-5 pb-10">
@@ -217,6 +227,33 @@ export function DashboardVendedora({
           icon={<TrendingUp className="h-5 w-5 text-white" />} iconBg="bg-amber-500" />
       </div>
 
+      {/* Meu funil de recompra */}
+      {funil.length > 0 && (
+        <div className="rounded-2xl border bg-card p-5">
+          <h2 className="text-sm font-semibold mb-4">Meu funil de recompra</h2>
+          <div className="space-y-3">
+            {funil.map((step, i) => {
+              const pct = funilMax > 0 ? (step.value / funilMax) * 100 : 0
+              const barPct = i === 0 ? 100 : Math.max(pct, step.value > 0 ? 4 : 0)
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs text-muted-foreground">{step.label}</p>
+                    <span className="text-sm font-bold tabular-nums">{step.value}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className={`h-full rounded-full ${step.cor}`} style={{ width: `${barPct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground/60 mt-3">
+            Uma venda pode gerar mais de uma mensagem programada.
+          </p>
+        </div>
+      )}
+
       {/* Avisos atrasados */}
       {avisosAtrasados.length > 0 && (
         <div className="space-y-3">
@@ -269,27 +306,44 @@ export function DashboardVendedora({
         </div>
       )}
 
-      {/* Gráfico comissão acumulada */}
+      {/* Comissão acumulada do mês */}
       <div className="rounded-2xl border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold">Comissão acumulada do mês</h2>
-            {metaComissao ? (
-              <p className="text-xs text-muted-foreground mt-0.5">Meta: {fmt(metaComissao)}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-0.5">Meta ainda não configurada</p>
-            )}
-          </div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold">Comissão acumulada do mês</h2>
           <span className="text-xs text-muted-foreground">{diasMes[0]?.slice(0, 7).replace('-', '/')}</span>
         </div>
-        <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={metaComissao} hojeDia={hojeDia} />
-        <div className="grid grid-cols-3 mt-4 pt-4 border-t gap-2 text-center">
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Minha comissão</p>
-            <p className="text-sm font-bold tabular-nums mt-0.5 text-emerald-600">{fmt(totalComissoes)}</p>
+
+        <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">{fmt(totalComissoes)}</p>
+        {metaComissao ? (
+          <p className="text-xs text-muted-foreground mt-1">de {fmt(metaComissao)} da meta</p>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-1">Meta ainda não configurada</p>
+        )}
+
+        <div className="mt-4">
+          <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={metaComissao} hojeDia={hojeDia} showProgressBar={false} />
+        </div>
+
+        {comissaoPct !== null && metaComissao && metaComissao > 0 && (
+          <div className="mt-3 space-y-1.5">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full ${comissaoPct >= 100 ? 'bg-green-500' : 'bg-emerald-500'}`}
+                style={{ width: `${comissaoPct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{comissaoPct}% da meta</span>
+              <span className={comissaoPct >= 100 ? 'text-green-600 font-semibold' : ''}>
+                {comissaoPct >= 100 ? '✓ Meta atingida!' : `faltam ${fmt(comissaoFalta)}`}
+              </span>
+            </div>
           </div>
+        )}
+
+        <div className="grid grid-cols-2 mt-4 pt-4 border-t gap-2 text-center">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Recompras</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Minhas recompras</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{fmt(totalRecomprasValor)}</p>
           </div>
           <div>

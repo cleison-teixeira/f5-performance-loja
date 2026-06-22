@@ -62,6 +62,7 @@ export function DashboardView(props: Props) {
         totalVendasMes={props.totalVendasMes}
         metaVendasMes={props.metaVendasMes}
         diasRestantes={props.diasRestantes}
+        funil={props.funil}
       />
     )
   }

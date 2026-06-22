@@ -26,7 +26,7 @@ function fmtData(iso: string) {
 }
 
 function fmtValor(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const selectClass =

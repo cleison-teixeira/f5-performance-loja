@@ -134,26 +134,46 @@ export function DashboardGerente({
       {/* Chart + Pendências da equipe */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 space-y-6">
-          {/* Gráfico comissão acumulada do mês */}
+          {/* Comissões da equipe */}
           <div className="rounded-2xl border bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold">Comissão acumulada do mês</h2>
-                {metaComissao && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Meta: {fmt(metaComissao)}</p>
-                )}
-                {!metaComissao && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Meta ainda não configurada</p>
-                )}
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold">Comissões da equipe</h2>
               <span className="text-xs text-muted-foreground">{diasMes[0]?.slice(0, 7).replace('-', '/')}</span>
             </div>
-            <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={metaComissao} hojeDia={hojeDia} />
-            <div className="grid grid-cols-3 mt-4 pt-4 border-t gap-2 text-center">
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Comissões do mês</p>
-                <p className="text-sm font-bold tabular-nums mt-0.5 text-emerald-600">{fmt(totalComissoes)}</p>
-              </div>
+
+            <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">{fmt(totalComissoes)}</p>
+            {metaComissao ? (
+              <p className="text-xs text-muted-foreground mt-1">de {fmt(metaComissao)} da meta</p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">Meta ainda não configurada</p>
+            )}
+
+            <div className="mt-4">
+              <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={metaComissao} hojeDia={hojeDia} showProgressBar={false} />
+            </div>
+
+            {metaComissao && metaComissao > 0 && (() => {
+              const pct = Math.min(100, Math.round((totalComissoes / metaComissao) * 100))
+              const falta = Math.max(0, metaComissao - totalComissoes)
+              return (
+                <div className="mt-3 space-y-1.5">
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : 'bg-emerald-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{pct}% da meta</span>
+                    <span className={pct >= 100 ? 'text-green-600 font-semibold' : ''}>
+                      {pct >= 100 ? '✓ Meta atingida!' : `faltam ${fmt(falta)}`}
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            <div className="grid grid-cols-2 mt-4 pt-4 border-t gap-2 text-center">
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Recompras</p>
                 <p className="text-sm font-bold tabular-nums mt-0.5">{fmt(totalRecomprasValor)}</p>

@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { Package } from 'lucide-react'
 import { ListaEsperaForm } from './ListaEsperaForm'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 
 function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default async function ListaEsperaPage() {
@@ -113,6 +114,7 @@ export default async function ListaEsperaPage() {
   const total = registros.length
   const aguardando = registros.filter(r => r.status === 'aguardando').length
   const valorPotencial = registros.reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
+  const qtdClientes = new Set(registros.filter(r => r.status === 'aguardando').map(r => r.cliente_nome)).size
 
   return (
     <div className="space-y-4">
@@ -136,6 +138,24 @@ export default async function ListaEsperaPage() {
               {valorPotencial > 0 ? fmt(valorPotencial) : '—'}
             </p>
             <p className="text-xs text-muted-foreground">Potencial</p>
+          </div>
+        </div>
+      )}
+
+      {/* Oportunidade em destaque */}
+      {aguardando > 0 && valorPotencial > 0 && (
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm mt-0.5">
+            <Package className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Oportunidade</p>
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">
+              {fmt(valorPotencial)} em potencial aguardando reposição
+            </p>
+            <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
+              {aguardando} item{aguardando !== 1 ? 's' : ''} aguardando · {qtdClientes} cliente{qtdClientes !== 1 ? 's' : ''} interessado{qtdClientes !== 1 ? 's' : ''}
+            </p>
           </div>
         </div>
       )}

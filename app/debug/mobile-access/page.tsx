@@ -135,6 +135,7 @@ export default function DebugMobileAccessPage() {
             totalVendasMes={14230}
             metaVendasMes={20000}
             diasRestantes={new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate() - hojeDia}
+            funil={funil}
           />
         </main>
       </div>
