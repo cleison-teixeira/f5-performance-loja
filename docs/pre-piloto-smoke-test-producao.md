@@ -402,3 +402,140 @@ Os avisos de produtos legados (MounJaro Natural, Cesta Amor de Mãe, etc.) já t
 | Deploy em produção | ✅ `be59725` em `main` → Vercel |
 
 **Smoke test manual no browser pode prosseguir. Executar com `recway.com.br` após deploy da Vercel ficar `READY`.**
+
+---
+
+## Atualização Fase 8.7D.2B · 2026-06-22 — Smoke browser após correção do interpolador
+
+### 1. Deploy em produção
+
+| Item | Status |
+|---|---|
+| Commit `be59725` em produção | ✅ — incluso no deploy `5731f51` (docs seguinte) |
+| Deployment ID | `dpl_7RXSqkxMVHm2fwAEbeoqzssYcYYi` |
+| Status Vercel | ✅ `READY` — 3 min após push |
+| Aliases ativos | `recway.com.br`, `recway.vercel.app`, `www.recway.com.br` |
+| `https://recway.com.br/login` | ✅ HTTP 200 |
+| Build no servidor | ✅ sem erros |
+
+### 2. Banco — zero variáveis literais em avisos
+
+```sql
+SELECT COUNT(*) FROM avisos
+WHERE texto_renderizado LIKE '%{cliente_nome}%'
+   OR texto_renderizado LIKE '%{produto_nome}%'
+   OR texto_renderizado LIKE '%{vendedora_nome}%'
+   OR texto_renderizado LIKE '%{loja_nome}%'
+   OR texto_renderizado LIKE '%{cliente}%'
+   OR texto_renderizado LIKE '%{produto}%'
+   OR texto_renderizado LIKE '%{vendedora}%'
+   OR texto_renderizado LIKE '%{loja}%'
+→ 0
+```
+
+✅ Nenhum aviso com variáveis não substituídas.
+
+### 3. Templates PiùVita — confirmados corretos
+
+| Verificação | Resultado |
+|---|---|
+| Todos os produtos PiùVita ativos têm 3 mensagens (agradecimento/relacionamento/recompra) | ✅ |
+| Formato das variáveis nos templates | ✅ `{cliente_nome}`, `{produto_nome}`, `{vendedora_nome}`, `{loja_nome}` |
+| `interpolar()` agora substitui esse formato | ✅ |
+| Textos finais em `avisos` | ✅ sem chaves literais |
+
+---
+
+### 4–9. Smoke browser — Pendente de execução manual por Cleison
+
+Os itens a seguir requerem browser em `https://recway.com.br`.
+
+#### 4. Login/logout por perfil
+
+| Perfil | Email | Login | Dashboard | Logout |
+|---|---|---|---|---|
+| **Dono** | `cleisonimarketing@gmail.com` | ⬜ | ⬜ | ⬜ |
+| **Gerente** | `cleisonperfil@gmail.com` | ⬜ | ⬜ | ⬜ |
+| **Vendedora** | `cintya.teste@f5recompra.test` | ⬜ | ⬜ | ⬜ |
+
+#### 5. Rotas principais
+
+| Rota | Dono | Gerente | Vendedora |
+|---|---|---|---|
+| `/dashboard` | ⬜ | ⬜ | ⬜ |
+| `/vendas/nova` | ⬜ | ⬜ | ⬜ |
+| `/avisos` | ⬜ | ⬜ | ⬜ |
+| `/clientes` | ⬜ | ⬜ | ⬜ |
+| `/produtos` | ⬜ | ⬜ | ⬜ |
+| `/metas` | ⬜ | ⬜ | ⬜ |
+| `/configuracoes/produtos` | ⬜ | ⬜ | — |
+| `/configuracoes/comissoes` | ⬜ | — | — |
+| `/treinamentos` | ⬜ | ⬜ | ⬜ |
+| `/perfil` | ⬜ | ⬜ | ⬜ |
+
+#### 6. Venda teste PiùVita recorrente
+
+- **Cliente:** `Cliente Smoke Test Recway`
+- **WhatsApp:** número controlado (não enviar WA real)
+- **Produto:** produto PiùVita ativo (ex: Creatina Efervescente Maçã Verde 360g)
+- **Observação:** `SMOKE TEST 8.7D.2`
+
+| Validação | Status |
+|---|---|
+| Venda criada | ⬜ |
+| `venda_id` criado | ⬜ — anotar: `___` |
+| `cliente_id` criado | ⬜ — anotar: `___` |
+| `item_venda_id` criado | ⬜ — anotar: `___` |
+| 3 avisos criados | ⬜ — anotar IDs: `___` |
+| Textos dos avisos interpolados (sem chaves) | ⬜ |
+| Link WhatsApp contém nome real, produto real | ⬜ |
+| Não enviado WA real | ⬜ |
+
+#### 7. Item livre não recorrente
+
+- **Item:** `Item Livre Smoke Test`
+- **recorrente = false**
+- **Observação:** `SMOKE TEST 8.7D.2`
+
+| Validação | Status |
+|---|---|
+| Venda criada | ⬜ |
+| Nenhum produto criado no catálogo | ⬜ |
+| Nenhum aviso criado | ⬜ |
+
+#### 8. Lista de espera
+
+- **Cliente:** `Cliente Lista Smoke`
+- **Produto:** `Produto Lista Smoke`
+- **Observação:** `SMOKE TEST 8.7D.2`
+
+| Validação | Status |
+|---|---|
+| Item aparece na lista | ⬜ |
+| Status correto | ⬜ |
+
+#### 9. Mobile quick-check
+
+| Tela | Status |
+|---|---|
+| Dashboard (mobile) | ⬜ |
+| Venda rápida (mobile) | ⬜ |
+| Produtos (mobile) | ⬜ |
+| Avisos (mobile) | ⬜ |
+| Perfil (mobile) | ⬜ |
+
+---
+
+### Pendências para conclusão da Fase 8.7D.2B
+
+| # | Item | Tipo |
+|---|---|---|
+| 1 | Login/logout — 3 perfis | Browser manual |
+| 2 | Rotas principais — Dono, Gerente, Vendedora | Browser manual |
+| 3 | Venda PiùVita + validação dos 3 avisos no DB | Browser manual + consulta SQL |
+| 4 | Item livre — validar zero avisos gerados | Browser manual |
+| 5 | Lista de espera | Browser manual |
+| 6 | Mobile quick-check | Browser mobile |
+| 7 | `www.recway.com.br` redirect para apex | Painel Vercel |
+| 8 | Logout via menu | Browser manual |
+| 9 | Favicon/logotipo oficial Recway | Asset pendente do Cleison |
