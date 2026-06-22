@@ -3,7 +3,7 @@ import { DashboardGerente } from './DashboardGerente'
 import { DashboardVendedora } from './DashboardVendedora'
 import type {
   DashboardAviso, FunilStep, ProdutoRadarItem, VendedoraRanking, VendedoraComPendencia,
-  VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes,
+  VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo,
 } from './page'
 
 interface Props {
@@ -38,6 +38,7 @@ interface Props {
   topProdutosMes: ProdutoTopMes[]
   vendasDiariaMes: number[]
   mesLabel: string
+  listaEsperaInfo: ListaEsperaInfo
 }
 
 export function DashboardView(props: Props) {
@@ -63,6 +64,7 @@ export function DashboardView(props: Props) {
         metaVendasMes={props.metaVendasMes}
         diasRestantes={props.diasRestantes}
         funil={props.funil}
+        listaEsperaInfo={props.listaEsperaInfo}
       />
     )
   }
@@ -71,6 +73,7 @@ export function DashboardView(props: Props) {
     return (
       <DashboardGerente
         loja={props.loja}
+        nomeUsuario={props.nomeVendedora}
         totalVendasValor={props.totalVendasValor}
         qtdVendas={props.qtdVendas}
         totalRecomprasValor={props.totalRecomprasValor}
@@ -87,6 +90,7 @@ export function DashboardView(props: Props) {
         comissaoDiaria={props.comissaoDiaria}
         metaComissao={props.metaComissao}
         hojeDia={props.hojeDia}
+        listaEsperaInfo={props.listaEsperaInfo}
       />
     )
   }
@@ -95,6 +99,7 @@ export function DashboardView(props: Props) {
   return (
     <DashboardDono
       loja={props.loja}
+      nomeUsuario={props.nomeVendedora}
       dinheiroMesaInfo={props.dinheiroMesaInfo}
       totalVendasMes={props.totalVendasMes}
       metaVendasMes={props.metaVendasMes}
@@ -106,6 +111,7 @@ export function DashboardView(props: Props) {
       diasMes={props.diasMes}
       hojeDia={props.hojeDia}
       mesLabel={props.mesLabel}
+      listaEsperaInfo={props.listaEsperaInfo}
     />
   )
 }

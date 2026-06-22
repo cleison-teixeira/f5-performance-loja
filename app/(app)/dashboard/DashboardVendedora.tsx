@@ -1,10 +1,14 @@
 import Link from 'next/link'
 import {
   Bell, AlertCircle, RefreshCcw, DollarSign,
-  TrendingUp, ChevronRight, Clock, Target,
+  TrendingUp, ChevronRight, Clock, Target, Package,
 } from 'lucide-react'
 import { ComissaoChart } from './ComissaoChart'
-import type { DashboardAviso, FunilStep } from './page'
+import type { DashboardAviso, FunilStep, ListaEsperaInfo } from './page'
+
+function fmtVal(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 interface Props {
   nomeVendedora: string
@@ -24,6 +28,7 @@ interface Props {
   metaVendasMes: number | null
   diasRestantes: number
   funil: FunilStep[]
+  listaEsperaInfo: ListaEsperaInfo
 }
 
 function fmt(val: number) {
@@ -62,6 +67,7 @@ export function DashboardVendedora({
   metaVendasMes,
   diasRestantes,
   funil,
+  listaEsperaInfo,
 }: Props) {
   const totalAtrasados = avisosAtrasados.length
   const totalHoje = avisosHoje.length
@@ -109,12 +115,6 @@ export function DashboardVendedora({
   const faltaMeta = metaVendasMes && totalVendasMes < metaVendasMes ? metaVendasMes - totalVendasMes : 0
   const metaAtingida = metaVendasMes != null && totalVendasMes >= metaVendasMes
 
-  // Meta de comissão
-  const comissaoPct = metaComissao && metaComissao > 0
-    ? Math.min(100, Math.round((totalComissoes / metaComissao) * 100))
-    : null
-  const comissaoFalta = metaComissao && totalComissoes < metaComissao ? metaComissao - totalComissoes : 0
-
   const showResultadoStrip = (totalAtrasados > 0 || totalHoje > 0) && totalRecomprasValor > 0
 
   const funilMax = funil[0]?.value ?? 1
@@ -122,8 +122,9 @@ export function DashboardVendedora({
   return (
     <div className="space-y-5 pb-10">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Meu painel</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{nomeVendedora} · suas metas, avisos e recompras</p>
+        <p className="text-sm text-muted-foreground">Olá, {firstName}</p>
+        <h1 className="text-xl font-semibold tracking-tight">Seu painel de vendas</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">metas, comissão e recompras</p>
       </div>
 
       {/* Comissão — destaque principal */}
@@ -251,7 +252,38 @@ export function DashboardVendedora({
           <p className="text-[11px] text-muted-foreground/60 mt-3">
             Uma venda pode gerar mais de uma mensagem programada.
           </p>
+          <div className="mt-3 pt-3 border-t">
+            <p className="text-xs font-semibold text-foreground mb-1">Próxima ação</p>
+            <p className={`text-xs leading-relaxed ${totalAtrasados > 0 ? 'text-red-600 dark:text-red-400' : totalHoje > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+              {totalAtrasados > 0
+                ? `Envie os ${totalAtrasados} aviso${totalAtrasados !== 1 ? 's' : ''} atrasados para recuperar oportunidades.`
+                : totalHoje > 0
+                ? `Fale com os ${totalHoje} cliente${totalHoje !== 1 ? 's' : ''} de hoje.`
+                : 'Fila zerada. Registre novas vendas para gerar próximas recompras.'}
+            </p>
+          </div>
         </div>
+      )}
+
+      {/* Lista de espera */}
+      {listaEsperaInfo.qtdAguardando > 0 && (
+        <Link href="/lista-espera" className="block">
+          <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm">
+              <Package className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Pedidos em espera</p>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">
+                {fmtVal(listaEsperaInfo.valorPotencial)} em oportunidades
+              </p>
+              <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
+                {listaEsperaInfo.qtdAguardando} item{listaEsperaInfo.qtdAguardando !== 1 ? 's' : ''} · {listaEsperaInfo.qtdClientes} cliente{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''} aguardando
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-amber-500 flex-none" />
+          </div>
+        </Link>
       )}
 
       {/* Avisos atrasados */}
@@ -314,32 +346,11 @@ export function DashboardVendedora({
         </div>
 
         <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">{fmt(totalComissoes)}</p>
-        {metaComissao ? (
-          <p className="text-xs text-muted-foreground mt-1">de {fmt(metaComissao)} da meta</p>
-        ) : (
-          <p className="text-xs text-muted-foreground mt-1">Meta ainda não configurada</p>
-        )}
+        <p className="text-xs text-muted-foreground mt-1">gerada sobre {fmt(totalVendasValor)} vendidos em 30 dias</p>
 
         <div className="mt-4">
-          <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={metaComissao} hojeDia={hojeDia} showProgressBar={false} />
+          <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={null} hojeDia={hojeDia} showProgressBar={false} />
         </div>
-
-        {comissaoPct !== null && metaComissao && metaComissao > 0 && (
-          <div className="mt-3 space-y-1.5">
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full ${comissaoPct >= 100 ? 'bg-green-500' : 'bg-emerald-500'}`}
-                style={{ width: `${comissaoPct}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{comissaoPct}% da meta</span>
-              <span className={comissaoPct >= 100 ? 'text-green-600 font-semibold' : ''}>
-                {comissaoPct >= 100 ? '✓ Meta atingida!' : `faltam ${fmt(comissaoFalta)}`}
-              </span>
-            </div>
-          </div>
-        )}
 
         <div className="grid grid-cols-2 mt-4 pt-4 border-t gap-2 text-center">
           <div>

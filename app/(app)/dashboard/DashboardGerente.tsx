@@ -4,10 +4,16 @@ import {
   Send, ChevronRight, Package, Bell, Users,
 } from 'lucide-react'
 import { ComissaoChart } from './ComissaoChart'
-import type { FunilStep, ProdutoRadarItem, VendedoraRanking, VendedoraComPendencia } from './page'
+import type { FunilStep, ProdutoRadarItem, VendedoraRanking, VendedoraComPendencia, ListaEsperaInfo } from './page'
+
+function fmtVal(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 interface Props {
   loja: { id: string; nome: string }
+  nomeUsuario: string
+  listaEsperaInfo: ListaEsperaInfo
   totalVendasValor: number
   qtdVendas: number
   totalRecomprasValor: number
@@ -35,6 +41,8 @@ const AVATAR_BG = ['bg-amber-500', 'bg-slate-400', 'bg-orange-400', 'bg-blue-400
 
 export function DashboardGerente({
   loja,
+  nomeUsuario,
+  listaEsperaInfo,
   totalVendasValor,
   qtdVendas,
   totalRecomprasValor,
@@ -91,8 +99,9 @@ export function DashboardGerente({
   return (
     <div className="space-y-5 pb-10">
       <div>
+        <p className="text-sm text-muted-foreground">Olá, {nomeUsuario.split(' ')[0]}</p>
         <h1 className="text-xl font-semibold tracking-tight">Painel da operação</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · acompanhe pendências, vendas e equipe</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · equipe, avisos e oportunidades</p>
       </div>
 
       {/* Headline — premium card */}
@@ -111,6 +120,54 @@ export function DashboardGerente({
           <p className="text-sm text-white/75 mt-3 ml-[50px] md:ml-[54px] leading-relaxed">{headlineSubtitulo}</p>
         </div>
       </Link>
+
+      {/* O que fazer agora */}
+      <div className="rounded-2xl border bg-card p-5">
+        <h2 className="text-sm font-semibold mb-3">O que fazer agora</h2>
+        <div className="space-y-2.5">
+          {[
+            qtdAvisosAtrasados > 0 ? { href: '/avisos', label: `Enviar ${qtdAvisosAtrasados} aviso${qtdAvisosAtrasados !== 1 ? 's' : ''} atrasados`, urgent: true } : null,
+            vendedorasComPendencias.length > 0 ? { href: '/avisos', label: `Acompanhar ${vendedorasComPendencias.length} vendedora${vendedorasComPendencias.length !== 1 ? 's' : ''} com pendência`, urgent: false } : null,
+            listaEsperaInfo.qtdAguardando > 0 ? { href: '/lista-espera', label: `Ver lista de espera (${listaEsperaInfo.qtdAguardando} item${listaEsperaInfo.qtdAguardando !== 1 ? 's' : ''})`, urgent: false } : null,
+            { href: '/produtos', label: 'Conferir produtos com maior recompra', urgent: false },
+          ].filter((x): x is { href: string; label: string; urgent: boolean } => x !== null)
+           .map((item, idx) => (
+            <Link key={idx} href={item.href} className="flex items-center gap-2.5 group">
+              <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none ${
+                item.urgent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+              }`}>
+                {idx + 1}
+              </span>
+              <span className={`text-sm font-medium group-hover:underline ${
+                item.urgent ? 'text-red-700 dark:text-red-400' : 'text-foreground'
+              }`}>
+                {item.label}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista de espera */}
+      {listaEsperaInfo.qtdAguardando > 0 && (
+        <Link href="/lista-espera" className="block">
+          <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm">
+              <Package className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Lista de espera</p>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">
+                {fmtVal(listaEsperaInfo.valorPotencial)} em demanda aguardando
+              </p>
+              <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
+                {listaEsperaInfo.qtdAguardando} item{listaEsperaInfo.qtdAguardando !== 1 ? 's' : ''} · {listaEsperaInfo.qtdClientes} cliente{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''} interessado{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-amber-500 flex-none" />
+          </div>
+        </Link>
+      )}
 
       {/* Métricas */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
@@ -142,36 +199,11 @@ export function DashboardGerente({
             </div>
 
             <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">{fmt(totalComissoes)}</p>
-            {metaComissao ? (
-              <p className="text-xs text-muted-foreground mt-1">de {fmt(metaComissao)} da meta</p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-1">Meta ainda não configurada</p>
-            )}
+            <p className="text-xs text-muted-foreground mt-1">gerada sobre {fmt(totalVendasValor)} vendidos pela equipe em 30 dias</p>
 
             <div className="mt-4">
-              <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={metaComissao} hojeDia={hojeDia} showProgressBar={false} />
+              <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={null} hojeDia={hojeDia} showProgressBar={false} />
             </div>
-
-            {metaComissao && metaComissao > 0 && (() => {
-              const pct = Math.min(100, Math.round((totalComissoes / metaComissao) * 100))
-              const falta = Math.max(0, metaComissao - totalComissoes)
-              return (
-                <div className="mt-3 space-y-1.5">
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : 'bg-emerald-500'}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{pct}% da meta</span>
-                    <span className={pct >= 100 ? 'text-green-600 font-semibold' : ''}>
-                      {pct >= 100 ? '✓ Meta atingida!' : `faltam ${fmt(falta)}`}
-                    </span>
-                  </div>
-                </div>
-              )
-            })()}
 
             <div className="grid grid-cols-2 mt-4 pt-4 border-t gap-2 text-center">
               <div>

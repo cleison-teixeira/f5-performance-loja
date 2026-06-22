@@ -1084,3 +1084,117 @@ Para P1: `valor_fixo` por item comissionável (sem percentual).
 **Ação recomendada (baixa prioridade):** backfill manual dos 6 registros orphan em `comissao_venda` após o piloto real iniciar. Não bloqueia onboarding da Cintya.
 
 **Ação requerida:** ao onboarding real da Cintya, confirmar que `regras_comissao` e `metas_vendedora` estão configurados antes do primeiro dia de uso.
+
+---
+
+## Atualização Fase 8.7D.6.1 — Correção de leitura dos dashboards
+
+**Data:** 2026-06-22  
+**Status:** ✅ CONCLUÍDA  
+**Commits afetados:** sem banco, sem RLS, sem migrations, sem motor de comissão
+
+---
+
+### 1. Nome no topo dos 3 dashboards
+
+| Dashboard | Antes | Depois |
+|---|---|---|
+| Vendedora | "Meu painel · [nome] · suas metas..." | "Olá, [firstName] / Seu painel de vendas" |
+| Gerente | "Painel da operação · [loja] · acompanhe..." | "Olá, [firstName] / Painel da operação · [loja]" |
+| Dono | "Painel da loja · [loja] · visão geral..." | "Olá, [firstName] / Painel da loja · [loja]" |
+
+O nome é lido de `perfis.nome` (já buscado via `perfilRes` em `page.tsx`) e passado como `nomeVendedora` para todos os roles. Dono e Gerente recebem o novo prop `nomeUsuario`. `firstName = nome.split(' ')[0]` garante exibição curta e mobile-safe.
+
+---
+
+### 2. Correção do bloco de comissão
+
+**Problema identificado:** `metaComissao` é `valor_meta` de `metas_vendedora` (meta de vendas = R$2.000), não uma meta de comissão. O bloco mostrava "R$39 de R$2.000 da meta" — confuso porque R$39 é comissão e R$2.000 é target de vendas.
+
+**Correção aplicada (Vendedora e Gerente):**
+- Removido: "de R$X da meta" / "Meta ainda não configurada"
+- Adicionado: "gerada sobre R$X vendidos em 30 dias" (usa `totalVendasValor`)
+- Removido: barra de progresso `comissaoPct` (comparava comissão/meta_venda — inválido)
+- Corrigido: `metaValor={null}` no `ComissaoChart` (remove linha de meta errada no gráfico)
+- Mantido: gráfico de acumulado diário, rodapé recompras/total vendido
+
+**Meta de vendas:** o bloco "Meta do mês" já exibe `totalVendasMes / metaVendasMes` corretamente na Vendedora. O bloco de ranking exibe metas individuais no Dono.
+
+---
+
+### 3. Lista de Espera nos dashboards
+
+**Nova query** adicionada ao `Promise.all` em `page.tsx`:
+- `lista_espera` → `status = 'aguardando'` + filtro `vendedora_id` para vendedora
+- Prop `listaEsperaInfo: { qtdAguardando, valorPotencial, qtdClientes }` propagado via `DashboardView`
+
+**Blocos compactos adicionados:**
+
+| Dashboard | Posição | Label |
+|---|---|---|
+| Vendedora | Após funil, antes de avisos | "Pedidos em espera" |
+| Gerente | Após "O que fazer agora", antes de métricas | "Lista de espera" |
+| Dono | Após "Dinheiro na Mesa", antes de Meta+Ranking | "Lista de espera" |
+
+Valores com 2 casas decimais (`minimumFractionDigits: 2`). Bloco oculto quando `qtdAguardando = 0`.
+
+---
+
+### 4. Funil da Vendedora com próxima ação
+
+Adicionado dentro do bloco "Meu funil de recompra" (após a nota sobre mensagens programadas):
+
+| Condição | Texto |
+|---|---|
+| `totalAtrasados > 0` | "Envie os X avisos atrasados para recuperar oportunidades." (vermelho) |
+| `totalHoje > 0` | "Fale com os X clientes de hoje." (âmbar) |
+| Fila vazia | "Fila zerada. Registre novas vendas para gerar próximas recompras." (muted) |
+
+---
+
+### 5. Dashboard Gerente como central de comando
+
+**Novo bloco "O que fazer agora"** adicionado após o headline card, antes das métricas:
+
+- Itens dinâmicos e numerados sequencialmente
+- Item 1 (se houver): enviar avisos atrasados (vermelho)
+- Item 2 (se houver): acompanhar vendedoras com pendência (âmbar)
+- Item 3 (se houver): ver lista de espera
+- Último: conferir produtos com maior recompra (sempre visível)
+
+Usa dados já existentes: `qtdAvisosAtrasados`, `vendedorasComPendencias`, `listaEsperaInfo`.
+
+---
+
+### 6. Restrições respeitadas
+
+| Restrição | Status |
+|---|---|
+| Banco / RLS / migrations | ✅ NÃO alterados |
+| Motor de comissão (`gravarComissaoVenda`) | ✅ NÃO alterado |
+| Regras de comissão no banco | ✅ NÃO alteradas |
+| Produtos PiùVita | ✅ NÃO alterados |
+| DashboardDono (estrutura principal) | ✅ NÃO quebrado — apenas nome + lista espera adicionados |
+
+---
+
+### 7. Arquivos alterados
+
+| Arquivo | Mudança |
+|---|---|
+| `app/(app)/dashboard/page.tsx` | Novo tipo `ListaEsperaInfo`; query `lista_espera`; cálculo e prop |
+| `app/(app)/dashboard/DashboardView.tsx` | Propagar `listaEsperaInfo` e `nomeUsuario` para os 3 dashboards |
+| `app/(app)/dashboard/DashboardVendedora.tsx` | Nome; fix comissão; funil próxima ação; lista espera |
+| `app/(app)/dashboard/DashboardGerente.tsx` | Nome; fix comissão; "O que fazer agora"; lista espera |
+| `app/(app)/dashboard/DashboardDono.tsx` | Nome; lista espera |
+| `app/debug/mobile-access/page.tsx` | Mock `listaEsperaInfo` para preview |
+
+---
+
+### 8. Build e deploy
+
+| Item | Status |
+|---|---|
+| TypeScript | ✅ sem erros |
+| Build | ✅ `Compiled successfully` — 29 rotas |
+| Commit | ver abaixo |

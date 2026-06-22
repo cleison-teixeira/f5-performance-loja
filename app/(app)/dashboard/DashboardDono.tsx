@@ -5,10 +5,16 @@ import {
   ChevronRight, Package, Bell, ShoppingBag, TrendingUp, Target, AlertCircle,
 } from 'lucide-react'
 import { ComissaoChart } from './ComissaoChart'
-import type { VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes } from './page'
+import type { VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo } from './page'
+
+function fmtVal(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 interface Props {
   loja: { id: string; nome: string }
+  nomeUsuario: string
+  listaEsperaInfo: ListaEsperaInfo
   dinheiroMesaInfo: DinheiroMesaInfo
   totalVendasMes: number
   metaVendasMes: number | null
@@ -121,6 +127,8 @@ function MoneyIllustration({ className }: { className?: string }) {
 
 export function DashboardDono({
   loja,
+  nomeUsuario,
+  listaEsperaInfo,
   dinheiroMesaInfo,
   totalVendasMes,
   metaVendasMes,
@@ -210,8 +218,9 @@ export function DashboardDono({
       {/* ── Header ── */}
       <div className="flex items-end justify-between gap-4">
         <div>
+          <p className="text-sm text-muted-foreground">Olá, {nomeUsuario.split(' ')[0]}</p>
           <h1 className="text-xl font-semibold tracking-tight">Painel da loja</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · visão geral de vendas, metas e recompras</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
         </div>
       </div>
 
@@ -314,6 +323,27 @@ export function DashboardDono({
           </div>
         </div>
       </div>
+
+      {/* ── Lista de Espera ── */}
+      {listaEsperaInfo.qtdAguardando > 0 && (
+        <Link href="/lista-espera" className="block">
+          <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm">
+              <Package className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Lista de espera</p>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">
+                {fmtVal(listaEsperaInfo.valorPotencial)} em demanda aguardando reposição
+              </p>
+              <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
+                {listaEsperaInfo.qtdAguardando} item{listaEsperaInfo.qtdAguardando !== 1 ? 's' : ''} · {listaEsperaInfo.qtdClientes} cliente{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''} interessado{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-amber-500 flex-none" />
+          </div>
+        </Link>
+      )}
 
       {/* ══════════════════════════════════════════
           SEÇÃO 2 — META + RANKING

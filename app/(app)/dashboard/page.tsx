@@ -80,6 +80,12 @@ export interface ProdutoTopMes {
   foto_url: string | null
 }
 
+export interface ListaEsperaInfo {
+  qtdAguardando: number
+  valorPotencial: number
+  qtdClientes: number
+}
+
 function addDias(base: string, n: number): string {
   const [y, m, d] = base.split('-').map(Number)
   const dt = new Date(y, m - 1, d)
@@ -137,7 +143,7 @@ export default async function DashboardPage() {
   }
   const hojeDia = agora.getDate()
 
-  const [vendasRes, avisosRes, recomprasRes, enviadosRes, produtosRes, membrosRes, perfilRes, metasRes, comissaoVendaRes] = await Promise.all([
+  const [vendasRes, avisosRes, recomprasRes, enviadosRes, produtosRes, membrosRes, perfilRes, metasRes, comissaoVendaRes, listaEsperaRes] = await Promise.all([
     (() => {
       let q = supabase
         .from('vendas')
@@ -219,6 +225,16 @@ export default async function DashboardPage() {
         .select('data_compra, vendedora_id, comissao_venda!inner(valor_comissao)')
         .eq('loja_id', loja_id)
         .gte('criado_em', data30.toISOString())
+      if (vidFilter) q = q.eq('vendedora_id', vidFilter)
+      return q
+    })(),
+    // Lista de espera — bloco compacto nos dashboards
+    (() => {
+      let q = supabase
+        .from('lista_espera')
+        .select('id, valor_potencial, cliente_nome')
+        .eq('loja_id', loja_id)
+        .eq('status', 'aguardando')
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
@@ -478,6 +494,13 @@ export default async function DashboardPage() {
   const diasRestantes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate() - agora.getDate()
   const mesLabel = agora.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
+  const listaEsperaItens = (listaEsperaRes.data ?? []) as Array<{ valor_potencial: number | null; cliente_nome: string }>
+  const listaEsperaInfo: ListaEsperaInfo = {
+    qtdAguardando: listaEsperaItens.length,
+    valorPotencial: listaEsperaItens.reduce((s, i) => s + (i.valor_potencial ?? 0), 0),
+    qtdClientes: new Set(listaEsperaItens.map(i => i.cliente_nome)).size,
+  }
+
   return (
     <DashboardView
       loja={loja}
@@ -511,6 +534,7 @@ export default async function DashboardPage() {
       topProdutosMes={topProdutosMes}
       vendasDiariaMes={vendasDiariaMes}
       mesLabel={mesLabel}
+      listaEsperaInfo={listaEsperaInfo}
     />
   )
 }
