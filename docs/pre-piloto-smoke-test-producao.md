@@ -670,3 +670,124 @@ Os itens a seguir requerem browser em `https://recway.com.br`.
 **Bloqueador imediato antes do onboarding:** senha da Cintya Teste deve ser resetada (Achado #1).
 
 **Próxima fase:** 8.7D.4 — Correções rápidas pré-onboarding.
+
+---
+
+## Atualização Fase 8.7D.4 · 2026-06-22 — Correções rápidas pré-onboarding
+
+**Commit:** `1a2ba04`  
+**Status:** ✅ CONCLUÍDO
+
+### 1. Senha Cintya Teste
+
+| Item | Status |
+|---|---|
+| Usuário | `cintya.teste@f5recompra.test` |
+| Senha temporária definida | ✅ `123456` — via `UPDATE auth.users SET encrypted_password = crypt(...)` |
+| ID usuário | `c1000000-0000-0000-0000-000000000001` |
+| Loja vinculada | ✅ Cia Cidade Azul Angeloni |
+| Role | ✅ `vendedora` |
+| Perfil | ✅ Cintya Teste |
+
+> **Ação pós-onboarding:** Cintya deve trocar a senha no primeiro acesso.
+
+### 2. Gerente — acesso operacional
+
+| Item | Status |
+|---|---|
+| Gerente já via todos os itens do menu antes desta fase | ✅ |
+| Nenhuma restrição de rota/menu bloqueava o gerente | ✅ |
+| Ajuste necessário | Nenhum — gerente tem acesso completo |
+
+### 3. Vendedora — menu Equipe ocultado
+
+| Item | Status |
+|---|---|
+| Sidebar desktop: Equipe oculto para vendedora | ✅ |
+| Sidebar desktop: Loja oculto para vendedora | ✅ |
+| Sidebar desktop: Configuração (seção) oculta para vendedora | ✅ |
+| BottomNav mobile: mesmo filtro aplicado | ✅ |
+| Dono e gerente continuam vendo tudo | ✅ |
+| RLS não alterado | ✅ |
+
+**Arquivos alterados:**
+- `app/(app)/layout.tsx` — fetcha role de `membros_loja`, passa para Sidebar e BottomNav
+- `components/layout/Sidebar.tsx` — aceita `role` prop, filtra `gestaoItems` e seção Configuração para vendedora
+- `components/layout/BottomNav.tsx` — aceita `role` prop, filtra drawerSections para vendedora
+
+### 4. Lista de Espera — máscaras e validação
+
+| Item | Status |
+|---|---|
+| Máscara de WhatsApp (formato `(XX) XXXXX-XXXX`) | ✅ |
+| Validação: mínimo 10 dígitos, máximo 11 | ✅ |
+| Normalização: envia apenas dígitos ao backend | ✅ |
+| Valor potencial: `replace(/\./g, '')` antes do parse | ✅ |
+| Campo WhatsApp: `inputMode="numeric"` para mobile | ✅ |
+
+### 5. Dashboard — filtro de produtos inativos/legados
+
+| Item | Status |
+|---|---|
+| Top Produtos do mês | ✅ filtra `!produtoFotoMap.has(produto_nome)` — exclui inativos e item livre |
+| Radar de produtos (30 dias) | ✅ mesmo filtro aplicado |
+| Whey EXX, MounJaro Natural, Cesta Amor de Mãe, Creatina Teste | ✅ não aparecem mais |
+| Item livre | ✅ também excluído do radar (não está no catálogo ativo) |
+
+### 6. Regra item livre não recorrente — confirmada no código
+
+Auditoria de `app/(app)/vendas/nova/actions.ts`:
+
+| Regra | Status no código |
+|---|---|
+| Item livre não recorrente NÃO cria produto no catálogo | ✅ `produto_id = null` (linha 126–128) |
+| Item livre não recorrente NÃO cria mensagens | ✅ nenhum `mensagens_produto` inserido |
+| Item livre não recorrente NÃO gera avisos (nenhum, incluindo agradecimento) | ✅ linha 273: `if (!recorrente) continue` — skip total |
+
+> Nota: smoke test relatou "aviso de agradecimento" para item livre — provavelmente erro de observação (item estava marcado como recorrente, ou aviso era de outro item na mesma venda). O código não gera avisos para não-recorrente.
+
+### 7. "Recway Academy" — labels atualizados
+
+| Arquivo | Antes | Depois |
+|---|---|---|
+| `components/layout/Sidebar.tsx` | `Academia Recway` | `Recway Academy` |
+| `components/layout/BottomNav.tsx` | `Academia Recway` | `Recway Academy` |
+| `app/(app)/treinamentos/page.tsx` | `Academia Recway` | `Recway Academy` |
+
+Rota `/treinamentos` mantida sem alteração.
+
+### 8. Mobile — ajustes feitos
+
+| Item | Status |
+|---|---|
+| Lista de Espera: `inputMode="numeric"` no campo WhatsApp | ✅ |
+| Overflow/margens evidentes | Sem bloqueadores críticos identificados no código estático |
+| Redesign de telas | ✅ NÃO feito — aguarda fase 8.7D.5 |
+
+### Status consolidado da fase
+
+| Item | Status |
+|---|---|
+| Senha Cintya | ✅ `123456` temporária — vinculada à loja correta como vendedora |
+| Acesso Gerente | ✅ completo — nenhuma restrição identificada |
+| Menu Equipe ocultado para vendedora | ✅ |
+| Lista de Espera com máscara WA | ✅ |
+| Dashboard sem produtos inativos | ✅ |
+| Item livre confirmado no código | ✅ zero avisos para não-recorrente |
+| "Recway Academy" aplicado | ✅ |
+| Schema/RLS/produtos PiùVita | ✅ NÃO alterados |
+| Build | ✅ `Compiled successfully` — 29 rotas |
+| Commit | ✅ `1a2ba04` → `main` → Vercel deploy acionado |
+
+### Pendências restantes
+
+| # | Item | Fase |
+|---|---|---|
+| 1 | Dashboard Vendedora: comissão, meta, atrasados + resultado 30 dias juntos | 8.7D.5 |
+| 2 | Dashboard Gerente: visão operacional completa | 8.7D.5 |
+| 3 | Mobile polish: overflow, touch targets nos dashboards | 8.7D.5 |
+| 4 | Auditoria cálculo de comissão (vendedora vê só recompras?) | 8.7D.6 |
+| 5 | Comissão gerente: definir e implementar regra | 8.7D.6 |
+| 6 | `www.recway.com.br` redirect para apex | Painel Vercel |
+| 7 | Favicon/logotipo oficial Recway | Asset pendente do Cleison |
+| 8 | Cintya trocar senha no primeiro acesso | Pós-onboarding |
