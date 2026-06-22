@@ -289,3 +289,56 @@ Fase 8.7D — Smoke test completo com os 3 perfis (Dono, Gerente, Vendedora)
 **Ambiente tecnicamente pronto para smoke test** — `recway.com.br` no ar com SSL, rotas de debug protegidas, WhatsApp test mode desligado, env vars de produção corretas.
 
 Antes de liberar para o lojista: executar login real com usuário dono e confirmar Supabase Auth no painel.
+
+---
+
+## Conclusão da Fase 8.7C · 2026-06-22
+
+### Login real confirmado
+
+| Item | Status |
+|---|---|
+| URL testada | `https://recway.com.br/login` |
+| Login com usuário dono | ✅ funcionou |
+| Redirecionamento após login | ✅ `https://recway.com.br/dashboard` |
+| Loja carregada | ✅ Cia Cidade Azul Angeloni |
+| Erro `link_invalido` | Irrelevante — originado de link expirado de recuperação de senha, não do login normal |
+
+### Logout
+
+| Item | Status |
+|---|---|
+| Rota de logout | `POST /api/auth/logout` |
+| Comportamento | `supabase.auth.signOut()` → redirect para `/login` |
+| Rota acessível em produção | ✅ `405` para GET (correto — aceita apenas POST) |
+| Teste via menu do app | Pendente de confirmação manual pelo Cleison |
+
+> O logout do app é acionado pelo botão de menu, que dispara um POST. O fluxo de código está correto e a rota está acessível em produção.
+
+### Supabase Auth
+
+| Item | Status |
+|---|---|
+| Conexão Supabase em produção | ✅ confirmada — login funcionou com email/senha |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ env var correta (login prova a conexão) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ env var correta |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ env var configurada |
+| Site URL no painel Supabase | Configurado pelo usuário — `https://recway.com.br` |
+| Redirect URLs no painel Supabase | Configurado pelo usuário (4 URLs — ver Seção 6) |
+
+> **Nota:** Site URL e Redirect URLs afetam fluxos de e-mail (recuperação de senha, magic link). Verificar no painel antes do primeiro smoke test que usa recuperação de senha.
+
+### Status Final das Pendências
+
+| # | Pendência | Status |
+|---|---|---|
+| 1 | Login real com usuário dono | ✅ Confirmado |
+| 2 | Dashboard carrega com loja correta | ✅ Confirmado (Cia Cidade Azul Angeloni) |
+| 3 | Supabase Auth Site URL e Redirect URLs | ✅ Configurado manualmente |
+| 4 | `www` redirect para apex | ⚠️ Pendente (cosmético) — configurar no painel Vercel |
+| 5 | Logout via menu do app | ⚠️ Pendente validação manual |
+| 6 | Favicon/logotipo | ⚠️ Pendente asset oficial |
+
+### ✅ Fase 8.7C CONCLUÍDA
+
+**Ambiente de produção `recway.com.br` validado e liberado para Fase 8.7D — Smoke Test Completo.**
