@@ -851,3 +851,100 @@ Rota `/treinamentos` mantida sem alteração.
 | CTA "Ver equipe" adicionado ao Gerente | ✅ |
 | Schema/RLS/banco | ✅ NÃO alterados |
 | Build | ✅ `Compiled successfully` — 29 rotas, TypeScript OK |
+
+---
+
+## Atualização Fase 8.7D.5.1 · 2026-06-22 — Refinos de Dashboard e Lista de Espera
+
+**Commit:** `6e5e096`  
+**Status:** ✅ CONCLUÍDO
+
+### 1. Bloco "Comissão acumulada do mês" — reestruturado
+
+**Problema:** bloco misturava gráfico, meta, comissão e total vendido sem hierarquia clara; "Meta: R$X" no header era redundante com o que o ComissaoChart já mostrava internamente.
+
+**Solução:**
+
+| Item | Status |
+|---|---|
+| Valor principal (R$ X) em destaque 3xl acima do gráfico | ✅ |
+| "de R$ Y da meta" como subtítulo imediato | ✅ |
+| `showProgressBar={false}` passado ao ComissaoChart (remove barra interna redundante) | ✅ |
+| Barra de meta manual abaixo do gráfico com "X% · faltam R$Y" | ✅ |
+| Footer reduzido de 3 para 2 colunas (removido "Minha comissão" duplicado) | ✅ |
+| Dashboard Gerente: título renomeado para "Comissões da equipe" | ✅ |
+| Dashboard Gerente: mesma estrutura (valor + barra manual + 2 colunas) | ✅ |
+
+### 2. Dashboard Vendedora — Funil de recompra
+
+**Problema:** vendedora não tinha visão do funil de recompra; dados da equipe poderiam vazar.
+
+**Solução:**
+
+| Item | Status |
+|---|---|
+| Bloco "Meu funil de recompra" adicionado após MetricCards | ✅ |
+| Barras horizontais simples por step (label + contagem + barra proporcional) | ✅ |
+| Cor por step: azul/âmbar/verde/emerald | ✅ |
+| `funil` prop adicionada à DashboardVendedora | ✅ |
+| `funil` encaminhado de DashboardView para DashboardVendedora | ✅ |
+| Dados já filtrados pela vendedora logada via `vidFilter` em page.tsx | ✅ |
+| "Uma venda pode gerar mais de uma mensagem" como nota informativa | ✅ |
+
+### 3. Lista de Espera — Oportunidade destacada
+
+**Problema:** Lista de Espera não comunicava o valor comercial da demanda represada.
+
+**Solução:**
+
+| Item | Status |
+|---|---|
+| Banner amber "Oportunidade" entre stats e formulário | ✅ |
+| Mostra: "R$ X em potencial aguardando reposição" | ✅ |
+| Contagem: "Y itens aguardando · Z clientes interessados" | ✅ |
+| Clientes únicos calculados com `Set()` sobre `registros.filter(aguardando)` | ✅ |
+| Aparece somente quando `aguardando > 0 && valorPotencial > 0` | ✅ |
+
+### 4. Lista de Espera — Valores com 2 casas decimais
+
+**Problema:** valores apareciam como "R$ 150", "R$ 100" sem casas decimais.
+
+**Solução:**
+
+| Arquivo | Mudança |
+|---|---|
+| `lista-espera/page.tsx` — `fmt()` | `maximumFractionDigits: 0` → `minimumFractionDigits: 2, maximumFractionDigits: 2` |
+| `lista-espera/ListaEsperaCards.tsx` — `fmtValor()` | idem |
+| Card de resumo "Potencial" | ✅ R$ 150,00 |
+| Valor potencial de cada item nos cards | ✅ R$ 100,00 |
+| Valor enviado ao banco | ✅ não alterado (normalização numérica intacta) |
+
+### 5. Restrições respeitadas
+
+| Restrição | Status |
+|---|---|
+| Banco / RLS / migrations | ✅ NÃO alterados |
+| Regra de comissão | ✅ NÃO alterada (aguarda 8.7D.6) |
+| Dashboard Dono | ✅ NÃO alterado |
+| Produtos PiùVita | ✅ NÃO alterados |
+| Autenticação | ✅ NÃO alterada |
+
+### 6. Status consolidado
+
+| Item | Status |
+|---|---|
+| Bloco comissão reestruturado — Vendedora | ✅ |
+| Bloco "Comissões da equipe" reestruturado — Gerente | ✅ |
+| Funil de recompra compacto — Vendedora | ✅ |
+| Oportunidade em destaque — Lista de Espera | ✅ |
+| Valores monetários com 2 casas decimais — Lista de Espera | ✅ |
+| Build | ✅ `Compiled successfully` — 29 rotas, TypeScript OK |
+| Commit | ✅ `6e5e096` → `main` → Vercel deploy acionado |
+
+### 7. Pendências para 8.7D.6
+
+| # | Item |
+|---|---|
+| 1 | Auditoria cálculo de comissão: vendedora vê só recompras ou todas as vendas comissionáveis? |
+| 2 | Comissão gerente: definir e implementar regra de visão (própria / equipe / percentual) |
+| 3 | Validação dos valores no banco contra vendas registradas no smoke |
