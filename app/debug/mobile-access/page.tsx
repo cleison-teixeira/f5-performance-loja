@@ -132,6 +132,9 @@ export default function DebugMobileAccessPage() {
             comissaoDiaria={comissaoDiaria}
             metaComissao={1500}
             hojeDia={hojeDia}
+            totalVendasMes={14230}
+            metaVendasMes={20000}
+            diasRestantes={new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate() - hojeDia}
           />
         </main>
       </div>

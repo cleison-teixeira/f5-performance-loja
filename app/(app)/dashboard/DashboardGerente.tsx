@@ -323,22 +323,32 @@ export function DashboardGerente({
       )}
 
       {/* CTAs operacionais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Link href="/avisos" className="rounded-xl border bg-card p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
           <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-none">
             <Bell className="h-4 w-4 text-amber-600" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium">Ir para avisos</p>
             <p className="text-xs text-muted-foreground">Fila da equipe</p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto flex-none" />
         </Link>
+        <Link href="/equipe" className="rounded-xl border bg-card p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
+          <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center flex-none">
+            <Users className="h-4 w-4 text-violet-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Ver equipe</p>
+            <p className="text-xs text-muted-foreground">Vendedoras e metas</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto flex-none" />
+        </Link>
         <Link href="/vendas" className="rounded-xl border bg-card p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
           <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-none">
-            <Users className="h-4 w-4 text-blue-600" />
+            <ShoppingBag className="h-4 w-4 text-blue-600" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium">Ver extrato</p>
             <p className="text-xs text-muted-foreground">Todas as vendas</p>
           </div>

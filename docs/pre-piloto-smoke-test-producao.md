@@ -791,3 +791,63 @@ Rota `/treinamentos` mantida sem alteração.
 | 6 | `www.recway.com.br` redirect para apex | Painel Vercel |
 | 7 | Favicon/logotipo oficial Recway | Asset pendente do Cleison |
 | 8 | Cintya trocar senha no primeiro acesso | Pós-onboarding |
+
+---
+
+## Atualização Fase 8.7D.5 · 2026-06-22 — Dashboards Gerente e Vendedora
+
+**Status:** ✅ CONCLUÍDO
+
+### 1. Dashboard Vendedora — reestruturação
+
+**Problema (pré-8.7D.5):** headline mutually-exclusive — quando atrasados > 0, o card de resultado 30 dias ficava completamente oculto. Comissão enterrada nos MetricCards. Sem barra de meta.
+
+**Solução implementada:**
+
+| Item | Status |
+|---|---|
+| Comissão do mês como destaque no topo da página (card proeminente verde, 3xl) | ✅ |
+| Meta do mês com barra de progresso (valor vendido / meta, %, falta, dias restantes) | ✅ |
+| Headline de ação (prioridade: atrasados → hoje → resultado → bem-vinda) mantida | ✅ |
+| Resultado strip (verde) aparece SIMULTANEAMENTE com headline de urgência quando há recompras | ✅ |
+| CTA "Ver meus avisos" adicionado ao lado do "Registrar nova venda" | ✅ |
+| Props novas: `totalVendasMes`, `metaVendasMes`, `diasRestantes` | ✅ |
+| Props novas encaminhadas de `DashboardView.tsx` para `DashboardVendedora.tsx` | ✅ |
+
+**Arquivos alterados:**
+- `app/(app)/dashboard/DashboardVendedora.tsx` — reestruturação da ordem visual e lógica de cards
+- `app/(app)/dashboard/DashboardView.tsx` — forward de 3 novas props para vendedora
+- `app/debug/mobile-access/page.tsx` — mock values para as novas props
+
+### 2. Dashboard Gerente — CTA equipe
+
+| Item | Status |
+|---|---|
+| 3 CTAs operacionais: Ir para avisos / Ver equipe / Ver extrato | ✅ |
+| Layout: `grid-cols-1 sm:grid-cols-3` | ✅ |
+| "Painel da operação" — label mantido | ✅ |
+| 6 MetricCards, ComissaoChart, Funil, Pendências, Ranking, Radar | ✅ (inalterados) |
+
+**Arquivo alterado:**
+- `app/(app)/dashboard/DashboardGerente.tsx` — CTAs expandidos de 2 para 3
+
+### 3. Restrições respeitadas
+
+| Restrição | Status |
+|---|---|
+| Cálculo de comissão NÃO alterado (aguarda 8.7D.6) | ✅ |
+| Schema / RLS / banco NÃO alterados | ✅ |
+| DashboardDono NÃO alterado | ✅ |
+| Produtos PiùVita NÃO alterados | ✅ |
+
+### Status consolidado da fase
+
+| Item | Status |
+|---|---|
+| Comissão proeminente no topo — Vendedora | ✅ |
+| Meta do mês com barra de progresso | ✅ |
+| Atrasados + Resultado 30 dias simultâneos | ✅ |
+| CTA "Ver meus avisos" adicionado | ✅ |
+| CTA "Ver equipe" adicionado ao Gerente | ✅ |
+| Schema/RLS/banco | ✅ NÃO alterados |
+| Build | ✅ `Compiled successfully` — 29 rotas, TypeScript OK |

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   Bell, AlertCircle, RefreshCcw, DollarSign,
-  TrendingUp, ChevronRight, Clock,
+  TrendingUp, ChevronRight, Clock, Target,
 } from 'lucide-react'
 import { ComissaoChart } from './ComissaoChart'
 import type { DashboardAviso } from './page'
@@ -20,6 +20,9 @@ interface Props {
   comissaoDiaria: number[]
   metaComissao: number | null
   hojeDia: number
+  totalVendasMes: number
+  metaVendasMes: number | null
+  diasRestantes: number
 }
 
 function fmt(val: number) {
@@ -54,6 +57,9 @@ export function DashboardVendedora({
   comissaoDiaria,
   metaComissao,
   hojeDia,
+  totalVendasMes,
+  metaVendasMes,
+  diasRestantes,
 }: Props) {
   const totalAtrasados = avisosAtrasados.length
   const totalHoje = avisosHoje.length
@@ -64,6 +70,7 @@ export function DashboardVendedora({
   let headlineCor: string
   let headlineIcon: React.ReactNode
   let headlineEyebrow: string
+  let headlineHref = '/avisos'
 
   if (totalAtrasados > 0) {
     headlineTitulo = `${totalAtrasados} aviso${totalAtrasados !== 1 ? 's' : ''} atrasado${totalAtrasados !== 1 ? 's' : ''}`
@@ -83,13 +90,24 @@ export function DashboardVendedora({
     headlineCor = 'from-emerald-500 to-green-700'
     headlineIcon = <RefreshCcw className="h-5 w-5 text-white" />
     headlineEyebrow = 'Resultado · 30 dias'
+    headlineHref = '/comissoes'
   } else {
     headlineTitulo = `Olá, ${firstName}!`
     headlineSubtitulo = 'Sua fila está vazia. Registre uma venda para começar.'
     headlineCor = 'from-amber-400 to-orange-500'
     headlineIcon = <TrendingUp className="h-5 w-5 text-white" />
     headlineEyebrow = 'Bem-vinda'
+    headlineHref = '/vendas/nova'
   }
+
+  const metaPct = metaVendasMes && metaVendasMes > 0
+    ? Math.min(100, Math.round((totalVendasMes / metaVendasMes) * 100))
+    : null
+  const faltaMeta = metaVendasMes && totalVendasMes < metaVendasMes ? metaVendasMes - totalVendasMes : 0
+  const metaAtingida = metaVendasMes != null && totalVendasMes >= metaVendasMes
+
+  // Resultado strip appears when urgency headline hides the positive result
+  const showResultadoStrip = (totalAtrasados > 0 || totalHoje > 0) && totalRecomprasValor > 0
 
   return (
     <div className="space-y-5 pb-10">
@@ -98,8 +116,54 @@ export function DashboardVendedora({
         <p className="text-sm text-muted-foreground mt-0.5">{nomeVendedora} · suas metas, avisos e recompras</p>
       </div>
 
-      {/* Headline de ação — premium card */}
-      <Link href="/avisos" className="block">
+      {/* Comissão — destaque principal */}
+      <Link href="/comissoes" className="block">
+        <div className="rounded-2xl border bg-card p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 rounded-xl bg-emerald-600 flex items-center justify-center flex-none shadow-sm">
+            <DollarSign className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-widest">Minha comissão do mês</p>
+            <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-tight mt-0.5">{fmt(totalComissoes)}</p>
+            {previsaoEmAberto > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">+ {fmt(previsaoEmAberto)} potencial em aberto</p>
+            )}
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground flex-none" />
+        </div>
+      </Link>
+
+      {/* Meta do mês */}
+      {metaVendasMes != null && metaVendasMes > 0 && metaPct !== null && (
+        <div className="rounded-2xl border bg-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">Meta do mês</h2>
+            </div>
+            <span className="text-xs text-muted-foreground">{diasRestantes}d restantes</span>
+          </div>
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-2xl font-bold tabular-nums">{fmt(totalVendasMes)}</span>
+            <span className="text-sm text-muted-foreground">de {fmt(metaVendasMes)}</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${metaAtingida ? 'bg-emerald-500' : 'bg-primary'}`}
+              style={{ width: `${metaPct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs font-medium text-muted-foreground">{metaPct}% da meta</span>
+            <span className={`text-xs font-semibold ${metaAtingida ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+              {metaAtingida ? '✓ Meta atingida!' : `Falta ${fmt(faltaMeta)}`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Headline de ação */}
+      <Link href={headlineHref} className="block">
         <div className={`rounded-2xl bg-gradient-to-br ${headlineCor} text-white p-4 md:p-5 shadow-md`}>
           <div className="flex items-center gap-3.5">
             <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-none">
@@ -114,6 +178,24 @@ export function DashboardVendedora({
           <p className="text-sm text-white/75 mt-3 ml-[50px] leading-relaxed">{headlineSubtitulo}</p>
         </div>
       </Link>
+
+      {/* Resultado strip — visível quando headline é urgência mas há recompras */}
+      {showResultadoStrip && (
+        <Link href="/comissoes" className="block">
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center flex-none shadow-sm">
+              <RefreshCcw className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-widest">Resultado · 30 dias</p>
+              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">
+                {fmt(totalRecomprasValor)} em recompras · {qtdRecompras} cliente{qtdRecompras !== 1 ? 's' : ''} voltou{qtdRecompras !== 1 ? 'aram' : ''}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-emerald-500 flex-none" />
+          </div>
+        </Link>
+      )}
 
       {/* Métricas pessoais — 2 cols mobile, 4 cols desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -135,7 +217,7 @@ export function DashboardVendedora({
           icon={<TrendingUp className="h-5 w-5 text-white" />} iconBg="bg-amber-500" />
       </div>
 
-      {/* Avisos atrasados — ação prioritária */}
+      {/* Avisos atrasados */}
       {avisosAtrasados.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -187,7 +269,7 @@ export function DashboardVendedora({
         </div>
       )}
 
-      {/* Gráfico comissão acumulada do mês */}
+      {/* Gráfico comissão acumulada */}
       <div className="rounded-2xl border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -217,17 +299,33 @@ export function DashboardVendedora({
         </div>
       </div>
 
-      {/* CTA nova venda */}
-      <Link
-        href="/vendas/nova"
-        className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 flex items-center justify-between gap-3 shadow-md hover:shadow-lg transition-shadow"
-      >
-        <div>
-          <p className="font-bold text-base">Registrar nova venda</p>
-          <p className="text-sm text-white/80 mt-0.5">Adicione uma venda para gerar os avisos automaticamente.</p>
-        </div>
-        <ChevronRight className="h-6 w-6 flex-none text-white/60" />
-      </Link>
+      {/* CTAs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Link
+          href="/vendas/nova"
+          className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 flex items-center justify-between gap-3 shadow-md hover:shadow-lg transition-shadow"
+        >
+          <div>
+            <p className="font-bold text-base">Registrar nova venda</p>
+            <p className="text-sm text-white/80 mt-0.5">Gera avisos automáticos de recompra.</p>
+          </div>
+          <ChevronRight className="h-6 w-6 flex-none text-white/60" />
+        </Link>
+        <Link
+          href="/avisos"
+          className="rounded-2xl border bg-card p-5 flex items-center justify-between gap-3 hover:shadow-md transition-shadow"
+        >
+          <div>
+            <p className="font-bold text-base">Ver meus avisos</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {totalAtrasados + totalHoje > 0
+                ? `${totalAtrasados + totalHoje} aviso${totalAtrasados + totalHoje !== 1 ? 's' : ''} pendente${totalAtrasados + totalHoje !== 1 ? 's' : ''}`
+                : 'Fila de mensagens para clientes'}
+            </p>
+          </div>
+          <ChevronRight className="h-6 w-6 flex-none text-muted-foreground" />
+        </Link>
+      </div>
     </div>
   )
 }

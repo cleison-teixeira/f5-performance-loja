@@ -59,6 +59,9 @@ export function DashboardView(props: Props) {
         comissaoDiaria={props.comissaoDiaria}
         metaComissao={props.metaComissao}
         hojeDia={props.hojeDia}
+        totalVendasMes={props.totalVendasMes}
+        metaVendasMes={props.metaVendasMes}
+        diasRestantes={props.diasRestantes}
       />
     )
   }
