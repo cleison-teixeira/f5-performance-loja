@@ -200,3 +200,92 @@ Fase 8.7D — Smoke test completo com os 3 perfis (Dono, Gerente, Vendedora)
 ---
 
 *Documento gerado na Fase 8.7C. Ações de DNS e Supabase Auth requerem acesso manual ao registrador e ao painel Supabase.*
+
+---
+
+## Validação Final da Fase 8.7C · 2026-06-22
+
+### DNS e SSL
+
+| Domínio | DNS | IP resolvido | SSL | Observação |
+|---|---|---|---|---|
+| `recway.vercel.app` | ✅ Vercel gerenciado | — | ✅ TLS ativo | URL de deploy direto |
+| `recway.com.br` | ✅ A record → `76.76.21.21` | `76.76.21.21` (Vercel) | ✅ TLS ativo + HSTS | **Domínio canônico** |
+| `www.recway.com.br` | ✅ CNAME → Vercel | `66.33.60.194` / `76.76.21.93` | ✅ TLS ativo (`CN=www.recway.com.br`) | ⚠️ Serve conteúdo diretamente — sem redirect para apex |
+
+> `strict-transport-security: max-age=63072000` confirmado em `recway.com.br` ✅
+
+### App e Rotas
+
+| URL | HTTP Status | Conteúdo | Observação |
+|---|---|---|---|
+| `https://recway.vercel.app/login` | ✅ 200 | HTML Recway | App carregando |
+| `https://recway.com.br/login` | ✅ 200 | HTML Recway | Domínio customizado ativo |
+| `https://www.recway.com.br/login` | ✅ 200 | HTML Recway (mesmo etag) | ⚠️ sem redirect para apex |
+| `https://recway.vercel.app/debug/auth` | ✅ 404 | — | Rota protegida |
+| `https://recway.vercel.app/debug/logout` | ✅ 404 JSON | `{"error":"Not found"}` | Rota protegida |
+| `https://recway.com.br/debug/auth` | ✅ 404 | — | Rota protegida no domínio customizado |
+| `https://recway.com.br/debug/logout` | ✅ 404 JSON | — | Rota protegida no domínio customizado |
+| `https://recway.com.br/api/auth/callback` | ✅ 307 → `/login?erro=link_invalido` | — | Fluxo de auth processando; Supabase conectado |
+
+### Env Vars Production (confirmadas via `vercel env ls`)
+
+| Variável | Configurada |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ |
+| `NEXT_PUBLIC_WHATSAPP_TEST_MODE` | ✅ `false` |
+| `NEXT_PUBLIC_WHATSAPP_TEST_PHONE` | ✅ não configurada (vazia) |
+
+### WhatsApp Test Mode
+
+| Item | Status |
+|---|---|
+| Modo teste em produção | ✅ `false` — links WA vão para número real do cliente |
+| Telefone de teste em produção | ✅ não configurado |
+
+### Supabase Auth
+
+| Item | Status |
+|---|---|
+| Conexão Supabase em produção | ✅ confirmada — `/api/auth/callback` processa e responde |
+| Site URL configurado | Confirmar no painel: `https://recway.com.br` |
+| Redirect URLs configuradas | Confirmar no painel (ver Seção 6 acima) |
+
+> A configuração de Site URL e Redirect URLs foi relatada como feita manualmente. A verificação definitiva requer acesso ao painel `supabase.com/dashboard/project/nhcppfovsxcsulyvwvgs/auth/url-configuration`.
+
+### Login Real
+
+| Item | Status |
+|---|---|
+| Login em `recway.vercel.app` | Pendente de validação manual pelo Cleison |
+| Login em `recway.com.br` | Pendente de validação manual pelo Cleison |
+| Dashboard após login | Pendente |
+| Logout pelo menu | Pendente |
+
+> O fluxo de auth está operacional (callback processa requests). O teste de login com usuário real requer browser — executar antes da Fase 8.7D.
+
+### Domínio Canônico
+
+| Item | Status |
+|---|---|
+| Domínio principal (Vercel) | ✅ `https://recway.com.br` |
+| `www` redireciona para apex | ⚠️ **Pendente** — `www.recway.com.br` serve conteúdo diretamente sem redirect |
+
+**Ação necessária:** no painel Vercel → Project `recway` → Settings → Domains → configurar `www.recway.com.br` como redirect para `recway.com.br`.
+
+### Pendências antes da Fase 8.7D
+
+| # | Pendência | Prioridade |
+|---|---|---|
+| 1 | **Login real com usuário dono** — testar em `recway.com.br` via browser | Alta |
+| 2 | **Confirmar Supabase Auth** Site URL e Redirect URLs no painel | Alta |
+| 3 | **www redirect** — configurar no painel Vercel (`www` → apex) | Média |
+| 4 | **Favicon/logotipo** — enviar asset oficial Recway | Baixa |
+
+### Veredicto
+
+**Ambiente tecnicamente pronto para smoke test** — `recway.com.br` no ar com SSL, rotas de debug protegidas, WhatsApp test mode desligado, env vars de produção corretas.
+
+Antes de liberar para o lojista: executar login real com usuário dono e confirmar Supabase Auth no painel.
