@@ -285,8 +285,67 @@ Ambiente de produção no ar, SSL ativo, auth funcionando, catálogo PiùVita pr
 Os testes de interface, venda rápida, mobile e logout por perfil precisam ser executados no browser pelo Cleison antes de declarar produção pronta para onboarding.
 
 **Anomalia a corrigir antes da Fase 8.8:**  
-MounJaro Natural com variáveis antigas — risco de aviso mal formatado se uma venda desse produto for registrada.
+~~MounJaro Natural com variáveis antigas~~ → **resolvido na Fase 8.7D.1** (produto desativado).
 
 ---
 
 *Documento gerado na Fase 8.7D. Seções 6–9 dependem de execução manual no browser.*
+
+---
+
+## Atualização Fase 8.7D.1 — Limpeza de Produtos Legados · 2026-06-22
+
+### Produtos legados encontrados (4)
+
+| Produto | ID | Recorrente | Preço | Mensagens | Variáveis | itens_venda | avisos |
+|---|---|---|---|---|---|---|---|
+| Cesta Amor de Mãe 💖 | `665a359f-...` | sim | — (sem preço) | 3 (antigas) | `{cliente}`, `{vendedora}`, `{loja}`, `{produto}` | 3 | 9 |
+| Chocolate Zero | `7a240699-...` | não | R$ 19,90 | 0 reais (qtd_mensagens=2 no campo) | — | 3 | 0 |
+| MounJaro Natural | `85bdb78a-...` | sim | R$ 58,90 | 4 (antigas + extra oferta) | `{cliente}`, `{vendedora}`, `{loja}`, `{produto}` | 11 | 38 |
+| Whey EXX | `d1000000-...` | sim | R$ 159,90 | 3 (antigas) | `{cliente}`, `{vendedora}`, `{loja}`, `{produto}` | 5 | 12 |
+
+> Todos os 4 usam o formato antigo de variáveis (sem sufixo `_nome`). Nenhum é parte do catálogo PiùVita oficial. Todos são seeds de fases anteriores ao pré-piloto.
+
+### Dependências preservadas
+
+Vendas, itens_venda e avisos históricos **não foram alterados**. O `ativo = false` remove os produtos de `/produtos` e `/vendas/nova` mas preserva todo o histórico.
+
+### Decisão aplicada
+
+Todos os 4 produtos desativados com `UPDATE produtos SET ativo = false` — transação `BEGIN/COMMIT`. Nenhum dado deletado.
+
+### Validações pós-desativação
+
+| Validação | Esperado | Resultado |
+|---|---|---|
+| Produtos PiùVita oficiais ativos | 30 | ✅ **30** |
+| Produtos legados ativos | 0 | ✅ **0** |
+| MounJaro Natural `ativo` | false | ✅ `false` |
+| Whey EXX `ativo` | false | ✅ `false` |
+| Cesta Amor de Mãe 💖 `ativo` | false | ✅ `false` |
+| Chocolate Zero `ativo` | false | ✅ `false` |
+| Creatina Teste `ativo` (controle) | false | ✅ `false` — inalterada |
+
+### O que NÃO foi alterado
+
+- Nenhum produto PiùVita oficial tocado
+- Nenhum código alterado
+- Nenhum RLS alterado
+- Nenhum schema alterado
+- Nenhuma venda/aviso/cliente deletado
+- Build limpo antes e depois
+
+### Estado final do catálogo
+
+| Categoria | Ativos | Inativos |
+|---|---|---|
+| PiùVita oficiais | **30** | 0 |
+| Legados (seeds anteriores) | 0 | 4 |
+| Testes (Creatina Teste) | 0 | 1 |
+| **Total** | **30** | **5** |
+
+### Veredicto 8.7D.1
+
+✅ Catálogo limpo. `/produtos` e `/vendas/nova` mostrarão exatamente os 30 produtos PiùVita oficiais.
+
+**Liberado para smoke test manual no browser (Fase 8.7D continuação).**
