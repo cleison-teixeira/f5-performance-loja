@@ -212,7 +212,7 @@ export default function TreinamentosPage() {
 
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-xl font-semibold">Academia Recway</h1>
+        <h1 className="text-xl font-semibold">Recway Academy</h1>
         <p className="text-sm text-muted-foreground">
           Treinamentos rápidos para sua equipe vender mais e usar melhor a plataforma.
         </p>

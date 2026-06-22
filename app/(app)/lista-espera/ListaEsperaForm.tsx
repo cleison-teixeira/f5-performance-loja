@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X, Loader2, CheckCircle } from 'lucide-react'
 import { criarListaEspera } from './actions'
+import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 
 interface Categoria {
   id: string
@@ -67,13 +68,18 @@ export function ListaEsperaForm({
     e.preventDefault()
     setErro(null)
 
-    if (!form.cliente_nome.trim() || !form.cliente_whatsapp.trim() || !form.produto_nome.trim()) {
-      setErro('Preencha nome do cliente, WhatsApp e produto.')
+    if (!form.cliente_nome.trim() || !form.produto_nome.trim()) {
+      setErro('Preencha nome do cliente e produto.')
+      return
+    }
+    const whatsappDigits = normalizarWhatsapp(form.cliente_whatsapp)
+    if (whatsappDigits.length < 10 || whatsappDigits.length > 11) {
+      setErro('WhatsApp inválido. Use o formato (XX) XXXXX-XXXX.')
       return
     }
 
     const valor = form.valor_potencial
-      ? parseFloat(form.valor_potencial.replace(',', '.'))
+      ? parseFloat(form.valor_potencial.replace(/\./g, '').replace(',', '.'))
       : null
     const qtd = Math.max(1, parseInt(form.quantidade) || 1)
 
@@ -81,7 +87,7 @@ export function ListaEsperaForm({
       const res = await criarListaEspera({
         loja_id,
         cliente_nome: form.cliente_nome,
-        cliente_whatsapp: form.cliente_whatsapp,
+        cliente_whatsapp: whatsappDigits,
         produto_nome: form.produto_nome,
         categoria_id: form.categoria_id || undefined,
         valor_potencial: isNaN(valor as number) ? null : valor,
@@ -151,9 +157,10 @@ export function ListaEsperaForm({
             </label>
             <input
               className={inputClass}
-              placeholder="5511999990000"
+              placeholder="(11) 99999-0000"
               value={form.cliente_whatsapp}
-              onChange={e => set('cliente_whatsapp', e.target.value)}
+              onChange={e => set('cliente_whatsapp', formatarWhatsapp(e.target.value))}
+              inputMode="numeric"
             />
           </div>
         </div>

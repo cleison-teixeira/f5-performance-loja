@@ -20,9 +20,13 @@ const operacaoItems = [
   { href: '/comissoes', label: 'Comissões', icon: DollarSign },
 ]
 
-const gestaoItems = [
+const gestaoItemsBase = [
   { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
+  { href: '/metas', label: 'Metas', icon: Target },
+]
+
+const gestaoItemsVendedora = [
   { href: '/metas', label: 'Metas', icon: Target },
 ]
 
@@ -32,17 +36,21 @@ const configuracaoItems = [
 ]
 
 const aprenderItems = [
-  { href: '/treinamentos', label: 'Academia Recway', icon: GraduationCap },
+  { href: '/treinamentos', label: 'Recway Academy', icon: GraduationCap },
 ]
 
 type NavItem = { href: string; label: string; icon: React.ElementType }
 
-export function Sidebar() {
+interface Props {
+  role: string
+}
+
+export function Sidebar({ role }: Props) {
   const pathname = usePathname()
+  const isVendedora = role === 'vendedora'
 
   function isActive(href: string) {
     if (pathname === href) return true
-    // /vendas is a prefix of /vendas/nova — don't mark it active on sub-routes
     if (href === '/vendas') return false
     return pathname.startsWith(href + '/')
   }
@@ -56,6 +64,7 @@ export function Sidebar() {
     )
 
   function Section({ label, Icon, items }: { label: string; Icon: React.ElementType; items: NavItem[] }) {
+    if (items.length === 0) return null
     return (
       <>
         <div className="flex items-center gap-2 px-3 py-1.5 mt-3">
@@ -76,6 +85,8 @@ export function Sidebar() {
     )
   }
 
+  const gestaoItems = isVendedora ? gestaoItemsVendedora : gestaoItemsBase
+
   return (
     <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
       <div className="flex items-center h-14 px-4 border-b">
@@ -84,7 +95,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />
         <Section label="Gestão" Icon={Building2} items={gestaoItems} />
-        <Section label="Configuração" Icon={Settings} items={configuracaoItems} />
+        {!isVendedora && <Section label="Configuração" Icon={Settings} items={configuracaoItems} />}
         <Section label="Aprender" Icon={GraduationCap} items={aprenderItems} />
       </nav>
     </aside>

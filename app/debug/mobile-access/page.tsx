@@ -135,7 +135,7 @@ export default function DebugMobileAccessPage() {
           />
         </main>
       </div>
-      <BottomNav />
+      <BottomNav role="dono" />
     </div>
   )
 }

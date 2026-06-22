@@ -345,6 +345,7 @@ export default async function DashboardPage() {
   })
   const produtoMap = new Map<string, number>()
   vendas.forEach(v => v.itens.forEach(i => {
+    if (!produtoFotoMap.has(i.produto_nome)) return  // skip inactive and item livre
     produtoMap.set(i.produto_nome, (produtoMap.get(i.produto_nome) ?? 0) + i.subtotal)
   }))
   const produtosRadar: ProdutoRadarItem[] = Array.from(produtoMap.entries())
@@ -452,6 +453,7 @@ export default async function DashboardPage() {
 
   const produtoMesMap = new Map<string, { total: number; foto_url: string | null }>()
   vendasMes.forEach(v => v.itens.forEach(i => {
+    if (!produtoFotoMap.has(i.produto_nome)) return  // skip inactive and item livre
     const prev = produtoMesMap.get(i.produto_nome) ?? { total: 0, foto_url: produtoFotoMap.get(i.produto_nome) ?? null }
     prev.total += i.subtotal
     produtoMesMap.set(i.produto_nome, prev)

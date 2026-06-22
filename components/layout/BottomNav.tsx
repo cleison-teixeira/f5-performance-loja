@@ -17,44 +17,51 @@ const mainItems = [
   { href: '/produtos', label: 'Produtos', icon: Package },
 ]
 
-const drawerSections = [
-  {
-    label: 'Operação',
-    items: [
-      { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
-      { href: '/clientes', label: 'Clientes', icon: Users },
-      { href: '/comissoes', label: 'Comissões', icon: DollarSign },
-      { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
-    ],
-  },
-  {
-    label: 'Gestão',
-    items: [
-      { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
-      { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
-      { href: '/metas', label: 'Metas', icon: Target },
-    ],
-  },
-  {
-    label: 'Configuração',
-    items: [
-      { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
-      { href: '/configuracoes/comissoes', label: 'Comissões da equipe', icon: SlidersHorizontal },
-    ],
-  },
-  {
-    label: 'Aprender',
-    items: [
-      { href: '/treinamentos', label: 'Academia Recway', icon: GraduationCap },
-    ],
-  },
+const operacaoDrawer = [
+  { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
+  { href: '/clientes', label: 'Clientes', icon: Users },
+  { href: '/comissoes', label: 'Comissões', icon: DollarSign },
+  { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
 ]
 
-const allDrawerItems = drawerSections.flatMap(s => s.items)
+const gestaoDrawerBase = [
+  { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
+  { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
+  { href: '/metas', label: 'Metas', icon: Target },
+]
 
-export function BottomNav() {
+const gestaoDrawerVendedora = [
+  { href: '/metas', label: 'Metas', icon: Target },
+]
+
+const configuracaoDrawer = [
+  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/comissoes', label: 'Comissões da equipe', icon: SlidersHorizontal },
+]
+
+const aprenderDrawer = [
+  { href: '/treinamentos', label: 'Recway Academy', icon: GraduationCap },
+]
+
+interface Props {
+  role: string
+}
+
+export function BottomNav({ role }: Props) {
   const pathname = usePathname()
   const [drawerAberto, setDrawerAberto] = useState(false)
+  const isVendedora = role === 'vendedora'
+
+  const gestaoDrawer = isVendedora ? gestaoDrawerVendedora : gestaoDrawerBase
+
+  const drawerSections = [
+    { label: 'Operação', items: operacaoDrawer },
+    { label: 'Gestão', items: gestaoDrawer },
+    ...(!isVendedora ? [{ label: 'Configuração', items: configuracaoDrawer }] : []),
+    { label: 'Aprender', items: aprenderDrawer },
+  ]
+
+  const allDrawerItems = drawerSections.flatMap(s => s.items)
 
   const maisAtivo = allDrawerItems.some(
     i => pathname === i.href || pathname.startsWith(i.href + '/')
