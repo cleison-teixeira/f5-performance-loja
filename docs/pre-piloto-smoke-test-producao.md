@@ -349,3 +349,56 @@ Todos os 4 produtos desativados com `UPDATE produtos SET ativo = false` — tran
 ✅ Catálogo limpo. `/produtos` e `/vendas/nova` mostrarão exatamente os 30 produtos PiùVita oficiais.
 
 **Liberado para smoke test manual no browser (Fase 8.7D continuação).**
+
+---
+
+## Atualização Fase 8.7D.2 · 2026-06-22 — Bug crítico encontrado e corrigido
+
+### Bug: substituição de variáveis em `texto_renderizado`
+
+**Descoberta:** Durante a auditoria técnica do pipeline de avisos, identificado bug crítico na função `interpolar()` em `lib/mensagens/interpolador.ts`.
+
+**Causa raiz:**
+
+| Camada | Antes (bug) | Depois (fix) |
+|---|---|---|
+| `interpolar()` substituía | `{cliente}`, `{produto}`, `{vendedora}`, `{loja}` | `{cliente_nome}`, `{produto_nome}`, `{vendedora_nome}`, `{loja_nome}` (+ aliases `{cliente}` etc. para retrocompat) |
+| `gerarAvisos()` passava | `{ cliente, produto, vendedora, loja }` | `{ cliente_nome, produto_nome, vendedora_nome, loja_nome }` |
+| Templates PiùVita usam | `{cliente_nome}`, `{produto_nome}`, ... | ✅ corresponde ao fix |
+
+**Impacto:** 15 avisos em produção tinham `{cliente_nome}`, `{produto_nome}` etc. literais em `texto_renderizado`. O link WhatsApp enviaria texto com variáveis não substituídas para o cliente.
+
+### Correção aplicada
+
+| Item | Ação | Status |
+|---|---|---|
+| `lib/mensagens/interpolador.ts` | Assinatura e regexes atualizados para `_nome` + aliases | ✅ |
+| `lib/avisos/gerador.ts` | Keys do objeto passado para `interpolar` corrigidas | ✅ |
+| 15 avisos no DB | `UPDATE avisos ... SET texto_renderizado = replace(...)` com JOINs em `clientes`, `perfis`, `lojas`, `itens_venda` | ✅ 0 avisos com variáveis literais |
+| Build | `✓ Compiled successfully` — 29 rotas | ✅ |
+| Commit | `be59725` — `fix(fase8.7d2): correct variable substitution in aviso text rendering` | ✅ |
+| Deploy | Push para `main` — Vercel deploy automático acionado | ✅ |
+
+### Validação pós-fix (banco)
+
+```
+SELECT COUNT(*) FROM avisos
+WHERE texto_renderizado LIKE '%{cliente_nome}%' → 0
+```
+
+Exemplo de aviso corrigido:
+> "Olá Luiz T, aqui é Teste da Cia Cidade Azul Angeloni. Obrigado pela sua compra do Piu MAG + Magnésio C/60. Salve meu contato..."
+
+### Avisos pré-existentes com substituição correta
+
+Os avisos de produtos legados (MounJaro Natural, Cesta Amor de Mãe, etc.) já tinham `texto_renderizado` correto — esses templates usavam `{cliente}` (sem `_nome`), que `interpolar` resolvia corretamente.
+
+### Status após 8.7D.2
+
+| Item | Status |
+|---|---|
+| Pipeline de geração de avisos | ✅ corrigido — novos avisos substituirão variáveis corretamente |
+| Avisos existentes no DB | ✅ backfillados — 0 com variáveis literais |
+| Deploy em produção | ✅ `be59725` em `main` → Vercel |
+
+**Smoke test manual no browser pode prosseguir. Executar com `recway.com.br` após deploy da Vercel ficar `READY`.**
