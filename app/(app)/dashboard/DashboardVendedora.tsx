@@ -1,7 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import {
-  Bell, AlertCircle, RefreshCcw, DollarSign,
-  TrendingUp, ChevronRight, Clock, Target, Package,
+  Bell, AlertCircle, DollarSign, TrendingUp,
+  ChevronRight, Clock, Target, Package,
 } from 'lucide-react'
 import { ComissaoChart } from './ComissaoChart'
 import type { DashboardAviso, FunilStep, ListaEsperaInfo } from './page'
@@ -10,7 +12,12 @@ function fmtVal(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
 interface Props {
+  loja: { id: string; nome: string }
   nomeVendedora: string
   totalVendasValor: number
   qtdVendas: number
@@ -31,10 +38,6 @@ interface Props {
   listaEsperaInfo: ListaEsperaInfo
 }
 
-function fmt(val: number) {
-  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
 const TIPO_LABEL: Record<string, string> = {
   agradecimento: 'Agradecimento',
   relacionamento: 'Relacionamento',
@@ -49,7 +52,72 @@ const TIPO_COR: Record<string, string> = {
   oferta: 'bg-purple-100 text-purple-700',
 }
 
+function MoneyIllustration({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 172 144"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="vm-n1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#065f46" />
+          <stop offset="100%" stopColor="#047857" />
+        </linearGradient>
+        <linearGradient id="vm-n2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#059669" />
+          <stop offset="100%" stopColor="#047857" />
+        </linearGradient>
+        <linearGradient id="vm-n3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#34d399" />
+          <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+        <radialGradient id="vm-ca" cx="38%" cy="32%" r="65%">
+          <stop offset="0%" stopColor="#fcd34d" />
+          <stop offset="55%" stopColor="#d97706" />
+          <stop offset="100%" stopColor="#92400e" />
+        </radialGradient>
+        <radialGradient id="vm-cb" cx="38%" cy="32%" r="65%">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="55%" stopColor="#b45309" />
+          <stop offset="100%" stopColor="#78350f" />
+        </radialGradient>
+      </defs>
+      <rect x="14" y="16" width="120" height="72" rx="9"
+        fill="url(#vm-n1)" opacity="0.70" transform="rotate(-15 74 52)" />
+      <rect x="14" y="16" width="120" height="72" rx="9"
+        fill="url(#vm-n2)" opacity="0.86" transform="rotate(-6 74 52)" />
+      <rect x="20" y="22" width="108" height="60" rx="6"
+        fill="none" stroke="#34d399" strokeWidth="0.7" opacity="0.3" transform="rotate(-6 74 52)" />
+      <rect x="14" y="16" width="120" height="72" rx="9" fill="url(#vm-n3)" />
+      <rect x="20" y="22" width="108" height="60" rx="6"
+        fill="none" stroke="#a7f3d0" strokeWidth="0.8" opacity="0.45" />
+      <circle cx="40" cy="52" r="14" fill="#059669" />
+      <circle cx="40" cy="52" r="10" fill="none" stroke="#6ee7b7" strokeWidth="0.7" opacity="0.45" />
+      <line x1="62" y1="33" x2="116" y2="33" stroke="#a7f3d0" strokeWidth="1.1" opacity="0.45" />
+      <line x1="62" y1="41" x2="116" y2="41" stroke="#a7f3d0" strokeWidth="1.1" opacity="0.45" />
+      <line x1="62" y1="49" x2="116" y2="49" stroke="#a7f3d0" strokeWidth="1.1" opacity="0.45" />
+      <line x1="62" y1="57" x2="110" y2="57" stroke="#a7f3d0" strokeWidth="1" opacity="0.4" />
+      <line x1="62" y1="65" x2="98" y2="65" stroke="#a7f3d0" strokeWidth="0.9" opacity="0.35" />
+      <rect x="20" y="20" width="13" height="8" rx="2" fill="#047857" opacity="0.65" />
+      <rect x="115" y="60" width="13" height="8" rx="2" fill="#047857" opacity="0.65" />
+      <circle cx="106" cy="120" r="16" fill="url(#vm-cb)" opacity="0.82" />
+      <circle cx="106" cy="120" r="16" fill="none" stroke="#d97706" strokeWidth="0.8" opacity="0.45" />
+      <circle cx="102" cy="116" r="7" fill="white" opacity="0.07" />
+      <circle cx="150" cy="106" r="12" fill="url(#vm-cb)" opacity="0.88" />
+      <circle cx="150" cy="106" r="12" fill="none" stroke="#f59e0b" strokeWidth="0.7" opacity="0.5" />
+      <circle cx="147" cy="103" r="5" fill="white" opacity="0.09" />
+      <circle cx="126" cy="112" r="21" fill="url(#vm-ca)" />
+      <circle cx="126" cy="112" r="21" fill="none" stroke="#fbbf24" strokeWidth="0.9" opacity="0.6" />
+      <circle cx="121" cy="107" r="9" fill="white" opacity="0.10" />
+    </svg>
+  )
+}
+
 export function DashboardVendedora({
+  loja,
   nomeVendedora,
   totalVendasValor,
   qtdVendas,
@@ -61,211 +129,297 @@ export function DashboardVendedora({
   avisosHoje,
   diasMes,
   comissaoDiaria,
-  metaComissao,
   hojeDia,
   totalVendasMes,
   metaVendasMes,
   diasRestantes,
-  funil,
   listaEsperaInfo,
 }: Props) {
+  const firstName = nomeVendedora.split(' ')[0]
   const totalAtrasados = avisosAtrasados.length
   const totalHoje = avisosHoje.length
-  const firstName = nomeVendedora.split(' ')[0]
-
-  let headlineTitulo: string
-  let headlineSubtitulo: string
-  let headlineCor: string
-  let headlineIcon: React.ReactNode
-  let headlineEyebrow: string
-  let headlineHref = '/avisos'
-
-  if (totalAtrasados > 0) {
-    headlineTitulo = `${totalAtrasados} aviso${totalAtrasados !== 1 ? 's' : ''} atrasado${totalAtrasados !== 1 ? 's' : ''}`
-    headlineSubtitulo = 'Envie agora — cada dia de atraso reduz a chance de recompra.'
-    headlineCor = 'from-red-500 to-red-700'
-    headlineIcon = <AlertCircle className="h-5 w-5 text-white" />
-    headlineEyebrow = 'Ação necessária'
-  } else if (totalHoje > 0) {
-    headlineTitulo = `${totalHoje} aviso${totalHoje !== 1 ? 's' : ''} para hoje`
-    headlineSubtitulo = `Boa sorte, ${firstName}! Sua fila de hoje está pronta.`
-    headlineCor = 'from-amber-500 to-orange-600'
-    headlineIcon = <Bell className="h-5 w-5 text-white" />
-    headlineEyebrow = 'Fila de hoje'
-  } else if (totalRecomprasValor > 0) {
-    headlineTitulo = `${fmt(totalRecomprasValor)} em recompras`
-    headlineSubtitulo = `Parabéns, ${firstName}! ${qtdRecompras} cliente${qtdRecompras !== 1 ? 's' : ''} voltou${qtdRecompras !== 1 ? 'aram' : ''} nos últimos 30 dias.`
-    headlineCor = 'from-emerald-500 to-green-700'
-    headlineIcon = <RefreshCcw className="h-5 w-5 text-white" />
-    headlineEyebrow = 'Resultado · 30 dias'
-    headlineHref = '/comissoes'
-  } else {
-    headlineTitulo = `Olá, ${firstName}!`
-    headlineSubtitulo = 'Sua fila está vazia. Registre uma venda para começar.'
-    headlineCor = 'from-amber-400 to-orange-500'
-    headlineIcon = <TrendingUp className="h-5 w-5 text-white" />
-    headlineEyebrow = 'Bem-vinda'
-    headlineHref = '/vendas/nova'
-  }
 
   // Meta de vendas
-  const metaPct = metaVendasMes && metaVendasMes > 0
-    ? Math.min(100, Math.round((totalVendasMes / metaVendasMes) * 100))
-    : null
-  const faltaMeta = metaVendasMes && totalVendasMes < metaVendasMes ? metaVendasMes - totalVendasMes : 0
-  const metaAtingida = metaVendasMes != null && totalVendasMes >= metaVendasMes
+  const hasMetaVendas = metaVendasMes != null && metaVendasMes > 0
+  const metaMensal = hasMetaVendas ? metaVendasMes! : 0
+  const faltante = hasMetaVendas ? Math.max(metaMensal - totalVendasMes, 0) : 0
+  const diasRestantesSafe = Math.max(diasRestantes, 1)
+  const metaDiaria = hasMetaVendas ? faltante / diasRestantesSafe : 0
+  const pct = hasMetaVendas && metaMensal > 0
+    ? Math.min(Math.round((totalVendasMes / metaMensal) * 100), 100)
+    : 0
+  const metaBatida = hasMetaVendas && totalVendasMes >= metaMensal
 
-  const showResultadoStrip = (totalAtrasados > 0 || totalHoje > 0) && totalRecomprasValor > 0
+  const barGrad = pct >= 100 ? 'from-emerald-500 to-green-500'
+    : pct >= 75 ? 'from-blue-500 to-blue-600'
+    : pct >= 40 ? 'from-amber-500 to-orange-500'
+    :             'from-red-500 to-red-600'
 
-  const funilMax = funil[0]?.value ?? 1
+  const statusLabel = pct >= 100 ? 'Meta batida!'
+    : pct >= 75 ? 'Bom ritmo'
+    : pct >= 40 ? 'Em evolução'
+    : 'Atenção'
+
+  const statusCls = pct >= 100 ? 'text-emerald-600 dark:text-emerald-400'
+    : pct >= 75 ? 'text-blue-600 dark:text-blue-400'
+    : pct >= 40 ? 'text-amber-600 dark:text-amber-400'
+    : 'text-red-600 dark:text-red-400'
 
   return (
     <div className="space-y-5 pb-10">
-      <div>
-        <p className="text-sm text-muted-foreground">Olá, {firstName}</p>
-        <h1 className="text-xl font-semibold tracking-tight">Seu painel de vendas</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">metas, comissão e recompras</p>
+
+      {/* ══ 1. SAUDAÇÃO ══ */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Olá, {firstName}</p>
+          <h1 className="text-xl font-semibold tracking-tight">Seu painel de vendas</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
+        </div>
+        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex-none mt-1">
+          Vendedor(a)
+        </span>
       </div>
 
-      {/* Comissão — destaque principal */}
-      <Link href="/comissoes" className="block">
-        <div className="rounded-2xl border bg-card p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 rounded-xl bg-emerald-600 flex items-center justify-center flex-none shadow-sm">
-            <DollarSign className="h-6 w-6 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-widest">Minha comissão do mês</p>
-            <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-tight mt-0.5">{fmt(totalComissoes)}</p>
-            {previsaoEmAberto > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">+ {fmt(previsaoEmAberto)} potencial em aberto</p>
+      {/* ══ 2. DINHEIRO NA MESA ══ */}
+      <div className="relative rounded-2xl overflow-hidden shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-[#0d4a2e] to-[#081f14]" />
+        <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-48 h-48 rounded-full bg-green-600/10 blur-2xl pointer-events-none" />
+        <div className="absolute top-1/2 -left-10 w-36 h-36 rounded-full bg-emerald-400/8 blur-2xl pointer-events-none" />
+
+        <div className="relative p-6 md:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-7">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-white/10 ring-1 ring-white/15 flex items-center justify-center flex-none">
+                <DollarSign className="h-4 w-4 text-emerald-300" />
+              </div>
+              <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-300/90">
+                Dinheiro na Mesa
+              </span>
+            </div>
+            {(totalAtrasados + totalHoje) > 0 && (
+              <div className="bg-white/10 ring-1 ring-white/15 rounded-full px-3.5 py-1 text-xs font-semibold text-white/80">
+                {totalAtrasados + totalHoje} aviso{totalAtrasados + totalHoje !== 1 ? 's' : ''} na fila
+              </div>
             )}
           </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground flex-none" />
+
+          <div className="flex flex-col md:flex-row md:items-stretch gap-6 md:gap-10">
+            <div className="flex-1 flex flex-col gap-5">
+              <div>
+                <p className="text-5xl md:text-6xl font-bold tabular-nums text-white leading-none tracking-tight">
+                  {fmt(totalComissoes)}
+                </p>
+                <p className="text-sm text-emerald-300/70 mt-2.5 font-medium">
+                  comissão na mesa este mês
+                </p>
+                {totalComissoes === 0 && (
+                  <p className="text-sm text-white/40 mt-2 italic">
+                    Registre uma venda para começar a gerar comissão.
+                  </p>
+                )}
+              </div>
+
+              <div className="h-px bg-white/10" />
+
+              <div className="grid grid-cols-3 gap-x-6">
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Potencial em aberto</p>
+                  <p className="text-2xl font-bold text-white tabular-nums">{fmt(previsaoEmAberto)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Para hoje</p>
+                  <p className="text-2xl font-bold text-white tabular-nums">{totalHoje}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Atrasados</p>
+                  <p className={`text-2xl font-bold tabular-nums ${totalAtrasados > 0 ? 'text-red-300' : 'text-white'}`}>
+                    {totalAtrasados}
+                  </p>
+                </div>
+              </div>
+
+              <div className="md:hidden">
+                <Link
+                  href="/avisos"
+                  className="inline-flex items-center gap-2 bg-white text-emerald-900 rounded-xl px-5 py-2.5 text-sm font-bold shadow-md hover:bg-emerald-50 active:scale-95 transition-all"
+                >
+                  Ver meus avisos
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="hidden md:flex flex-col items-end justify-between gap-4 w-36 lg:w-44 flex-none">
+              <MoneyIllustration className="w-full opacity-80" />
+              <Link
+                href="/avisos"
+                className="inline-flex items-center gap-2 bg-white text-emerald-900 rounded-xl px-5 py-2.5 text-sm font-bold shadow-md hover:bg-emerald-50 active:scale-95 transition-all"
+              >
+                Ver meus avisos
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
         </div>
-      </Link>
-
-      {/* Meta do mês */}
-      {metaVendasMes != null && metaVendasMes > 0 && metaPct !== null && (
-        <div className="rounded-2xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Meta do mês</h2>
-            </div>
-            <span className="text-xs text-muted-foreground">{diasRestantes}d restantes</span>
-          </div>
-          <div className="flex items-baseline gap-2 mb-3">
-            <span className="text-2xl font-bold tabular-nums">{fmt(totalVendasMes)}</span>
-            <span className="text-sm text-muted-foreground">de {fmt(metaVendasMes)}</span>
-          </div>
-          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${metaAtingida ? 'bg-emerald-500' : 'bg-primary'}`}
-              style={{ width: `${metaPct}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs font-medium text-muted-foreground">{metaPct}% da meta</span>
-            <span className={`text-xs font-semibold ${metaAtingida ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-              {metaAtingida ? '✓ Meta atingida!' : `Falta ${fmt(faltaMeta)}`}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Headline de ação */}
-      <Link href={headlineHref} className="block">
-        <div className={`rounded-2xl bg-gradient-to-br ${headlineCor} text-white p-4 md:p-5 shadow-md`}>
-          <div className="flex items-center gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-none">
-              {headlineIcon}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-white/60 font-semibold uppercase tracking-widest leading-none">{headlineEyebrow}</p>
-              <p className="font-bold text-xl leading-tight mt-0.5">{headlineTitulo}</p>
-            </div>
-            <ChevronRight className="h-5 w-5 flex-none text-white/50" />
-          </div>
-          <p className="text-sm text-white/75 mt-3 ml-[50px] leading-relaxed">{headlineSubtitulo}</p>
-        </div>
-      </Link>
-
-      {/* Resultado strip — visível quando headline é urgência mas há recompras */}
-      {showResultadoStrip && (
-        <Link href="/comissoes" className="block">
-          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center flex-none shadow-sm">
-              <RefreshCcw className="h-4 w-4 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-widest">Resultado · 30 dias</p>
-              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">
-                {fmt(totalRecomprasValor)} em recompras · {qtdRecompras} cliente{qtdRecompras !== 1 ? 's' : ''} voltou{qtdRecompras !== 1 ? 'aram' : ''}
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-emerald-500 flex-none" />
-          </div>
-        </Link>
-      )}
-
-      {/* Métricas pessoais — 2 cols mobile, 4 cols desktop */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MetricCard label="Minha fila" value={String(totalAtrasados + totalHoje)}
-          sub={`${totalAtrasados} atrasado${totalAtrasados !== 1 ? 's' : ''}`}
-          icon={<Bell className="h-5 w-5 text-white" />}
-          iconBg={totalAtrasados > 0 ? 'bg-red-500' : 'bg-blue-500'}
-          urgente={totalAtrasados > 0} href="/avisos" />
-        <MetricCard label="Minhas recompras" value={String(qtdRecompras)}
-          sub={fmt(totalRecomprasValor)}
-          icon={<RefreshCcw className="h-5 w-5 text-white" />} iconBg="bg-green-500"
-          href="/comissoes" />
-        <MetricCard label="Minha comissão" value={fmt(totalComissoes)}
-          sub={`${qtdVendas} venda${qtdVendas !== 1 ? 's' : ''}`}
-          icon={<DollarSign className="h-5 w-5 text-white" />} iconBg="bg-emerald-600"
-          href="/comissoes" />
-        <MetricCard label="Potencial em aberto" value={fmt(previsaoEmAberto)}
-          sub="comissão estimada"
-          icon={<TrendingUp className="h-5 w-5 text-white" />} iconBg="bg-amber-500" />
       </div>
 
-      {/* Meu funil de recompra */}
-      {funil.length > 0 && (
-        <div className="rounded-2xl border bg-card p-5">
-          <h2 className="text-sm font-semibold mb-4">Meu funil de recompra</h2>
-          <div className="space-y-3">
-            {funil.map((step, i) => {
-              const pct = funilMax > 0 ? (step.value / funilMax) * 100 : 0
-              const barPct = i === 0 ? 100 : Math.max(pct, step.value > 0 ? 4 : 0)
-              return (
-                <div key={i}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs text-muted-foreground">{step.label}</p>
-                    <span className="text-sm font-bold tabular-nums">{step.value}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full rounded-full ${step.cor}`} style={{ width: `${barPct}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <p className="text-[11px] text-muted-foreground/60 mt-3">
-            Uma venda pode gerar mais de uma mensagem programada.
-          </p>
-          <div className="mt-3 pt-3 border-t">
-            <p className="text-xs font-semibold text-foreground mb-1">Próxima ação</p>
-            <p className={`text-xs leading-relaxed ${totalAtrasados > 0 ? 'text-red-600 dark:text-red-400' : totalHoje > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-              {totalAtrasados > 0
-                ? `Envie os ${totalAtrasados} aviso${totalAtrasados !== 1 ? 's' : ''} atrasados para recuperar oportunidades.`
-                : totalHoje > 0
-                ? `Fale com os ${totalHoje} cliente${totalHoje !== 1 ? 's' : ''} de hoje.`
-                : 'Fila zerada. Registre novas vendas para gerar próximas recompras.'}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* ══ 3. META MENSAL + META DIÁRIA ══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-      {/* Lista de espera */}
+        {/* — CARD META MENSAL — */}
+        <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-3">
+
+          {/* Linha 1 — Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-800/40 flex items-center justify-center flex-none">
+                <Target className="h-4 w-4 text-violet-500" />
+              </div>
+              <h2 className="text-sm font-semibold">Meta mensal</h2>
+            </div>
+            {diasRestantes > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {diasRestantes}d restantes
+              </span>
+            )}
+          </div>
+
+          {/* Linha 2 — Valor principal */}
+          <p className="text-3xl font-bold tabular-nums tracking-tight leading-none">
+            {fmtVal(totalVendasMes)}
+          </p>
+
+          {/* Linha 3 — Texto secundário */}
+          <p className="text-xs text-muted-foreground">
+            {hasMetaVendas
+              ? `de ${fmtVal(metaMensal)} da meta mensal`
+              : 'meta não configurada'}
+          </p>
+
+          {/* Linha 4 — Barra de progresso */}
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+
+          {/* Linha 5 — Resumo */}
+          <p className="text-xs text-muted-foreground">
+            {hasMetaVendas ? (
+              <>
+                <span className={`font-bold tabular-nums ${statusCls}`}>{pct}%</span>
+                {' '}da meta
+                {metaBatida ? (
+                  <> · <span className={`font-semibold ${statusCls}`}>{statusLabel}</span></>
+                ) : (
+                  <> · faltam{' '}
+                    <span className="font-semibold text-foreground tabular-nums">{fmtVal(faltante)}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              <span className="text-muted-foreground/60">Fale com seu gerente para definir sua meta</span>
+            )}
+          </p>
+
+          {/* Linha 6 — Alinhador de fundo */}
+          <div className="mt-auto" />
+        </div>
+
+        {/* — CARD META DIÁRIA — */}
+        <div className={`rounded-2xl border shadow-sm p-5 flex flex-col gap-3 ${
+          metaBatida
+            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+            : 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/40'
+        }`}>
+
+          {/* Linha 1 — Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-none ${
+                metaBatida
+                  ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/40'
+                  : 'bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/40'
+              }`}>
+                <Target className={`h-4 w-4 ${metaBatida ? 'text-emerald-600' : 'text-violet-500'}`} />
+              </div>
+              <h2 className="text-sm font-semibold">Meta diária</h2>
+            </div>
+            {diasRestantes > 0 && (
+              <span className={`text-xs tabular-nums ${
+                metaBatida ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-violet-500/70 dark:text-violet-400/70'
+              }`}>
+                {diasRestantes}d restantes
+              </span>
+            )}
+          </div>
+
+          {/* Linha 2 — Valor principal */}
+          <p className={`text-3xl font-bold tabular-nums tracking-tight leading-none ${
+            metaBatida
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : 'text-violet-800 dark:text-violet-200'
+          }`}>
+            {fmtVal(metaDiaria)}
+            <span className="text-base font-semibold opacity-60">/dia</span>
+          </p>
+
+          {/* Linha 3 — Texto secundário */}
+          <p className={`text-xs ${
+            metaBatida ? 'text-emerald-600/80 dark:text-emerald-400/70' : 'text-violet-500/80 dark:text-violet-400/70'
+          }`}>
+            {hasMetaVendas ? (
+              <>
+                <span className={`font-semibold tabular-nums ${statusCls}`}>{pct}%</span>
+                {' '}da meta mensal
+              </>
+            ) : (
+              'meta não configurada'
+            )}
+          </p>
+
+          {/* Linha 4 — Barra de progresso */}
+          <div className="h-2.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+
+          {/* Linha 5 — Resumo */}
+          {metaBatida ? (
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              {statusLabel}
+            </p>
+          ) : hasMetaVendas ? (
+            <p className="text-xs text-violet-700/80 dark:text-violet-300/80">
+              Faltam{' '}
+              <span className="font-semibold tabular-nums text-violet-800 dark:text-violet-200">
+                {fmtVal(faltante)}
+              </span>
+              {' '}para bater a meta
+              {diasRestantes > 0 && (
+                <> · <span className="tabular-nums">{diasRestantes}d</span></>
+              )}
+            </p>
+          ) : (
+            <p className="text-xs text-violet-500/70 dark:text-violet-400/60">—</p>
+          )}
+
+          {/* Linha 6 — Alinhador de fundo */}
+          {metaBatida ? (
+            <p className="text-xs mt-auto text-emerald-600/70 dark:text-emerald-400/60">
+              Continue vendendo para ampliar o resultado.
+            </p>
+          ) : (
+            <div className="mt-auto" />
+          )}
+        </div>
+      </div>
+
+      {/* ══ LISTA DE ESPERA ══ */}
       {listaEsperaInfo.qtdAguardando > 0 && (
         <Link href="/lista-espera" className="block">
           <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
@@ -286,7 +440,7 @@ export function DashboardVendedora({
         </Link>
       )}
 
-      {/* Avisos atrasados */}
+      {/* ══ AVISOS ATRASADOS ══ */}
       {avisosAtrasados.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -306,7 +460,7 @@ export function DashboardVendedora({
         </div>
       )}
 
-      {/* Avisos de hoje */}
+      {/* ══ AVISOS DE HOJE ══ */}
       {avisosHoje.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -326,7 +480,7 @@ export function DashboardVendedora({
         </div>
       )}
 
-      {/* Sem avisos pendentes */}
+      {/* ══ SEM AVISOS PENDENTES ══ */}
       {avisosAtrasados.length === 0 && avisosHoje.length === 0 && (
         <div className="rounded-2xl border bg-card p-6 text-center space-y-2">
           <p className="text-2xl">🎉</p>
@@ -338,7 +492,7 @@ export function DashboardVendedora({
         </div>
       )}
 
-      {/* Comissão acumulada do mês */}
+      {/* ══ COMISSÃO ACUMULADA DO MÊS ══ */}
       <div className="rounded-2xl border bg-card p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold">Comissão acumulada do mês</h2>
@@ -346,7 +500,9 @@ export function DashboardVendedora({
         </div>
 
         <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">{fmt(totalComissoes)}</p>
-        <p className="text-xs text-muted-foreground mt-1">gerada sobre {fmt(totalVendasValor)} vendidos em 30 dias</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          gerada sobre {fmt(totalVendasValor)} em {qtdVendas} venda{qtdVendas !== 1 ? 's' : ''}
+        </p>
 
         <div className="mt-4">
           <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={null} hojeDia={hojeDia} showProgressBar={false} />
@@ -356,15 +512,17 @@ export function DashboardVendedora({
           <div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Minhas recompras</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{fmt(totalRecomprasValor)}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{qtdRecompras} cliente{qtdRecompras !== 1 ? 's' : ''}</p>
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total vendido</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{fmt(totalVendasValor)}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{qtdVendas} venda{qtdVendas !== 1 ? 's' : ''}</p>
           </div>
         </div>
       </div>
 
-      {/* CTAs */}
+      {/* ══ CTAs ══ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Link
           href="/vendas/nova"
@@ -432,26 +590,4 @@ function AvisoEnvio({ aviso, urgente }: { aviso: DashboardAviso; urgente?: boole
       </a>
     </div>
   )
-}
-
-function MetricCard({
-  label, value, sub, icon, iconBg, urgente, href,
-}: {
-  label: string; value: string; sub: string; icon: React.ReactNode
-  iconBg: string; urgente?: boolean; href?: string
-}) {
-  const content = (
-    <div className={`rounded-2xl border bg-card p-4 flex flex-col gap-3 h-full transition-shadow hover:shadow-md ${urgente ? 'border-red-200 bg-red-50/60' : ''}`}>
-      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-none shadow-sm`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-        <p className={`text-xl font-bold tabular-nums mt-0.5 ${urgente ? 'text-red-700' : ''}`}>{value}</p>
-        <p className="text-xs text-muted-foreground mt-1">{sub}</p>
-      </div>
-    </div>
-  )
-  if (href) return <Link href={href} className="block">{content}</Link>
-  return content
 }

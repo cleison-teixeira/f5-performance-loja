@@ -47,6 +47,7 @@ export function DashboardView(props: Props) {
   if (role === 'vendedora') {
     return (
       <DashboardVendedora
+        loja={props.loja}
         nomeVendedora={props.nomeVendedora}
         totalVendasValor={props.totalVendasValor}
         qtdVendas={props.qtdVendas}

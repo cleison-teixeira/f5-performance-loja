@@ -119,6 +119,7 @@ export default function DebugMobileAccessPage() {
 
         <main className="flex-1 p-4 pb-24">
           <DashboardVendedora
+            loja={{ id: 'debug', nome: 'Cia Cidade Azul Angeloni' }}
             nomeVendedora="Ana Beatriz Costa"
             totalVendasValor={14230}
             qtdVendas={24}
