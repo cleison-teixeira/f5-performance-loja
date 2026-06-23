@@ -64,6 +64,7 @@ export function DashboardView(props: Props) {
         totalRecomprasValorMes={props.totalRecomprasValorMes}
         qtdRecomprasMes={props.qtdRecomprasMes}
         dinheiroMesaInfo={props.dinheiroMesaInfo}
+        topProdutosRecompra={props.topProdutosRecompra}
       />
     )
   }

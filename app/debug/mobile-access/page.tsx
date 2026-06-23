@@ -129,6 +129,10 @@ export default function DebugMobileAccessPage() {
             totalRecomprasValorMes={0}
             qtdRecomprasMes={0}
             dinheiroMesaInfo={{ totalPotencial: 7200, qtdOportunidades: 14, potencial7Dias: 2400, qtdClientes7Dias: 8 }}
+            topProdutosRecompra={[
+              { nome: 'Creme Premium', qtd: 3, foto_url: null },
+              { nome: 'Sérum Vitamina C', qtd: 2, foto_url: null },
+            ]}
           />
         </main>
       </div>

@@ -6,7 +6,8 @@ import {
   RefreshCw, Send, ChevronRight, Clock, Package,
 } from 'lucide-react'
 
-import type { DashboardAviso, FunilStep, ListaEsperaInfo, ProdutoTopMes, DinheiroMesaInfo } from './page'
+import type { DashboardAviso, FunilStep, ListaEsperaInfo, ProdutoTopMes, DinheiroMesaInfo, TopProdutoRecompra } from './page'
+import { ProdutoEmFocoCard } from './ProdutoEmFocoCard'
 
 function fmtVal(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -27,6 +28,7 @@ interface Props {
   totalRecomprasValorMes: number
   qtdRecomprasMes: number
   dinheiroMesaInfo: DinheiroMesaInfo
+  topProdutosRecompra: TopProdutoRecompra[]
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -118,6 +120,7 @@ export function DashboardVendedora({
   totalRecomprasValorMes,
   qtdRecomprasMes,
   dinheiroMesaInfo,
+  topProdutosRecompra,
 }: Props) {
   const firstName = nomeVendedora.split(' ')[0]
   const totalAtrasados = avisosAtrasados.length
@@ -219,6 +222,11 @@ export function DashboardVendedora({
           </div>
         </div>
       </div>
+
+      {/* ══ 2.5. PRODUTO EM FOCO ══ */}
+      {topProdutosRecompra.length > 0 && (
+        <ProdutoEmFocoCard produto={topProdutosRecompra[0]} />
+      )}
 
       {/* ══ 3. QUATRO CARDS RECOMPRA-FIRST ══ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

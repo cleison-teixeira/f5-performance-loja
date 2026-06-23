@@ -6,6 +6,7 @@ import {
   RefreshCw, Clock, Send, DollarSign,
 } from 'lucide-react'
 import type { VendedoraRankingMeta, DinheiroMesaInfo, ProdutoTopMes, ListaEsperaInfo, RankingRecomprasItem, TopProdutoRecompra } from './page'
+import { ProdutoEmFocoCard } from './ProdutoEmFocoCard'
 
 function fmtVal(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -218,6 +219,11 @@ export function DashboardGerente({
           </div>
         </div>
       </div>
+
+      {/* ══ 2.5. PRODUTO EM FOCO ══ */}
+      {topProdutosRecompra.length > 0 && (
+        <ProdutoEmFocoCard produto={topProdutosRecompra[0]} />
+      )}
 
       {/* ══ 3. QUATRO CARDS RECOMPRA-FIRST ══ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
