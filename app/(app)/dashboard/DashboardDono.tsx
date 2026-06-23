@@ -264,7 +264,9 @@ export function DashboardDono({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* — CARD META MENSAL — */}
-        <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
+        <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-3">
+
+          {/* Linha 1 — Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-800/40 flex items-center justify-center flex-none">
@@ -279,99 +281,123 @@ export function DashboardDono({
             )}
           </div>
 
-          <div>
-            <p className="text-2xl font-bold tabular-nums tracking-tight">{fmtVal(vendidoMes)}</p>
-            <p className="text-xs text-muted-foreground mt-1 mb-3">
-              de {fmtVal(META_MENSAL_DONO)} da meta mensal
-            </p>
-            <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2">
-              <div
-                className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
-                style={{ width: `${pctDono}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[10px] tabular-nums">
-              <span className="text-muted-foreground">R$ 0</span>
-              <span className={`font-semibold ${statusCls}`}>{statusLabel}</span>
-              <span className="text-muted-foreground">{fmtVal(META_MENSAL_DONO)}</span>
-            </div>
+          {/* Linha 2 — Valor principal */}
+          <p className="text-3xl font-bold tabular-nums tracking-tight leading-none">
+            {fmtVal(vendidoMes)}
+          </p>
+
+          {/* Linha 3 — Texto secundário */}
+          <p className="text-xs text-muted-foreground">
+            de {fmtVal(META_MENSAL_DONO)} da meta mensal
+          </p>
+
+          {/* Linha 4 — Barra de progresso */}
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
+              style={{ width: `${pctDono}%` }}
+            />
           </div>
 
+          {/* Linha 5 — Resumo */}
           <p className="text-xs text-muted-foreground">
             <span className={`font-bold tabular-nums ${statusCls}`}>{pctDono}%</span>
             {' '}da meta
-            {!metaBatida && (
+            {metaBatida ? (
+              <> · <span className={`font-semibold ${statusCls}`}>{statusLabel}</span></>
+            ) : (
               <> · faltam{' '}
                 <span className="font-semibold text-foreground tabular-nums">{fmtVal(faltanteDono)}</span>
               </>
             )}
           </p>
+
+          {/* Linha 6 — Alinhador de fundo (mantém altura simétrica com card diária) */}
+          <div className="mt-auto" />
         </div>
 
         {/* — CARD META DIÁRIA — */}
-        <div className={`rounded-2xl border shadow-sm p-5 flex flex-col gap-4 ${
+        <div className={`rounded-2xl border shadow-sm p-5 flex flex-col gap-3 ${
           metaBatida
             ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
             : 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/40'
         }`}>
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-none ${
-              metaBatida
-                ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/40'
-                : 'bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/40'
-            }`}>
-              <Target className={`h-4 w-4 ${metaBatida ? 'text-emerald-600' : 'text-violet-500'}`} />
+
+          {/* Linha 1 — Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-none ${
+                metaBatida
+                  ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/40'
+                  : 'bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/40'
+              }`}>
+                <Target className={`h-4 w-4 ${metaBatida ? 'text-emerald-600' : 'text-violet-500'}`} />
+              </div>
+              <h2 className="text-sm font-semibold">Meta diária</h2>
             </div>
-            <h2 className="text-sm font-semibold">Meta diária</h2>
-          </div>
-
-          <div>
-            <p className={`text-4xl font-bold tabular-nums leading-none tracking-tight ${
-              metaBatida
-                ? 'text-emerald-700 dark:text-emerald-300'
-                : 'text-violet-800 dark:text-violet-200'
-            }`}>
-              {fmtVal(metaDiariaDono)}
-              <span className="text-lg font-semibold opacity-60">/dia</span>
-            </p>
-          </div>
-
-          <div>
-            <div className="h-2 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
-                style={{ width: `${pctDono}%` }}
-              />
-            </div>
-            <p className={`text-[10px] tabular-nums mt-1.5 font-semibold ${statusCls}`}>
-              {pctDono}% da meta mensal
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            {metaBatida ? (
-              <>
-                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  Meta batida este mês!
-                </p>
-                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70">
-                  Continue vendendo para ampliar o resultado.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-semibold text-violet-700 dark:text-violet-300">
-                  Faltam {fmtVal(faltanteDono)} para bater a meta
-                </p>
-                <p className="text-xs text-violet-500 dark:text-violet-400">
-                  {diasRestantes} dia{diasRestantes !== 1 ? 's' : ''} restante{diasRestantes !== 1 ? 's' : ''}
-                </p>
-                <p className="text-xs text-violet-400/80 dark:text-violet-500/70 pt-1 leading-relaxed">
-                  Venda esse valor por dia para fechar o mês.
-                </p>
-              </>
+            {diasRestantes > 0 && (
+              <span className={`text-xs tabular-nums ${
+                metaBatida ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-violet-500/70 dark:text-violet-400/70'
+              }`}>
+                {diasRestantes}d restantes
+              </span>
             )}
           </div>
+
+          {/* Linha 2 — Valor principal */}
+          <p className={`text-3xl font-bold tabular-nums tracking-tight leading-none ${
+            metaBatida
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : 'text-violet-800 dark:text-violet-200'
+          }`}>
+            {fmtVal(metaDiariaDono)}
+            <span className="text-base font-semibold opacity-60">/dia</span>
+          </p>
+
+          {/* Linha 3 — Texto secundário */}
+          <p className={`text-xs ${
+            metaBatida ? 'text-emerald-600/80 dark:text-emerald-400/70' : 'text-violet-500/80 dark:text-violet-400/70'
+          }`}>
+            <span className={`font-semibold tabular-nums ${statusCls}`}>{pctDono}%</span>
+            {' '}da meta mensal
+          </p>
+
+          {/* Linha 4 — Barra de progresso */}
+          <div className="h-2.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
+              style={{ width: `${pctDono}%` }}
+            />
+          </div>
+
+          {/* Linha 5 — Resumo */}
+          {metaBatida ? (
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              {statusLabel}
+            </p>
+          ) : (
+            <p className="text-xs text-violet-700/80 dark:text-violet-300/80">
+              Faltam{' '}
+              <span className="font-semibold tabular-nums text-violet-800 dark:text-violet-200">
+                {fmtVal(faltanteDono)}
+              </span>
+              {' '}para bater a meta
+              {diasRestantes > 0 && (
+                <> · <span className="tabular-nums">{diasRestantes}d</span></>
+              )}
+            </p>
+          )}
+
+          {/* Linha 6 — Texto de apoio */}
+          <p className={`text-xs mt-auto leading-relaxed ${
+            metaBatida
+              ? 'text-emerald-600/70 dark:text-emerald-400/60'
+              : 'text-violet-400/80 dark:text-violet-500/70'
+          }`}>
+            {metaBatida
+              ? 'Continue vendendo para ampliar o resultado.'
+              : 'Venda esse valor por dia para fechar o mês.'}
+          </p>
         </div>
       </div>
 
