@@ -112,6 +112,10 @@ export function DashboardView(props: Props) {
       hojeDia={props.hojeDia}
       mesLabel={props.mesLabel}
       listaEsperaInfo={props.listaEsperaInfo}
+      totalRecomprasValor={props.totalRecomprasValor}
+      qtdRecompras={props.qtdRecompras}
+      totalComissoes={props.totalComissoes}
+      avisosEnviadosCount={props.avisosEnviadosCount}
     />
   )
 }
