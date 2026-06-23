@@ -74,23 +74,18 @@ export function DashboardView(props: Props) {
       <DashboardGerente
         loja={props.loja}
         nomeUsuario={props.nomeVendedora}
-        totalVendasValor={props.totalVendasValor}
-        qtdVendas={props.qtdVendas}
+        listaEsperaInfo={props.listaEsperaInfo}
+        dinheiroMesaInfo={props.dinheiroMesaInfo}
+        totalVendasMes={props.totalVendasMes}
+        diasRestantes={props.diasRestantes}
+        rankingMes={props.rankingMes}
+        topProdutosMes={props.topProdutosMes}
         totalRecomprasValor={props.totalRecomprasValor}
         qtdRecompras={props.qtdRecompras}
         totalComissoes={props.totalComissoes}
         qtdAvisosAtrasados={props.avisosAtrasados.length}
         qtdAvisosHoje={props.avisosHoje.length}
         avisosEnviadosCount={props.avisosEnviadosCount}
-        vendedorasComPendencias={props.vendedorasComPendencias}
-        funil={props.funil}
-        produtosRadar={props.produtosRadar}
-        rankingVendedoras={props.rankingVendedoras}
-        diasMes={props.diasMes}
-        comissaoDiaria={props.comissaoDiaria}
-        metaComissao={props.metaComissao}
-        hojeDia={props.hojeDia}
-        listaEsperaInfo={props.listaEsperaInfo}
       />
     )
   }
