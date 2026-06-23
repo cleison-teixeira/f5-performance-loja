@@ -5,7 +5,7 @@ import {
   Bell, AlertCircle, DollarSign, ShoppingBag,
   RefreshCw, Send, ChevronRight, Clock, Target, Package,
 } from 'lucide-react'
-import { ComissaoChart } from './ComissaoChart'
+
 import type { DashboardAviso, FunilStep, ListaEsperaInfo, ProdutoTopMes } from './page'
 
 function fmtVal(v: number) {
@@ -121,7 +121,6 @@ function MoneyIllustration({ className }: { className?: string }) {
 export function DashboardVendedora({
   loja,
   nomeVendedora,
-  totalVendasValor,
   qtdVendas,
   totalRecomprasValor,
   qtdRecompras,
@@ -129,9 +128,6 @@ export function DashboardVendedora({
   previsaoEmAberto,
   avisosAtrasados,
   avisosHoje,
-  diasMes,
-  comissaoDiaria,
-  hojeDia,
   totalVendasMes,
   metaVendasMes,
   diasRestantes,
@@ -728,36 +724,6 @@ export function DashboardVendedora({
           </Link>
         </div>
       )}
-
-      {/* ══ COMISSÃO ACUMULADA DO MÊS ══ */}
-      <div className="rounded-2xl border bg-card p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">Comissão acumulada do mês</h2>
-          <span className="text-xs text-muted-foreground">{diasMes[0]?.slice(0, 7).replace('-', '/')}</span>
-        </div>
-
-        <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">{fmt(totalComissoes)}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          gerada sobre {fmt(totalVendasValor)} em {qtdVendas} venda{qtdVendas !== 1 ? 's' : ''}
-        </p>
-
-        <div className="mt-4">
-          <ComissaoChart diasMes={diasMes} comissaoDiaria={comissaoDiaria} metaValor={null} hojeDia={hojeDia} showProgressBar={false} />
-        </div>
-
-        <div className="grid grid-cols-2 mt-4 pt-4 border-t gap-2 text-center">
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Minhas recompras</p>
-            <p className="text-sm font-bold tabular-nums mt-0.5">{fmt(totalRecomprasValor)}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{qtdRecompras} cliente{qtdRecompras !== 1 ? 's' : ''}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total vendido</p>
-            <p className="text-sm font-bold tabular-nums mt-0.5">{fmt(totalVendasValor)}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{qtdVendas} venda{qtdVendas !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-      </div>
 
       {/* ══ CTAs ══ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
