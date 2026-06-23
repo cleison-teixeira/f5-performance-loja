@@ -6,7 +6,7 @@ import {
   RefreshCw, Send, ChevronRight, Clock, Package,
 } from 'lucide-react'
 
-import type { DashboardAviso, FunilStep, ListaEsperaInfo, ProdutoTopMes } from './page'
+import type { DashboardAviso, FunilStep, ListaEsperaInfo, ProdutoTopMes, DinheiroMesaInfo } from './page'
 
 function fmtVal(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -19,28 +19,14 @@ function fmt(v: number) {
 interface Props {
   loja: { id: string; nome: string }
   nomeVendedora: string
-  totalVendasValor: number
-  qtdVendas: number
-  totalRecomprasValor: number
-  qtdRecompras: number
-  totalComissoes: number
-  previsaoEmAberto: number
   avisosAtrasados: DashboardAviso[]
   avisosHoje: DashboardAviso[]
-  diasMes: string[]
-  comissaoDiaria: number[]
-  metaComissao: number | null
-  hojeDia: number
-  totalVendasMes: number
-  metaVendasMes: number | null
-  diasRestantes: number
-  funil: FunilStep[]
   listaEsperaInfo: ListaEsperaInfo
   avisosEnviadosCount: number
   topProdutosMes: ProdutoTopMes[]
   totalRecomprasValorMes: number
   qtdRecomprasMes: number
-  comissao7Dias: number
+  dinheiroMesaInfo: DinheiroMesaInfo
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -124,7 +110,6 @@ function MoneyIllustration({ className }: { className?: string }) {
 export function DashboardVendedora({
   loja,
   nomeVendedora,
-  previsaoEmAberto,
   avisosAtrasados,
   avisosHoje,
   listaEsperaInfo,
@@ -132,7 +117,7 @@ export function DashboardVendedora({
   topProdutosMes,
   totalRecomprasValorMes,
   qtdRecomprasMes,
-  comissao7Dias,
+  dinheiroMesaInfo,
 }: Props) {
   const firstName = nomeVendedora.split(' ')[0]
   const totalAtrasados = avisosAtrasados.length
@@ -181,14 +166,14 @@ export function DashboardVendedora({
             <div className="flex-1 flex flex-col gap-5">
               <div>
                 <p className="text-5xl md:text-6xl font-bold tabular-nums text-white leading-none tracking-tight">
-                  {fmt(previsaoEmAberto)}
+                  {fmt(dinheiroMesaInfo.totalPotencial)}
                 </p>
                 <p className="text-sm text-emerald-300/70 mt-2.5 font-medium">
-                  comissão potencial na sua fila de recompra
+                  em recompras abertas na sua fila
                 </p>
-                {previsaoEmAberto === 0 && (
+                {dinheiroMesaInfo.totalPotencial === 0 && (
                   <p className="text-sm text-white/40 mt-2 italic">
-                    Registre uma venda para começar a gerar comissão.
+                    Registre uma venda para começar a gerar recompras.
                   </p>
                 )}
               </div>
@@ -206,7 +191,7 @@ export function DashboardVendedora({
                 </div>
                 <div>
                   <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Próx. 7 dias</p>
-                  <p className="text-2xl font-bold text-white tabular-nums">{fmt(comissao7Dias)}</p>
+                  <p className="text-2xl font-bold text-white tabular-nums">{fmt(dinheiroMesaInfo.potencial7Dias)}</p>
                 </div>
               </div>
 

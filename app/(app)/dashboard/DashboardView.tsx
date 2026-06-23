@@ -4,7 +4,7 @@ import { DashboardVendedora } from './DashboardVendedora'
 import type {
   DashboardAviso, FunilStep, ProdutoRadarItem, VendedoraRanking, VendedoraComPendencia,
   VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo,
-  RankingRecomprasItem, TopProdutoRecompra,
+  RankingRecomprasItem, TopProdutoRecompra, RankingLojasItem,
 } from './page'
 
 interface Props {
@@ -45,6 +45,7 @@ interface Props {
   totalRecomprasValorMes: number
   qtdRecomprasMes: number
   comissao7Dias: number
+  rankingLojas: RankingLojasItem[]
 }
 
 export function DashboardView(props: Props) {
@@ -55,28 +56,14 @@ export function DashboardView(props: Props) {
       <DashboardVendedora
         loja={props.loja}
         nomeVendedora={props.nomeVendedora}
-        totalVendasValor={props.totalVendasValor}
-        qtdVendas={props.qtdVendas}
-        totalRecomprasValor={props.totalRecomprasValor}
-        qtdRecompras={props.qtdRecompras}
-        totalComissoes={props.totalComissoes}
-        previsaoEmAberto={props.previsaoEmAberto}
         avisosAtrasados={props.avisosAtrasados}
         avisosHoje={props.avisosHoje}
-        diasMes={props.diasMes}
-        comissaoDiaria={props.comissaoDiaria}
-        metaComissao={props.metaComissao}
-        hojeDia={props.hojeDia}
-        totalVendasMes={props.totalVendasMes}
-        metaVendasMes={props.metaVendasMes}
-        diasRestantes={props.diasRestantes}
-        funil={props.funil}
         listaEsperaInfo={props.listaEsperaInfo}
         avisosEnviadosCount={props.avisosEnviadosCount}
         topProdutosMes={props.topProdutosMes}
         totalRecomprasValorMes={props.totalRecomprasValorMes}
         qtdRecomprasMes={props.qtdRecomprasMes}
-        comissao7Dias={props.comissao7Dias}
+        dinheiroMesaInfo={props.dinheiroMesaInfo}
       />
     )
   }
@@ -131,6 +118,7 @@ export function DashboardView(props: Props) {
       topProdutosRecompra={props.topProdutosRecompra}
       totalRecomprasValorMes={props.totalRecomprasValorMes}
       qtdRecomprasMes={props.qtdRecomprasMes}
+      rankingLojas={props.rankingLojas}
     />
   )
 }

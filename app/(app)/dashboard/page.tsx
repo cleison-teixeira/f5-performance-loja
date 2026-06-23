@@ -99,6 +99,13 @@ export interface TopProdutoRecompra {
   foto_url: string | null
 }
 
+export interface RankingLojasItem {
+  lojaId: string
+  lojaNome: string
+  totalPotencial: number
+  qtdOportunidades: number
+}
+
 function addDias(base: string, n: number): string {
   const [y, m, d] = base.split('-').map(Number)
   const dt = new Date(y, m - 1, d)
@@ -529,6 +536,67 @@ export default async function DashboardPage() {
     qtdClientes7Dias: new Set(oport7Dias.map(a => a.cliente_nome)).size,
   }
 
+  // Ranking das lojas (dono/admin_f5 only — multi-loja query)
+  let rankingLojas: RankingLojasItem[] = []
+  if (!isVendedora && role !== 'gerente') {
+    const { data: todosMembers } = await supabase
+      .from('membros_loja')
+      .select('loja_id, lojas(id, nome)')
+      .eq('perfil_id', user.id)
+      .eq('ativo', true)
+
+    if (!todosMembers || todosMembers.length <= 1) {
+      rankingLojas = [{
+        lojaId: loja_id,
+        lojaNome: loja.nome,
+        totalPotencial: dinheiroMesaInfo.totalPotencial,
+        qtdOportunidades: dinheiroMesaInfo.qtdOportunidades,
+      }]
+    } else {
+      const adminClient = createAdminClient()
+      const outrasLojaIds = todosMembers
+        .filter(m => m.loja_id !== loja_id)
+        .map(m => m.loja_id as string)
+
+      const { data: avisosOutras } = await adminClient
+        .from('avisos')
+        .select('loja_id, venda_id, tipo, vendas(valor)')
+        .in('loja_id', outrasLojaIds)
+        .eq('status', 'pendente')
+        .in('tipo', ['recompra', 'oferta'])
+
+      const outrasMap = new Map<string, { lojaNome: string; totalPotencial: number; qtdOportunidades: number; seen: Set<string> }>()
+      todosMembers.forEach(m => {
+        if (m.loja_id === loja_id) return
+        const lojaObj = m.lojas as { id: string; nome: string } | Array<{ id: string; nome: string }> | null
+        const nomeLoja = Array.isArray(lojaObj) ? lojaObj[0]?.nome : lojaObj?.nome ?? '—'
+        outrasMap.set(m.loja_id as string, { lojaNome: nomeLoja, totalPotencial: 0, qtdOportunidades: 0, seen: new Set() })
+      })
+
+      ;(avisosOutras ?? []).forEach(a => {
+        const entry = outrasMap.get(a.loja_id as string)
+        if (!entry) return
+        const vendaId = a.venda_id as string | null
+        if (vendaId) {
+          if (entry.seen.has(vendaId)) return
+          entry.seen.add(vendaId)
+        }
+        const vendaRaw = a.vendas as { valor: number } | Array<{ valor: number }> | null
+        const valorVenda = Array.isArray(vendaRaw) ? vendaRaw[0]?.valor ?? 0 : vendaRaw?.valor ?? 0
+        entry.totalPotencial += valorVenda
+        entry.qtdOportunidades++
+      })
+
+      const allLojas: RankingLojasItem[] = [
+        { lojaId: loja_id, lojaNome: loja.nome, totalPotencial: dinheiroMesaInfo.totalPotencial, qtdOportunidades: dinheiroMesaInfo.qtdOportunidades },
+      ]
+      outrasMap.forEach(({ lojaNome, totalPotencial, qtdOportunidades }, lojaId) => {
+        allLojas.push({ lojaId, lojaNome, totalPotencial, qtdOportunidades })
+      })
+      rankingLojas = allLojas.sort((a, b) => b.totalPotencial - a.totalPotencial)
+    }
+  }
+
   function mkBucket(list: DashboardAviso[]): AvisosBucket {
     return { qtd: list.length, valor: list.reduce((s, a) => s + a.valor_venda, 0) }
   }
@@ -613,6 +681,7 @@ export default async function DashboardPage() {
       totalRecomprasValorMes={totalRecomprasValorMes}
       qtdRecomprasMes={qtdRecomprasMes}
       comissao7Dias={comissao7Dias}
+      rankingLojas={rankingLojas}
     />
   )
 }

@@ -121,28 +121,14 @@ export default function DebugMobileAccessPage() {
           <DashboardVendedora
             loja={{ id: 'debug', nome: 'Cia Cidade Azul Angeloni' }}
             nomeVendedora="Ana Beatriz Costa"
-            totalVendasValor={14230}
-            qtdVendas={24}
-            totalRecomprasValor={4800}
-            qtdRecompras={7}
-            totalComissoes={960}
-            previsaoEmAberto={460}
             avisosAtrasados={avisosAtrasados}
             avisosHoje={avisosHoje}
-            diasMes={diasMes}
-            comissaoDiaria={comissaoDiaria}
-            metaComissao={1500}
-            hojeDia={hojeDia}
-            totalVendasMes={14230}
-            metaVendasMes={20000}
-            diasRestantes={new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate() - hojeDia}
-            funil={funil}
             listaEsperaInfo={{ qtdAguardando: 2, valorPotencial: 350, qtdClientes: 2 }}
             avisosEnviadosCount={12}
             topProdutosMes={[]}
             totalRecomprasValorMes={0}
             qtdRecomprasMes={0}
-            comissao7Dias={0}
+            dinheiroMesaInfo={{ totalPotencial: 7200, qtdOportunidades: 14, potencial7Dias: 2400, qtdClientes7Dias: 8 }}
           />
         </main>
       </div>
