@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils'
 
 const mainItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
-  { href: '/avisos', label: 'Avisos', icon: Bell },
-  { href: '/vendas/nova', label: 'Venda', icon: ShoppingCart },
+  { href: '/avisos', label: 'Fila', icon: Bell },
+  { href: '/vendas/nova', label: 'Registrar', icon: ShoppingCart },
   { href: '/produtos', label: 'Produtos', icon: Package },
 ]
 

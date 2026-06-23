@@ -29,7 +29,7 @@ export default async function ProdutosPage() {
   if (!membro) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Produtos</h1>
+        <h1 className="text-xl font-semibold">Produtos recorrentes</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
@@ -63,9 +63,9 @@ export default async function ProdutosPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold">Produtos</h1>
+          <h1 className="text-xl font-semibold">Produtos recorrentes</h1>
           <p className="text-sm text-muted-foreground">
-            {lojaNome} · Produtos cadastrados e ciclos de recompra da loja.
+            {lojaNome} · Configure ciclo, preço médio e mensagens de recompra.
           </p>
         </div>
         {podeEditar && (

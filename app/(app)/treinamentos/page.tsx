@@ -14,8 +14,8 @@ interface TrainingItem {
 const recwayItems: TrainingItem[] = [
   {
     id: 'venda-rapida',
-    title: 'Como usar a Venda Rápida',
-    description: 'Registre vendas em segundos, inclua itens do catálogo ou granel, e gere avisos automáticos de recompra.',
+    title: 'Como usar o Registrar',
+    description: 'Registre compras em segundos, inclua itens do catálogo ou granel, e gere avisos automáticos de recompra.',
     category: 'Plataforma',
     categoryColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     status: 'soon',
@@ -23,8 +23,8 @@ const recwayItems: TrainingItem[] = [
   },
   {
     id: 'avisos-recompra',
-    title: 'Como acompanhar Avisos de Recompra',
-    description: 'Entenda a fila de avisos, como enviar pelo WhatsApp e como recuperar clientes no momento certo.',
+    title: 'Como acompanhar a Fila de Recompra',
+    description: 'Entenda a fila de recompra, como enviar pelo WhatsApp e como recuperar clientes no momento certo.',
     category: 'Plataforma',
     categoryColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     status: 'soon',

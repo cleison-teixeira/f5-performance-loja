@@ -11,12 +11,12 @@ import { cn } from '@/lib/utils'
 
 const operacaoItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
-  { href: '/avisos', label: 'Avisos de hoje', icon: Bell },
-  { href: '/vendas/nova', label: 'Venda Rápida', icon: ShoppingCart },
-  { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
+  { href: '/avisos', label: 'Fila de Recompra', icon: Bell },
+  { href: '/vendas/nova', label: 'Registrar', icon: ShoppingCart },
   { href: '/produtos', label: 'Produtos', icon: Package },
+  { href: '/clientes', label: 'Clientes', icon: Users },
+  { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
+  { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
   { href: '/comissoes', label: 'Comissões', icon: DollarSign },
 ]
 

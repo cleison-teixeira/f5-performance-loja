@@ -38,7 +38,7 @@ export default async function AvisosPage() {
   if (!membro) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Avisos de hoje</h1>
+        <h1 className="text-xl font-semibold">Fila de Recompra</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
@@ -161,11 +161,11 @@ export default async function AvisosPage() {
       {/* ── Cabeçalho ── */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">
-          {isVendedora ? 'Minha fila de recompra' : 'Fila de recompra'}
+          {isVendedora ? 'Minha Fila de Recompra' : 'Fila de Recompra'}
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
         <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
-          Priorize clientes com recompra vencendo e recupere dinheiro parado.
+          Clientes para retornar no momento certo e recuperar dinheiro na mesa.
         </p>
       </div>
 

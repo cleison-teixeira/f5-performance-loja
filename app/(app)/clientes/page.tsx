@@ -39,7 +39,7 @@ export default async function ClientesPage() {
   if (!membro) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Clientes</h1>
+        <h1 className="text-xl font-semibold">Clientes de recompra</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
@@ -98,10 +98,10 @@ export default async function ClientesPage() {
 
       {/* ── Cabeçalho ── */}
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Clientes</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Clientes de recompra</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{lojaNome}</p>
         <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
-          Clientes cadastrados automaticamente pelas vendas registradas na loja.
+          Base de clientes que podem comprar de novo.
         </p>
       </div>
 
@@ -157,7 +157,7 @@ export default async function ClientesPage() {
           <Users className="h-8 w-8 text-muted-foreground mx-auto" />
           <p className="text-sm font-medium">Nenhum cliente ainda</p>
           <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
-            Os clientes aparecem aqui automaticamente quando uma venda é registrada pela Venda Rápida.
+            Os clientes aparecem aqui automaticamente quando uma compra é registrada.
           </p>
         </div>
       ) : (
