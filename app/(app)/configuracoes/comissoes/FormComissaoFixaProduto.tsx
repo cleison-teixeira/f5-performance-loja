@@ -21,7 +21,7 @@ interface Props {
 }
 
 const inputClass =
-  'rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full'
+  'rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full min-w-0'
 
 function formatBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -127,7 +127,7 @@ export function FormComissaoFixaProduto({ regras: regrasInicio, produtos, vended
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-6">
       <p className="text-sm text-muted-foreground">
         Valor fixo em R$ por recompra confirmada, independente do percentual.
       </p>
@@ -159,11 +159,12 @@ export function FormComissaoFixaProduto({ regras: regrasInicio, produtos, vended
                   </label>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">R$</div>
-                  <div className="w-36">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm text-muted-foreground shrink-0">R$</span>
+                  <div className="w-full max-w-[9rem] min-w-0">
                     <input
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step={0.5}
                       value={l.valor_fixo}
@@ -171,7 +172,7 @@ export function FormComissaoFixaProduto({ regras: regrasInicio, produtos, vended
                       className={inputClass}
                     />
                   </div>
-                  <span className="text-xs text-muted-foreground">por recompra</span>
+                  <span className="text-xs text-muted-foreground shrink-0">por recompra</span>
                 </div>
 
                 {l.mensagem && (

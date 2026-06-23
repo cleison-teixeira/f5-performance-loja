@@ -10,7 +10,7 @@ interface Props {
 }
 
 const inputClass =
-  'rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full'
+  'rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full min-w-0'
 
 function formatBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -72,7 +72,7 @@ export function FormComissoes({ vendedoras, loja_id, podeEditar }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-6">
       {vendedoras.map(v => {
         const linha = linhas[v.perfil_id] ?? { percentual: v.percentual, salvando: false, mensagem: null }
         const pct = linha.percentual
@@ -95,10 +95,11 @@ export function FormComissoes({ vendedoras, loja_id, podeEditar }: Props) {
           <div key={v.perfil_id} className="rounded-lg border bg-card p-4 space-y-3">
             <p className="text-sm font-medium">{v.nome}</p>
 
-            <div className="flex items-center gap-3">
-              <div className="w-32">
+            <div className="flex items-center gap-2">
+              <div className="w-full max-w-[8rem]">
                 <input
                   type="number"
+                  inputMode="decimal"
                   min={0}
                   max={100}
                   step={0.5}
@@ -107,7 +108,7 @@ export function FormComissoes({ vendedoras, loja_id, podeEditar }: Props) {
                   className={inputClass}
                 />
               </div>
-              <span className="text-sm text-muted-foreground">%</span>
+              <span className="text-sm text-muted-foreground shrink-0">%</span>
             </div>
 
             <div className="text-xs text-muted-foreground space-y-0.5">

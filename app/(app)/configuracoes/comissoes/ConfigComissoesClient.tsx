@@ -41,13 +41,13 @@ export function ConfigComissoesClient({
 
   return (
     <div className="space-y-5">
-      <div className="flex rounded-lg border overflow-hidden text-sm">
+      <div className="flex rounded-lg border overflow-x-auto text-sm">
         {abas.map(a => (
           <button
             key={a.id}
             onClick={() => setAba(a.id)}
             className={cn(
-              'flex-1 px-3 py-2 text-center transition-colors whitespace-nowrap',
+              'flex-1 shrink-0 px-3 py-2.5 text-center transition-colors whitespace-nowrap touch-manipulation',
               aba === a.id
                 ? 'bg-primary text-primary-foreground font-medium'
                 : 'bg-background hover:bg-accent text-foreground'

@@ -21,7 +21,7 @@ interface Props {
 }
 
 const inputClass =
-  'rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full'
+  'rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full min-w-0'
 
 function formatBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -105,7 +105,7 @@ export function FormMetaMensal({ vendedoras, loja_id, mes, mesLabel }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-6">
       <p className="text-sm text-muted-foreground">
         Metas para <span className="font-medium text-foreground">{mesLabel}</span>
       </p>
@@ -121,13 +121,14 @@ export function FormMetaMensal({ vendedoras, loja_id, mes, mesLabel }: Props) {
             <div key={v.perfil_id} className="rounded-lg border bg-card p-4 space-y-4">
               <p className="text-sm font-semibold">{v.nome}</p>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Meta mensal (R$)
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={0}
                     step={100}
                     placeholder="Ex: 20000"
@@ -143,6 +144,7 @@ export function FormMetaMensal({ vendedoras, loja_id, mes, mesLabel }: Props) {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min={0}
                     max={100}
                     step={0.5}
@@ -159,6 +161,7 @@ export function FormMetaMensal({ vendedoras, loja_id, mes, mesLabel }: Props) {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min={0}
                     max={100}
                     step={0.5}
@@ -175,6 +178,7 @@ export function FormMetaMensal({ vendedoras, loja_id, mes, mesLabel }: Props) {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min={1}
                     step={0.5}
                     placeholder="Ex: 2 = dobro"

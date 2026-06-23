@@ -15,7 +15,7 @@ const TIPO_LABEL: Record<string, string> = {
 }
 
 const inputClass =
-  'rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full'
+  'rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full min-w-0'
 
 function formatarBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -73,7 +73,7 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-card p-4">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-card p-4 pb-6 w-full min-w-0">
       <h3 className="text-sm font-semibold">{produto ? 'Editar produto' : 'Novo produto'}</h3>
 
       <div className="space-y-1.5">
@@ -188,11 +188,11 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
 
       {erro && <p className="text-sm text-destructive">{erro}</p>}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           type="submit"
           disabled={salvando}
-          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors touch-manipulation"
         >
           {salvando ? 'Salvando…' : 'Salvar'}
         </button>
@@ -200,7 +200,7 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
           type="button"
           onClick={onCancelar}
           disabled={salvando}
-          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
+          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors touch-manipulation"
         >
           Cancelar
         </button>
@@ -268,10 +268,11 @@ function FormMensagens({ produto_id, mensagensIniciais, qtdMensagens, onSucesso,
               <label className="text-xs text-muted-foreground">Dia</label>
               <input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 value={m.dias_apos_venda}
                 onChange={e => atualizar(m.ordem, 'dias_apos_venda', parseInt(e.target.value) || 0)}
-                className="w-16 rounded border border-input bg-background px-2 py-1 text-xs text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-16 rounded border border-input bg-background px-2 py-1 text-base md:text-xs text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </div>
@@ -284,7 +285,7 @@ function FormMensagens({ produto_id, mensagensIniciais, qtdMensagens, onSucesso,
                 ? 'Opcional. Ex: Oi {cliente_nome}! Temos uma oferta especial de {produto_nome} para você…'
                 : 'Olá {cliente_nome}! Aqui é {vendedora_nome} da {loja_nome}…'
             }
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm resize-none ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
       ))}
@@ -296,18 +297,18 @@ function FormMensagens({ produto_id, mensagensIniciais, qtdMensagens, onSucesso,
       {erro && <p className="text-sm text-destructive">{erro}</p>}
       {sucesso && <p className="text-sm text-green-600">Mensagens salvas!</p>}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={handleSalvar}
           disabled={salvando}
-          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors touch-manipulation"
         >
           {salvando ? 'Salvando…' : 'Salvar mensagens'}
         </button>
         <button
           onClick={onFechar}
           disabled={salvando}
-          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
+          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors touch-manipulation"
         >
           Fechar
         </button>
@@ -349,7 +350,7 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-8">
       {podeEditar && !mostrarFormNovo && (
         <button
           onClick={() => { setMostrarFormNovo(true); setEditandoId(null) }}
@@ -382,7 +383,7 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
           return (
             <div
               key={produto.id}
-              className={`rounded-lg border bg-card p-4 transition-opacity ${!produto.ativo ? 'opacity-60' : ''}`}
+              className={`rounded-lg border bg-card p-4 w-full min-w-0 transition-opacity ${!produto.ativo ? 'opacity-60' : ''}`}
             >
               {editandoId === produto.id ? (
                 <FormProduto
@@ -419,7 +420,7 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
                   </div>
 
                   {podeEditar && (
-                    <div className="flex flex-wrap items-center gap-2 mt-3 pl-15">
+                    <div className="flex flex-wrap items-center gap-2 mt-3 pl-[3.75rem]">
                       <button
                         onClick={() => { setEditandoId(produto.id); setMensagensAbertaId(null) }}
                         className="text-xs border border-input rounded px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
