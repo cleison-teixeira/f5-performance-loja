@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import {
-  Bell, AlertCircle, DollarSign, ShoppingBag,
-  RefreshCw, Send, ChevronRight, Clock, Target, Package,
+  Bell, AlertCircle, DollarSign,
+  RefreshCw, Send, ChevronRight, Clock, Package,
 } from 'lucide-react'
 
 import type { DashboardAviso, FunilStep, ListaEsperaInfo, ProdutoTopMes } from './page'
@@ -38,6 +38,8 @@ interface Props {
   listaEsperaInfo: ListaEsperaInfo
   avisosEnviadosCount: number
   topProdutosMes: ProdutoTopMes[]
+  totalRecomprasValorMes: number
+  qtdRecomprasMes: number
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -121,49 +123,18 @@ function MoneyIllustration({ className }: { className?: string }) {
 export function DashboardVendedora({
   loja,
   nomeVendedora,
-  qtdVendas,
-  totalRecomprasValor,
-  qtdRecompras,
-  totalComissoes,
   previsaoEmAberto,
   avisosAtrasados,
   avisosHoje,
-  totalVendasMes,
-  metaVendasMes,
-  diasRestantes,
   listaEsperaInfo,
   avisosEnviadosCount,
   topProdutosMes,
+  totalRecomprasValorMes,
+  qtdRecomprasMes,
 }: Props) {
   const firstName = nomeVendedora.split(' ')[0]
   const totalAtrasados = avisosAtrasados.length
   const totalHoje = avisosHoje.length
-
-  // Meta de vendas
-  const hasMetaVendas = metaVendasMes != null && metaVendasMes > 0
-  const metaMensal = hasMetaVendas ? metaVendasMes! : 0
-  const faltante = hasMetaVendas ? Math.max(metaMensal - totalVendasMes, 0) : 0
-  const diasRestantesSafe = Math.max(diasRestantes, 1)
-  const metaDiaria = hasMetaVendas ? faltante / diasRestantesSafe : 0
-  const pct = hasMetaVendas && metaMensal > 0
-    ? Math.min(Math.round((totalVendasMes / metaMensal) * 100), 100)
-    : 0
-  const metaBatida = hasMetaVendas && totalVendasMes >= metaMensal
-
-  const barGrad = pct >= 100 ? 'from-emerald-500 to-green-500'
-    : pct >= 75 ? 'from-blue-500 to-blue-600'
-    : pct >= 40 ? 'from-amber-500 to-orange-500'
-    :             'from-red-500 to-red-600'
-
-  const statusLabel = pct >= 100 ? 'Meta batida!'
-    : pct >= 75 ? 'Bom ritmo'
-    : pct >= 40 ? 'Em evolução'
-    : 'Atenção'
-
-  const statusCls = pct >= 100 ? 'text-emerald-600 dark:text-emerald-400'
-    : pct >= 75 ? 'text-blue-600 dark:text-blue-400'
-    : pct >= 40 ? 'text-amber-600 dark:text-amber-400'
-    : 'text-red-600 dark:text-red-400'
 
   return (
     <div className="space-y-5 pb-10">
@@ -172,8 +143,8 @@ export function DashboardVendedora({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Olá, {firstName}</p>
-          <h1 className="text-xl font-semibold tracking-tight">Seu painel de vendas</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
+          <h1 className="text-xl font-semibold tracking-tight">Seu painel de recompra</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · Clientes para retornar, recompras em aberto e dinheiro na mesa.</p>
         </div>
         <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex-none mt-1">
           Vendedor(a)
@@ -208,12 +179,12 @@ export function DashboardVendedora({
             <div className="flex-1 flex flex-col gap-5">
               <div>
                 <p className="text-5xl md:text-6xl font-bold tabular-nums text-white leading-none tracking-tight">
-                  {fmt(totalComissoes)}
+                  {fmt(previsaoEmAberto)}
                 </p>
                 <p className="text-sm text-emerald-300/70 mt-2.5 font-medium">
-                  comissão na mesa este mês
+                  comissão potencial na sua fila de recompra
                 </p>
-                {totalComissoes === 0 && (
+                {previsaoEmAberto === 0 && (
                   <p className="text-sm text-white/40 mt-2 italic">
                     Registre uma venda para começar a gerar comissão.
                   </p>
@@ -224,8 +195,8 @@ export function DashboardVendedora({
 
               <div className="grid grid-cols-3 gap-x-6">
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Comissão em aberto</p>
-                  <p className="text-2xl font-bold text-white tabular-nums">{fmt(previsaoEmAberto)}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Recuperado este mês</p>
+                  <p className="text-2xl font-bold text-white tabular-nums">{fmt(totalRecomprasValorMes)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Para hoje</p>
@@ -264,222 +235,19 @@ export function DashboardVendedora({
         </div>
       </div>
 
-      {/* ══ 3. META MENSAL + META DIÁRIA ══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ══ 3. QUATRO CARDS RECOMPRA-FIRST ══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
-        {/* — CARD META MENSAL — */}
-        <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-3">
-
-          {/* Linha 1 — Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-800/40 flex items-center justify-center flex-none">
-                <Target className="h-4 w-4 text-violet-500" />
-              </div>
-              <h2 className="text-sm font-semibold">Meta mensal</h2>
-            </div>
-            {diasRestantes > 0 && (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {diasRestantes}d restantes
-              </span>
-            )}
-          </div>
-
-          {/* Linha 2 — Valor principal */}
-          <p className="text-3xl font-bold tabular-nums tracking-tight leading-none">
-            {fmtVal(totalVendasMes)}
-          </p>
-
-          {/* Linha 3 — Texto secundário */}
-          <p className="text-xs text-muted-foreground">
-            {hasMetaVendas
-              ? `de ${fmtVal(metaMensal)} da meta mensal`
-              : 'meta não configurada'}
-          </p>
-
-          {/* Linha 4 — Barra de progresso */}
-          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-
-          {/* Linha 5 — Resumo */}
-          <p className="text-xs text-muted-foreground">
-            {hasMetaVendas ? (
-              <>
-                <span className={`font-bold tabular-nums ${statusCls}`}>{pct}%</span>
-                {' '}da meta
-                {metaBatida ? (
-                  <> · <span className={`font-semibold ${statusCls}`}>{statusLabel}</span></>
-                ) : (
-                  <> · faltam{' '}
-                    <span className="font-semibold text-foreground tabular-nums">{fmtVal(faltante)}</span>
-                  </>
-                )}
-              </>
-            ) : (
-              <span className="text-muted-foreground/60">Fale com seu gerente para definir sua meta</span>
-            )}
-          </p>
-
-          {/* Linha 6 — Alinhador de fundo */}
-          <div className="mt-auto" />
-        </div>
-
-        {/* — CARD META DIÁRIA — */}
-        <div className={`rounded-2xl border shadow-sm p-5 flex flex-col gap-3 ${
-          metaBatida
-            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
-            : 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/40'
-        }`}>
-
-          {/* Linha 1 — Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-none ${
-                metaBatida
-                  ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/40'
-                  : 'bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/40'
-              }`}>
-                <Target className={`h-4 w-4 ${metaBatida ? 'text-emerald-600' : 'text-violet-500'}`} />
-              </div>
-              <h2 className="text-sm font-semibold">Meta diária</h2>
-            </div>
-            {diasRestantes > 0 && (
-              <span className={`text-xs tabular-nums ${
-                metaBatida ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-violet-500/70 dark:text-violet-400/70'
-              }`}>
-                {diasRestantes}d restantes
-              </span>
-            )}
-          </div>
-
-          {/* Linha 2 — Valor principal */}
-          <p className={`text-3xl font-bold tabular-nums tracking-tight leading-none ${
-            metaBatida
-              ? 'text-emerald-700 dark:text-emerald-300'
-              : 'text-violet-800 dark:text-violet-200'
-          }`}>
-            {fmtVal(metaDiaria)}
-            <span className="text-base font-semibold opacity-60">/dia</span>
-          </p>
-
-          {/* Linha 3 — Texto secundário */}
-          <p className={`text-xs ${
-            metaBatida ? 'text-emerald-600/80 dark:text-emerald-400/70' : 'text-violet-500/80 dark:text-violet-400/70'
-          }`}>
-            {hasMetaVendas ? (
-              <>
-                <span className={`font-semibold tabular-nums ${statusCls}`}>{pct}%</span>
-                {' '}da meta mensal
-              </>
-            ) : (
-              'meta não configurada'
-            )}
-          </p>
-
-          {/* Linha 4 — Barra de progresso */}
-          <div className="h-2.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-
-          {/* Linha 5 — Resumo */}
-          {metaBatida ? (
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-              {statusLabel}
-            </p>
-          ) : hasMetaVendas ? (
-            <p className="text-xs text-violet-700/80 dark:text-violet-300/80">
-              Faltam{' '}
-              <span className="font-semibold tabular-nums text-violet-800 dark:text-violet-200">
-                {fmtVal(faltante)}
-              </span>
-              {' '}para bater a meta
-              {diasRestantes > 0 && (
-                <> · <span className="tabular-nums">{diasRestantes}d</span></>
-              )}
-            </p>
-          ) : (
-            <p className="text-xs text-violet-500/70 dark:text-violet-400/60">—</p>
-          )}
-
-          {/* Linha 6 — Alinhador de fundo */}
-          {metaBatida ? (
-            <p className="text-xs mt-auto text-emerald-600/70 dark:text-emerald-400/60">
-              Continue vendendo para ampliar o resultado.
-            </p>
-          ) : (
-            <div className="mt-auto" />
-          )}
-        </div>
-      </div>
-
-      {/* ══ 4. SEIS CARDS OPERACIONAIS ══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-
-        {/* Total vendido */}
-        <div className="rounded-xl border bg-card shadow-sm p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center flex-none">
-              <ShoppingBag className="h-3.5 w-3.5 text-blue-500" />
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Total vendido</p>
-          </div>
-          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalVendasMes)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{qtdVendas} venda{qtdVendas !== 1 ? 's' : ''}</p>
-        </div>
-
-        {/* Recompras */}
+        {/* Recuperado no mês */}
         <div className="rounded-xl border bg-card shadow-sm p-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center flex-none">
               <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
             </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Recompras</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Recuperado</p>
           </div>
-          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalRecomprasValor)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{qtdRecompras} cliente{qtdRecompras !== 1 ? 's' : ''}</p>
-        </div>
-
-        {/* Comissões */}
-        <div className="rounded-xl border bg-card shadow-sm p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center flex-none">
-              <DollarSign className="h-3.5 w-3.5 text-violet-500" />
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Comissões</p>
-          </div>
-          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalComissoes)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">30 dias</p>
-        </div>
-
-        {/* Atrasados */}
-        <div className={`rounded-xl border shadow-sm p-4 ${
-          totalAtrasados > 0
-            ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
-            : 'bg-card'
-        }`}>
-          <div className="flex items-center gap-2 mb-3">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${
-              totalAtrasados > 0 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-muted/60'
-            }`}>
-              <AlertCircle className={`h-3.5 w-3.5 ${totalAtrasados > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Atrasados</p>
-          </div>
-          <p className={`text-xl font-bold tabular-nums tracking-tight ${
-            totalAtrasados > 0 ? 'text-red-600 dark:text-red-400' : ''
-          }`}>
-            {totalAtrasados}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {totalAtrasados > 0 ? 'atenção necessária' : 'em dia'}
-          </p>
+          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalRecomprasValorMes)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{qtdRecomprasMes} recompra{qtdRecomprasMes !== 1 ? 's' : ''} este mês</p>
         </div>
 
         {/* Para hoje */}
@@ -496,12 +264,32 @@ export function DashboardVendedora({
             </div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Para hoje</p>
           </div>
-          <p className={`text-xl font-bold tabular-nums tracking-tight ${
-            totalHoje > 0 ? 'text-blue-600 dark:text-blue-400' : ''
-          }`}>
+          <p className={`text-xl font-bold tabular-nums tracking-tight ${totalHoje > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
             {totalHoje}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">a enviar hoje</p>
+          <p className="text-xs text-muted-foreground mt-0.5">a acionar hoje</p>
+        </div>
+
+        {/* Atrasados */}
+        <div className={`rounded-xl border shadow-sm p-4 ${
+          totalAtrasados > 0
+            ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
+            : 'bg-card'
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${
+              totalAtrasados > 0 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-muted/60'
+            }`}>
+              <AlertCircle className={`h-3.5 w-3.5 ${totalAtrasados > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+            </div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Atrasados</p>
+          </div>
+          <p className={`text-xl font-bold tabular-nums tracking-tight ${totalAtrasados > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+            {totalAtrasados}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {totalAtrasados > 0 ? 'atenção necessária' : 'em dia'}
+          </p>
         </div>
 
         {/* Enviados */}
@@ -732,7 +520,7 @@ export function DashboardVendedora({
           className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 flex items-center justify-between gap-3 shadow-md hover:shadow-lg transition-shadow"
         >
           <div>
-            <p className="font-bold text-base">Registrar nova venda</p>
+            <p className="font-bold text-base">Registrar compra para recompra</p>
             <p className="text-sm text-white/80 mt-0.5">Gera avisos automáticos de recompra.</p>
           </div>
           <ChevronRight className="h-6 w-6 flex-none text-white/60" />
@@ -742,7 +530,7 @@ export function DashboardVendedora({
           className="rounded-2xl border bg-card p-5 flex items-center justify-between gap-3 hover:shadow-md transition-shadow"
         >
           <div>
-            <p className="font-bold text-base">Ver meus avisos</p>
+            <p className="font-bold text-base">Abrir Fila de Recompra</p>
             <p className="text-sm text-muted-foreground mt-0.5">
               {totalAtrasados + totalHoje > 0
                 ? `${totalAtrasados + totalHoje} aviso${totalAtrasados + totalHoje !== 1 ? 's' : ''} pendente${totalAtrasados + totalHoje !== 1 ? 's' : ''}`

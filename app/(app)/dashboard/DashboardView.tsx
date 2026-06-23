@@ -4,6 +4,7 @@ import { DashboardVendedora } from './DashboardVendedora'
 import type {
   DashboardAviso, FunilStep, ProdutoRadarItem, VendedoraRanking, VendedoraComPendencia,
   VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo,
+  RankingRecomprasItem, TopProdutoRecompra,
 } from './page'
 
 interface Props {
@@ -39,6 +40,10 @@ interface Props {
   vendasDiariaMes: number[]
   mesLabel: string
   listaEsperaInfo: ListaEsperaInfo
+  rankingRecompras: RankingRecomprasItem[]
+  topProdutosRecompra: TopProdutoRecompra[]
+  totalRecomprasValorMes: number
+  qtdRecomprasMes: number
 }
 
 export function DashboardView(props: Props) {
@@ -68,6 +73,8 @@ export function DashboardView(props: Props) {
         listaEsperaInfo={props.listaEsperaInfo}
         avisosEnviadosCount={props.avisosEnviadosCount}
         topProdutosMes={props.topProdutosMes}
+        totalRecomprasValorMes={props.totalRecomprasValorMes}
+        qtdRecomprasMes={props.qtdRecomprasMes}
       />
     )
   }
@@ -89,6 +96,10 @@ export function DashboardView(props: Props) {
         qtdAvisosAtrasados={props.avisosAtrasados.length}
         qtdAvisosHoje={props.avisosHoje.length}
         avisosEnviadosCount={props.avisosEnviadosCount}
+        rankingRecompras={props.rankingRecompras}
+        topProdutosRecompra={props.topProdutosRecompra}
+        totalRecomprasValorMes={props.totalRecomprasValorMes}
+        qtdRecomprasMes={props.qtdRecomprasMes}
       />
     )
   }
@@ -114,6 +125,10 @@ export function DashboardView(props: Props) {
       qtdRecompras={props.qtdRecompras}
       totalComissoes={props.totalComissoes}
       avisosEnviadosCount={props.avisosEnviadosCount}
+      rankingRecompras={props.rankingRecompras}
+      topProdutosRecompra={props.topProdutosRecompra}
+      totalRecomprasValorMes={props.totalRecomprasValorMes}
+      qtdRecomprasMes={props.qtdRecomprasMes}
     />
   )
 }

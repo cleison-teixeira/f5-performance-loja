@@ -86,6 +86,19 @@ export interface ListaEsperaInfo {
   qtdClientes: number
 }
 
+export interface RankingRecomprasItem {
+  vendedora_id: string
+  nome: string
+  valorRecuperado: number
+  qtd: number
+}
+
+export interface TopProdutoRecompra {
+  nome: string
+  qtd: number
+  foto_url: string | null
+}
+
 function addDias(base: string, n: number): string {
   const [y, m, d] = base.split('-').map(Number)
   const dt = new Date(y, m - 1, d)
@@ -383,6 +396,38 @@ export default async function DashboardPage() {
       avisos_pendentes: avisosPorProduto.get(nome) ?? 0,
     }))
 
+  // Recompras do mês corrente
+  const recomprasMes = recompras.filter(r => r.criado_em.split('T')[0] >= inicioMes)
+  const totalRecomprasValorMes = recomprasMes.reduce((s, r) => s + r.valor_total, 0)
+  const qtdRecomprasMes = recomprasMes.length
+
+  // Ranking de recuperação por recompras confirmadas no mês
+  const rankingRecomprasMap = new Map<string, RankingRecomprasItem>()
+  recomprasMes.forEach(r => {
+    const entry = rankingRecomprasMap.get(r.vendedora_id) ?? {
+      vendedora_id: r.vendedora_id,
+      nome: r.vendedora_nome,
+      valorRecuperado: 0,
+      qtd: 0,
+    }
+    entry.valorRecuperado += r.valor_total
+    entry.qtd += 1
+    rankingRecomprasMap.set(r.vendedora_id, entry)
+  })
+  const rankingRecompras: RankingRecomprasItem[] = Array.from(rankingRecomprasMap.values())
+    .sort((a, b) => b.valorRecuperado - a.valorRecuperado)
+
+  // Top produtos de recompra (por avisos pendentes na fila)
+  const topProdutosRecompra: TopProdutoRecompra[] = Array.from(avisosPorProduto.entries())
+    .filter(([, qtd]) => qtd > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([nome, qtd]) => ({
+      nome,
+      qtd,
+      foto_url: produtoFotoMap.get(nome) ?? null,
+    }))
+
   // Ranking
   const vendedoraMap = new Map<string, { nome: string; total: number; qtd: number }>()
   vendas.forEach(v => {
@@ -552,6 +597,10 @@ export default async function DashboardPage() {
       vendasDiariaMes={vendasDiariaMes}
       mesLabel={mesLabel}
       listaEsperaInfo={listaEsperaInfo}
+      rankingRecompras={rankingRecompras}
+      topProdutosRecompra={topProdutosRecompra}
+      totalRecomprasValorMes={totalRecomprasValorMes}
+      qtdRecomprasMes={qtdRecomprasMes}
     />
   )
 }

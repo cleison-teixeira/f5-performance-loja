@@ -140,6 +140,8 @@ export default function DebugMobileAccessPage() {
             listaEsperaInfo={{ qtdAguardando: 2, valorPotencial: 350, qtdClientes: 2 }}
             avisosEnviadosCount={12}
             topProdutosMes={[]}
+            totalRecomprasValorMes={0}
+            qtdRecomprasMes={0}
           />
         </main>
       </div>

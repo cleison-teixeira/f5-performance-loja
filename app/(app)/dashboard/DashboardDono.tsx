@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import {
-  ChevronRight, Package, Bell, ShoppingBag, TrendingUp, Target, AlertCircle,
-  DollarSign, RefreshCw, Clock, Send,
+  ChevronRight, Package, Bell, TrendingUp, AlertCircle,
+  RefreshCw, Clock, Send,
 } from 'lucide-react'
-import type { VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo } from './page'
+import type { VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo, RankingRecomprasItem, TopProdutoRecompra } from './page'
 
 function fmtVal(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -34,6 +34,10 @@ interface Props {
   qtdRecompras: number
   totalComissoes: number
   avisosEnviadosCount: number
+  rankingRecompras: RankingRecomprasItem[]
+  topProdutosRecompra: TopProdutoRecompra[]
+  totalRecomprasValorMes: number
+  qtdRecomprasMes: number
 }
 
 const AVATAR_BG = ['bg-amber-500', 'bg-slate-400', 'bg-orange-400', 'bg-blue-400', 'bg-violet-400']
@@ -119,49 +123,15 @@ export function DashboardDono({
   nomeUsuario,
   listaEsperaInfo,
   dinheiroMesaInfo,
-  totalVendasMes,
-  diasRestantes,
-  rankingMes,
   avisosPrazo,
-  topProdutosMes,
-  totalRecomprasValor,
-  qtdRecompras,
-  totalComissoes,
+  rankingMes,
   avisosEnviadosCount,
+  rankingRecompras,
+  topProdutosRecompra,
+  totalRecomprasValorMes,
+  qtdRecomprasMes,
 }: Props) {
   const { totalPotencial, qtdOportunidades, potencial7Dias, qtdClientes7Dias } = dinheiroMesaInfo
-
-  // meta visual do piloto — R$ 20.000,00 fixo; não altera banco nem metas_vendedora
-  const META_MENSAL_DONO = 20000
-  const vendidoMes = totalVendasMes
-  const faltanteDono = Math.max(META_MENSAL_DONO - vendidoMes, 0)
-  const diasRestantesSafe = Math.max(diasRestantes, 1)
-  const metaDiariaDono = faltanteDono / diasRestantesSafe
-  const pctDono = Math.min(Math.round((vendidoMes / META_MENSAL_DONO) * 100), 100)
-  const metaBatida = vendidoMes >= META_MENSAL_DONO
-
-  const barGradDono = pctDono >= 100 ? 'from-emerald-500 to-green-500'
-    : pctDono >= 75 ? 'from-blue-500 to-blue-600'
-    : pctDono >= 40 ? 'from-amber-500 to-orange-500'
-    :                 'from-red-500 to-red-600'
-
-  const statusLabel = pctDono >= 100 ? 'Meta batida!'
-    : pctDono >= 75 ? 'Bom ritmo'
-    : pctDono >= 40 ? 'Em evolução'
-    : 'Atenção'
-
-  const statusCls = pctDono >= 100 ? 'text-emerald-600 dark:text-emerald-400'
-    : pctDono >= 75 ? 'text-blue-600 dark:text-blue-400'
-    : pctDono >= 40 ? 'text-amber-600 dark:text-amber-400'
-    : 'text-red-600 dark:text-red-400'
-
-  const qtdVendasMes = rankingMes.reduce((s, v) => s + v.qtdMes, 0)
-  const teamTotalMes = rankingMes.reduce((s, v) => s + v.totalMes, 0)
-  const teamTotalVendas = rankingMes.reduce((s, v) => s + v.qtdMes, 0)
-  const teamBestPct = rankingMes.reduce((best, v) => {
-    if (!v.meta || v.meta === 0) return best
-    return Math.max(best, Math.min(Math.round((v.totalMes / v.meta) * 100), 100))
-  }, 0)
 
   return (
     <div className="space-y-5 pb-10">
@@ -170,8 +140,8 @@ export function DashboardDono({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Olá, {nomeUsuario.split(' ')[0]}</p>
-          <h1 className="text-xl font-semibold tracking-tight">Painel da loja</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
+          <h1 className="text-xl font-semibold tracking-tight">Painel de recompra</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · Dinheiro na mesa, recompras em aberto e fila da equipe.</p>
         </div>
         <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex-none mt-1">
           Dono(a)
@@ -209,7 +179,7 @@ export function DashboardDono({
                   {fmt(totalPotencial)}
                 </p>
                 <p className="text-sm text-emerald-300/70 mt-2.5 font-medium">
-                  potencial em recompras abertas
+                  em recompras abertas e oportunidades na fila
                 </p>
                 {totalPotencial === 0 && (
                   <p className="text-sm text-white/40 mt-2 italic">
@@ -260,208 +230,19 @@ export function DashboardDono({
         </div>
       </div>
 
-      {/* ══ 3. META MENSAL + META DIÁRIA ══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ══ 3. QUATRO CARDS RECOMPRA-FIRST ══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
-        {/* — CARD META MENSAL — */}
-        <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-3">
-
-          {/* Linha 1 — Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-800/40 flex items-center justify-center flex-none">
-                <Target className="h-4 w-4 text-violet-500" />
-              </div>
-              <h2 className="text-sm font-semibold">Meta mensal</h2>
-            </div>
-            {diasRestantes > 0 && (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {diasRestantes}d restantes
-              </span>
-            )}
-          </div>
-
-          {/* Linha 2 — Valor principal */}
-          <p className="text-3xl font-bold tabular-nums tracking-tight leading-none">
-            {fmtVal(vendidoMes)}
-          </p>
-
-          {/* Linha 3 — Texto secundário */}
-          <p className="text-xs text-muted-foreground">
-            de {fmtVal(META_MENSAL_DONO)} da meta mensal
-          </p>
-
-          {/* Linha 4 — Barra de progresso */}
-          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
-              style={{ width: `${pctDono}%` }}
-            />
-          </div>
-
-          {/* Linha 5 — Resumo */}
-          <p className="text-xs text-muted-foreground">
-            <span className={`font-bold tabular-nums ${statusCls}`}>{pctDono}%</span>
-            {' '}da meta
-            {metaBatida ? (
-              <> · <span className={`font-semibold ${statusCls}`}>{statusLabel}</span></>
-            ) : (
-              <> · faltam{' '}
-                <span className="font-semibold text-foreground tabular-nums">{fmtVal(faltanteDono)}</span>
-              </>
-            )}
-          </p>
-
-          {/* Linha 6 — Alinhador de fundo (mantém altura simétrica com card diária) */}
-          <div className="mt-auto" />
-        </div>
-
-        {/* — CARD META DIÁRIA — */}
-        <div className={`rounded-2xl border shadow-sm p-5 flex flex-col gap-3 ${
-          metaBatida
-            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
-            : 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/40'
-        }`}>
-
-          {/* Linha 1 — Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-none ${
-                metaBatida
-                  ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/40'
-                  : 'bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/40'
-              }`}>
-                <Target className={`h-4 w-4 ${metaBatida ? 'text-emerald-600' : 'text-violet-500'}`} />
-              </div>
-              <h2 className="text-sm font-semibold">Meta diária</h2>
-            </div>
-            {diasRestantes > 0 && (
-              <span className={`text-xs tabular-nums ${
-                metaBatida ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-violet-500/70 dark:text-violet-400/70'
-              }`}>
-                {diasRestantes}d restantes
-              </span>
-            )}
-          </div>
-
-          {/* Linha 2 — Valor principal */}
-          <p className={`text-3xl font-bold tabular-nums tracking-tight leading-none ${
-            metaBatida
-              ? 'text-emerald-700 dark:text-emerald-300'
-              : 'text-violet-800 dark:text-violet-200'
-          }`}>
-            {fmtVal(metaDiariaDono)}
-            <span className="text-base font-semibold opacity-60">/dia</span>
-          </p>
-
-          {/* Linha 3 — Texto secundário */}
-          <p className={`text-xs ${
-            metaBatida ? 'text-emerald-600/80 dark:text-emerald-400/70' : 'text-violet-500/80 dark:text-violet-400/70'
-          }`}>
-            <span className={`font-semibold tabular-nums ${statusCls}`}>{pctDono}%</span>
-            {' '}da meta mensal
-          </p>
-
-          {/* Linha 4 — Barra de progresso */}
-          <div className="h-2.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
-              style={{ width: `${pctDono}%` }}
-            />
-          </div>
-
-          {/* Linha 5 — Resumo */}
-          {metaBatida ? (
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-              {statusLabel}
-            </p>
-          ) : (
-            <p className="text-xs text-violet-700/80 dark:text-violet-300/80">
-              Faltam{' '}
-              <span className="font-semibold tabular-nums text-violet-800 dark:text-violet-200">
-                {fmtVal(faltanteDono)}
-              </span>
-              {' '}para bater a meta
-              {diasRestantes > 0 && (
-                <> · <span className="tabular-nums">{diasRestantes}d</span></>
-              )}
-            </p>
-          )}
-
-          {/* Linha 6 — Alinhador de fundo (simétrico com card mensal) */}
-          {metaBatida ? (
-            <p className="text-xs mt-auto text-emerald-600/70 dark:text-emerald-400/60">
-              Continue vendendo para ampliar o resultado.
-            </p>
-          ) : (
-            <div className="mt-auto" />
-          )}
-        </div>
-      </div>
-
-      {/* ══ 4. SEIS CARDS OPERACIONAIS ══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-
-        {/* Total vendido */}
-        <div className="rounded-xl border bg-card shadow-sm p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center flex-none">
-              <ShoppingBag className="h-3.5 w-3.5 text-blue-500" />
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Total vendido</p>
-          </div>
-          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalVendasMes)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{qtdVendasMes} venda{qtdVendasMes !== 1 ? 's' : ''}</p>
-        </div>
-
-        {/* Recompras */}
+        {/* Recuperado no mês */}
         <div className="rounded-xl border bg-card shadow-sm p-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center flex-none">
               <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
             </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Recompras</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Recuperado</p>
           </div>
-          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalRecomprasValor)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{qtdRecompras} cliente{qtdRecompras !== 1 ? 's' : ''}</p>
-        </div>
-
-        {/* Comissões */}
-        <div className="rounded-xl border bg-card shadow-sm p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center flex-none">
-              <DollarSign className="h-3.5 w-3.5 text-violet-500" />
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Comissões</p>
-          </div>
-          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalComissoes)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">30 dias</p>
-        </div>
-
-        {/* Atrasados */}
-        <div className={`rounded-xl border shadow-sm p-4 ${
-          avisosPrazo.atrasados.qtd > 0
-            ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
-            : 'bg-card'
-        }`}>
-          <div className="flex items-center gap-2 mb-3">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${
-              avisosPrazo.atrasados.qtd > 0
-                ? 'bg-red-100 dark:bg-red-900/40'
-                : 'bg-muted/60'
-            }`}>
-              <AlertCircle className={`h-3.5 w-3.5 ${avisosPrazo.atrasados.qtd > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Atrasados</p>
-          </div>
-          <p className={`text-xl font-bold tabular-nums tracking-tight ${
-            avisosPrazo.atrasados.qtd > 0 ? 'text-red-600 dark:text-red-400' : ''
-          }`}>
-            {avisosPrazo.atrasados.qtd}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {avisosPrazo.atrasados.qtd > 0 ? 'atenção necessária' : 'em dia'}
-          </p>
+          <p className="text-xl font-bold tabular-nums tracking-tight">{fmt(totalRecomprasValorMes)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{qtdRecomprasMes} recompra{qtdRecomprasMes !== 1 ? 's' : ''} este mês</p>
         </div>
 
         {/* Para hoje */}
@@ -472,20 +253,38 @@ export function DashboardDono({
         }`}>
           <div className="flex items-center gap-2 mb-3">
             <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${
-              avisosPrazo.hoje.qtd > 0
-                ? 'bg-blue-100 dark:bg-blue-900/40'
-                : 'bg-muted/60'
+              avisosPrazo.hoje.qtd > 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-muted/60'
             }`}>
               <Clock className={`h-3.5 w-3.5 ${avisosPrazo.hoje.qtd > 0 ? 'text-blue-500' : 'text-muted-foreground'}`} />
             </div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Para hoje</p>
           </div>
-          <p className={`text-xl font-bold tabular-nums tracking-tight ${
-            avisosPrazo.hoje.qtd > 0 ? 'text-blue-600 dark:text-blue-400' : ''
-          }`}>
+          <p className={`text-xl font-bold tabular-nums tracking-tight ${avisosPrazo.hoje.qtd > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
             {avisosPrazo.hoje.qtd}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">a enviar hoje</p>
+          <p className="text-xs text-muted-foreground mt-0.5">a acionar hoje</p>
+        </div>
+
+        {/* Atrasados */}
+        <div className={`rounded-xl border shadow-sm p-4 ${
+          avisosPrazo.atrasados.qtd > 0
+            ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
+            : 'bg-card'
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${
+              avisosPrazo.atrasados.qtd > 0 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-muted/60'
+            }`}>
+              <AlertCircle className={`h-3.5 w-3.5 ${avisosPrazo.atrasados.qtd > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+            </div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Atrasados</p>
+          </div>
+          <p className={`text-xl font-bold tabular-nums tracking-tight ${avisosPrazo.atrasados.qtd > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+            {avisosPrazo.atrasados.qtd}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {avisosPrazo.atrasados.qtd > 0 ? 'atenção necessária' : 'em dia'}
+          </p>
         </div>
 
         {/* Enviados */}
@@ -501,7 +300,7 @@ export function DashboardDono({
         </div>
       </div>
 
-      {/* ══ 5. LISTA DE ESPERA (card robusto) ══ */}
+      {/* ══ 4. LISTA DE ESPERA (card robusto) ══ */}
       {listaEsperaInfo.qtdAguardando > 0 && (
         <div className="rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-3">
@@ -535,7 +334,7 @@ export function DashboardDono({
         </div>
       )}
 
-      {/* ══ 6. RANKING DA EQUIPE (full width) ══ */}
+      {/* ══ 5. RANKING DE RECUPERAÇÃO (full width) ══ */}
       <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
 
         <div className="flex items-center justify-between">
@@ -543,50 +342,25 @@ export function DashboardDono({
             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
               <TrendingUp className="h-4 w-4 text-emerald-600" />
             </div>
-            <h2 className="text-sm font-semibold">Ranking da equipe</h2>
+            <h2 className="text-sm font-semibold">Ranking de recuperação</h2>
           </div>
           <Link href="/configuracoes/equipe" className="text-xs text-primary hover:underline">
             Ver equipe →
           </Link>
         </div>
 
-        {rankingMes.length > 0 ? (
+        {rankingRecompras.length > 0 ? (
           <>
             <div className="space-y-1">
-              {rankingMes.slice(0, 5).map((v, i) => {
-                const pctV = v.meta && v.meta > 0
-                  ? Math.min(Math.round((v.totalMes / v.meta) * 100), 100)
-                  : null
-                const status = pctV !== null
-                  ? pctV >= 80 ? 'Excelente' : pctV >= 60 ? 'Muito bem' : pctV >= 40 ? 'Em evolução' : 'Atenção'
-                  : null
-                const statusCls = pctV !== null
-                  ? pctV >= 80 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                  : pctV >= 60 ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
-                  : pctV >= 40 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                  :              'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400'
-                  : ''
-                const barGrad = pctV !== null
-                  ? pctV >= 80 ? 'from-emerald-500 to-green-500'
-                  : pctV >= 60 ? 'from-amber-400 to-orange-400'
-                  : pctV >= 40 ? 'from-blue-400 to-blue-500'
-                  :              'from-red-400 to-red-500'
-                  : 'from-slate-300 to-slate-400'
-                const pctColor = pctV !== null
-                  ? pctV >= 80 ? 'text-emerald-600 dark:text-emerald-400'
-                  : pctV >= 60 ? 'text-amber-600 dark:text-amber-400'
-                  : pctV >= 40 ? 'text-blue-600 dark:text-blue-400'
-                  :              'text-red-500 dark:text-red-400'
-                  : 'text-muted-foreground'
+              {rankingRecompras.slice(0, 5).map((v, i) => {
                 const initials = v.nome.split(' ').filter(Boolean).map(n => n[0].toUpperCase()).slice(0, 2).join('')
                 const isFirst = i === 0
-
                 return (
                   <div
                     key={v.vendedora_id}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
                       isFirst
-                        ? 'bg-amber-50 dark:bg-amber-950/20 border border-amber-100/80 dark:border-amber-800/30'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/80 dark:border-emerald-800/30'
                         : 'hover:bg-muted/40'
                     }`}
                   >
@@ -601,157 +375,15 @@ export function DashboardDono({
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center justify-between gap-2">
                         <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-semibold'}`}>{v.nome}</p>
-                        {status && (
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-none whitespace-nowrap ${statusCls}`}>
-                            {status}
-                          </span>
-                        )}
+                        <p className={`text-sm tabular-nums flex-none ${isFirst ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold'}`}>
+                          {fmt(v.valorRecuperado)}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-                            style={{ width: `${pctV ?? (v.totalMes > 0 ? 12 : 0)}%` }}
-                          />
-                        </div>
-                        {pctV !== null && (
-                          <span className={`text-[10px] tabular-nums flex-none w-8 text-right font-semibold ${pctColor}`}>
-                            {pctV}%
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground tabular-nums leading-tight">
-                        <span className="font-semibold text-foreground">{fmt(v.totalMes)}</span>
-                        {v.meta && <span> / {fmt(v.meta)}</span>}
-                        <span className="mx-1 opacity-40">·</span>
-                        <span>{v.qtdMes} venda{v.qtdMes !== 1 ? 's' : ''}</span>
+                      <p className="text-[11px] text-muted-foreground tabular-nums leading-tight mt-0.5">
+                        {v.qtd} recompra{v.qtd !== 1 ? 's' : ''} confirmada{v.qtd !== 1 ? 's' : ''}
                       </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="h-px bg-border/50" />
-            <div className="rounded-xl bg-muted/30 px-4 py-3 grid grid-cols-4 gap-2">
-              <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Total equipe</p>
-                <p className="text-xs font-bold tabular-nums text-foreground">{fmt(teamTotalMes)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Vendas</p>
-                <p className="text-xs font-bold tabular-nums text-foreground">{teamTotalVendas}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Equipe</p>
-                <p className="text-xs font-bold tabular-nums text-foreground">
-                  {rankingMes.length} pessoa{rankingMes.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Melhor progresso</p>
-                <p className={`text-xs font-bold tabular-nums ${teamBestPct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : teamBestPct > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {teamBestPct > 0 ? `${teamBestPct}%` : '—'}
-                </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
-            <ShoppingBag className="h-8 w-8 text-muted-foreground/25" />
-            <p className="text-sm text-muted-foreground">Nenhuma venda registrada este mês.</p>
-            <Link href="/vendas/nova" className="text-xs text-primary hover:underline mt-1">
-              Registrar primeira venda →
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* ══ 7. TOP PRODUTOS DO MÊS (full width) ══ */}
-      <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
-              <Package className="h-4 w-4 text-emerald-600" />
-            </div>
-            <h2 className="text-sm font-semibold">Top produtos do mês</h2>
-          </div>
-          <Link href="/produtos" className="text-xs text-primary hover:underline">
-            Ver produtos →
-          </Link>
-        </div>
-
-        {topProdutosMes.length > 0 ? (
-          <>
-            <div className="space-y-1">
-              {topProdutosMes.map((p, i) => {
-                const isFirst = i === 0
-                const barGrad = isFirst
-                  ? 'from-emerald-500 to-green-500'
-                  : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
-
-                return (
-                  <div
-                    key={p.nome}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-                      isFirst
-                        ? 'bg-emerald-50/60 dark:bg-emerald-950/15 border border-emerald-100/80 dark:border-emerald-800/30'
-                        : 'hover:bg-muted/40'
-                    }`}
-                  >
-                    <span className={`text-[11px] font-bold tabular-nums flex-none w-4 text-center ${
-                      isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/40'
-                    }`}>
-                      {i + 1}
-                    </span>
-
-                    <div className={`w-9 h-9 rounded-xl overflow-hidden flex-none border ${
-                      isFirst ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-border/60'
-                    }`}>
-                      {p.foto_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.foto_url}
-                          alt={p.nome}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className={`w-full h-full flex items-center justify-center ${
-                          isFirst ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-muted/60'
-                        }`}>
-                          <Package className={`h-4 w-4 ${isFirst ? 'text-emerald-600' : 'text-muted-foreground/30'}`} />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>
-                          {p.nome}
-                        </p>
-                        <p className={`text-sm tabular-nums flex-none ${
-                          isFirst ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold'
-                        }`}>
-                          {fmt(p.total)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-                            style={{ width: `${p.pct}%` }}
-                          />
-                        </div>
-                        <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
-                          isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
-                        }`}>
-                          {p.pct}%
-                        </span>
-                      </div>
                     </div>
                   </div>
                 )
@@ -761,62 +393,112 @@ export function DashboardDono({
             <div className="h-px bg-border/50" />
             <div className="rounded-xl bg-muted/30 px-4 py-3 grid grid-cols-3 gap-2">
               <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">
-                  Top {topProdutosMes.length}
-                </p>
-                <p className="text-xs font-bold tabular-nums">
-                  {fmt(topProdutosMes.reduce((s, prod) => s + prod.total, 0))}
-                </p>
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Recuperado</p>
+                <p className="text-xs font-bold tabular-nums text-foreground">{fmt(rankingRecompras.reduce((s, v) => s + v.valorRecuperado, 0))}</p>
               </div>
               <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Líder</p>
-                <p className="text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                  {topProdutosMes[0]?.pct ?? 0}%
-                </p>
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Recompras</p>
+                <p className="text-xs font-bold tabular-nums text-foreground">{rankingRecompras.reduce((s, v) => s + v.qtd, 0)}</p>
               </div>
               <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Produtos</p>
-                <p className="text-xs font-bold tabular-nums">{topProdutosMes.length}</p>
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Equipe</p>
+                <p className="text-xs font-bold tabular-nums text-foreground">
+                  {rankingRecompras.length} pessoa{rankingRecompras.length !== 1 ? 's' : ''}
+                </p>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-4 py-8 text-center rounded-xl bg-muted/20 border border-dashed">
-            <Package className="h-7 w-7 text-muted-foreground/25" />
-            <p className="text-sm text-muted-foreground font-medium">Nenhum produto vendido este mês ainda.</p>
-            <Link href="/vendas/nova" className="text-xs text-primary hover:underline">
-              Registrar nova venda →
+          <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+            <RefreshCw className="h-8 w-8 text-muted-foreground/25" />
+            <p className="text-sm text-muted-foreground">Nenhuma recompra confirmada este mês.</p>
+            <Link href="/avisos" className="text-xs text-primary hover:underline mt-1">
+              Ir para a fila de recompra →
             </Link>
           </div>
         )}
       </div>
 
-      {/* ══ 8. CTAs FINAIS ══ */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* ══ 6. PRODUTOS COM MAIS OPORTUNIDADES (full width) ══ */}
+      <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
+              <Package className="h-4 w-4 text-emerald-600" />
+            </div>
+            <h2 className="text-sm font-semibold">Produtos com mais oportunidades</h2>
+          </div>
+          <Link href="/produtos" className="text-xs text-primary hover:underline">
+            Ver produtos →
+          </Link>
+        </div>
+
+        {topProdutosRecompra.length > 0 ? (
+          <div className="space-y-1">
+            {topProdutosRecompra.map((p, i) => {
+              const isFirst = i === 0
+              return (
+                <div
+                  key={p.nome}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
+                    isFirst
+                      ? 'bg-emerald-50/60 dark:bg-emerald-950/15 border border-emerald-100/80 dark:border-emerald-800/30'
+                      : 'hover:bg-muted/40'
+                  }`}
+                >
+                  <span className={`text-[11px] font-bold tabular-nums flex-none w-4 text-center ${
+                    isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/40'
+                  }`}>
+                    {i + 1}
+                  </span>
+                  <div className={`w-9 h-9 rounded-xl overflow-hidden flex-none border ${
+                    isFirst ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-border/60'
+                  }`}>
+                    {p.foto_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.foto_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className={`w-full h-full flex items-center justify-center ${
+                        isFirst ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-muted/60'
+                      }`}>
+                        <Package className={`h-4 w-4 ${isFirst ? 'text-emerald-600' : 'text-muted-foreground/30'}`} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>{p.nome}</p>
+                    <p className={`text-[11px] tabular-nums mt-0.5 ${isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                      {p.qtd} aviso{p.qtd !== 1 ? 's' : ''} na fila
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-4 py-8 text-center rounded-xl bg-muted/20 border border-dashed">
+            <Package className="h-7 w-7 text-muted-foreground/25" />
+            <p className="text-sm text-muted-foreground font-medium">Nenhum produto com oportunidades na fila.</p>
+            <Link href="/vendas/nova" className="text-xs text-primary hover:underline">
+              Registrar uma venda →
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ══ 7. CTAs ══ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Link
           href="/avisos"
           className="rounded-xl border bg-card shadow-sm p-4 flex items-center gap-3 hover:bg-muted/40 transition-colors"
         >
-          <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/25 border border-amber-100 dark:border-amber-800/30 flex items-center justify-center flex-none">
-            <Bell className="h-4 w-4 text-amber-600" />
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/25 border border-emerald-100 dark:border-emerald-800/30 flex items-center justify-center flex-none">
+            <Bell className="h-4 w-4 text-emerald-600" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium">Fila de avisos</p>
-            <p className="text-xs text-muted-foreground">Acompanhar envios</p>
-          </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto flex-none" />
-        </Link>
-
-        <Link
-          href="/vendas"
-          className="rounded-xl border bg-card shadow-sm p-4 flex items-center gap-3 hover:bg-muted/40 transition-colors"
-        >
-          <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/25 border border-blue-100 dark:border-blue-800/30 flex items-center justify-center flex-none">
-            <ShoppingBag className="h-4 w-4 text-blue-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium">Extrato de vendas</p>
-            <p className="text-xs text-muted-foreground">Todas as vendas</p>
+            <p className="text-sm font-medium">Ir para Fila de Recompra</p>
+            <p className="text-xs text-muted-foreground">Acompanhar e acionar clientes</p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto flex-none" />
         </Link>
@@ -830,7 +512,7 @@ export function DashboardDono({
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium">Gestão da equipe</p>
-            <p className="text-xs text-muted-foreground">Ver vendedoras</p>
+            <p className="text-xs text-muted-foreground">Ver vendedoras e resultados</p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto flex-none" />
         </Link>
