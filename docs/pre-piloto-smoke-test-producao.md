@@ -1198,3 +1198,162 @@ Usa dados já existentes: `qtdAvisosAtrasados`, `vendedorasComPendencias`, `list
 | TypeScript | ✅ sem erros |
 | Build | ✅ `Compiled successfully` — 29 rotas |
 | Commit | ver abaixo |
+
+---
+
+## Atualização Fase 8.7D.6.2D — Smoke visual final dos dashboards
+
+**Data:** 2026-06-22
+**Fases cobertas:** 8.7D.6.2A (Dono), 8.7D.6.2B (Gerente), 8.7D.6.2C.1–C.3 (Vendedora)
+**Commits auditados:** `9bd9791` (C.3), `ecbd191` (C.2), `4ef7f71` (C.1), builds anteriores
+
+### 1. Auditoria de código — blocos proibidos
+
+Script Python verificou ausência de padrões proibidos (`ComissaoChart`, `MetricCard`, `FunilRecompra`, `headlineCor`, `showResultado`, `radar de produtos`, `rankingVendedoras`, `VendedoraComPendencia`) em todos os 3 arquivos de dashboard.
+
+| Dashboard | Resultado |
+|---|---|
+| `DashboardDono.tsx` | ✅ LIMPO |
+| `DashboardGerente.tsx` | ✅ LIMPO |
+| `DashboardVendedora.tsx` | ✅ LIMPO |
+
+---
+
+### 2. Checklist — Dashboard Dono
+
+| Item | Código | Status |
+|---|---|---|
+| Saudação + badge "Dono(a)" | `Olá, {nomeUsuario.split(' ')[0]}` + badge emerald → azul dono | ✅ |
+| Dinheiro na Mesa (gradient verde escuro) | `dm-` SVG prefix, `totalComissoes` principal | ✅ |
+| CTA Dinheiro na Mesa | "Ver fila de recompra" → `/avisos` | ✅ |
+| Meta mensal (`META_MENSAL_DONO = 20000`) | Padrão 6 linhas aprovado, `barGradDono` | ✅ |
+| Meta diária | Calculada a partir de `metaVendasMes` e `diasRestantes` | ✅ |
+| 6 cards operacionais | Total vendido · Recompras · Comissões · Atrasados · Para hoje · Enviados | ✅ |
+| Lista de Espera (card âmbar robusto) | `fmtVal()` 2 decimais, `qtdAguardando` / `valorPotencial` | ✅ |
+| Ranking da equipe | Full width, `rankingMes` | ✅ |
+| Top Produtos do mês | Full width, `topProdutosMes` | ✅ |
+| CTAs finais | "Ir para avisos" · "Ver equipe" · "Ver extrato" | ✅ |
+| Sem funil, sem ComissaoChart, sem radar | Auditoria confirmada | ✅ |
+
+**Veredicto Dono: APROVADO**
+
+---
+
+### 3. Checklist — Dashboard Gerente
+
+| Item | Código | Status |
+|---|---|---|
+| Saudação + badge "Gerente" (azul) | `Olá, {nomeUsuario.split(' ')[0]}` + badge blue | ✅ |
+| Dinheiro na Mesa (gradient verde escuro) | `gm-` SVG prefix, mesma estrutura do Dono | ✅ |
+| CTA Dinheiro na Mesa | "Ver fila de recompra" → `/avisos` | ✅ |
+| Meta mensal (`META_MENSAL = 20000`) | Padrão 6 linhas aprovado | ✅ |
+| Meta diária | Mesma lógica do Dono | ✅ |
+| 6 cards operacionais | Mesma ordem e dados do Dono (equipe) | ✅ |
+| Lista de Espera (card âmbar robusto) | Idêntico ao Dono | ✅ |
+| Ranking da equipe | Full width, `rankingMes` | ✅ |
+| Top Produtos do mês | Full width, `topProdutosMes` | ✅ |
+| CTAs finais | "Ir para avisos" · "Ver equipe" · "Ver extrato" | ✅ |
+| Props removidas (funil, radar, rankingVendedoras, VendedoraComPendencia) | Auditoria confirmada | ✅ |
+
+**Veredicto Gerente: APROVADO**
+
+---
+
+### 4. Checklist — Dashboard Vendedora
+
+| Item | Código | Status |
+|---|---|---|
+| Saudação + badge "Vendedor(a)" (emerald) | `Olá, {firstName}` + badge emerald | ✅ |
+| Dinheiro na Mesa — foco em comissão | `vm-` SVG prefix, `totalComissoes` principal | ✅ |
+| Indicadores Dinheiro na Mesa | `previsaoEmAberto` · `totalHoje` · `totalAtrasados` | ✅ |
+| CTA Dinheiro na Mesa | "Ver meus avisos" → `/avisos` | ✅ |
+| Meta mensal (real `metaVendasMes`, fallback null) | Padrão 6 linhas; "meta não configurada" se null | ✅ |
+| Meta diária | Calculada dinamicamente | ✅ |
+| 6 cards operacionais | Total vendido · Recompras · Comissões · Atrasados · Para hoje · Enviados | ✅ |
+| Lista de Espera (card âmbar robusto) | `fmtVal()` 2 decimais | ✅ |
+| Top Produtos da loja | Full width, label honesto ("da loja") | ✅ |
+| Para hoje (avisos atrasados + hoje) | Cards `AvisoEnvio`, botão "Enviar", link "Ver todos" | ✅ |
+| Estado vazio "Fila zerada!" | Empty state preservado | ✅ |
+| CTAs finais | "Registrar nova venda" · "Ver meus avisos" | ✅ |
+| Sem ranking, sem funil, sem ComissaoChart, sem MetricCard | Auditoria confirmada | ✅ |
+| Props legado mantidos na interface (compat) | `funil`, `diasMes`, `comissaoDiaria`, `hojeDia`, `totalVendasValor`, `metaComissao` | ✅ |
+
+**Veredicto Vendedora: APROVADO**
+
+---
+
+### 5. Mobile
+
+| Item | Status |
+|---|---|
+| Preview `/debug/mobile-access` com mock completo | ✅ props atualizadas em todas as fases |
+| Teste no iPhone (Safari / Chrome) | ⏳ pendente de validação manual por Cleison |
+| Scroll, touch, bottom nav | ⏳ pendente de validação manual |
+
+---
+
+### 6. Produção
+
+| Item | Status |
+|---|---|
+| Build `npm run build` — 29 rotas | ✅ sem erros TS, sem warnings críticos |
+| Deploy Vercel automático (push main) | ⏳ pendente de validação na URL de produção |
+| Teste nos 3 roles em produção | ⏳ pendente de validação manual |
+
+---
+
+### 7. Pendências visuais não bloqueantes
+
+| Pendência | Observação |
+|---|---|
+| Gradiente Meta mensal — mobile contrast | A verificar no iPhone real |
+| Top Produtos: `foto_url = null` → placeholder vazio | Comportamento esperado para piloto |
+
+---
+
+### 8. Restrições respeitadas
+
+| Restrição | Status |
+|---|---|
+| Banco / RLS / migrations | ✅ NÃO alterados |
+| Motor de comissão | ✅ NÃO alterado |
+| DashboardDono (pós-fase A) | ✅ NÃO tocado nas fases B/C |
+| DashboardGerente (pós-fase B) | ✅ NÃO tocado nas fases C |
+| IDs SVG únicos por dashboard (`dm-` / `gm-` / `vm-`) | ✅ sem conflito |
+
+---
+
+### 9. Arquivos alterados (fases 8.7D.6.2A–D)
+
+| Arquivo | Fases |
+|---|---|
+| `app/(app)/dashboard/DashboardDono.tsx` | 8.7D.6.2A |
+| `app/(app)/dashboard/DashboardGerente.tsx` | 8.7D.6.2B |
+| `app/(app)/dashboard/DashboardVendedora.tsx` | 8.7D.6.2C.1, C.2, C.3 |
+| `app/(app)/dashboard/DashboardView.tsx` | 8.7D.6.2B, C.1, C.2 |
+| `app/debug/mobile-access/page.tsx` | 8.7D.6.2C.1, C.2 |
+| `docs/pre-piloto-smoke-test-producao.md` | 8.7D.6.2D |
+
+---
+
+### 10. Build e deploy
+
+| Item | Status |
+|---|---|
+| TypeScript | ✅ sem erros |
+| Build | ✅ `Compiled successfully` — 29 rotas |
+| Commits | `9bd9791` C.3 · `ecbd191` C.2 · `4ef7f71` C.1 — todos no main |
+
+---
+
+### Veredicto final — Fase 8.7D.6.2D
+
+| Dashboard | Código | Aprovação visual |
+|---|---|---|
+| Dono | ✅ APROVADO | ✅ aprovado por Cleison |
+| Gerente | ✅ APROVADO | ✅ aprovado por Cleison |
+| Vendedora | ✅ APROVADO | ✅ aprovado por Cleison |
+| Mobile | ✅ mock pronto | ⏳ teste iPhone pendente |
+| Produção | ✅ build limpo | ⏳ validação URL pendente |
+
+**STATUS: APROVADO PARA PRÓXIMA FASE (8.7D.7 — Smoke operacional)**
