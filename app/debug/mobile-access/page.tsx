@@ -119,7 +119,7 @@ export default function DebugMobileAccessPage() {
 
         <main className="flex-1 p-4 pb-24">
           <DashboardVendedora
-            loja={{ id: 'debug', nome: 'Cia Cidade Azul Angeloni' }}
+            loja={{ id: 'debug', nome: 'CIA CIDADE AZUL - ANGELONI' }}
             nomeVendedora="Ana Beatriz Costa"
             avisosAtrasados={avisosAtrasados}
             avisosHoje={avisosHoje}
