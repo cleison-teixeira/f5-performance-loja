@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar role={role} />
       <div className="flex flex-col flex-1 min-w-0">
         <Header nomeUsuario={perfil?.nome ?? ''} />
-        <main className="flex-1 p-4 pb-20 md:pb-6">
+        <main className="flex-1 p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
           {children}
         </main>
       </div>

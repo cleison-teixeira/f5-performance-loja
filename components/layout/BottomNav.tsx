@@ -69,7 +69,7 @@ export function BottomNav({ role }: Props) {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-around h-16">
           {mainItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
@@ -78,7 +78,7 @@ export function BottomNav({ role }: Props) {
                 key={href}
                 href={href}
                 className={cn(
-                  'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors',
+                  'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors touch-manipulation',
                   active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
@@ -91,7 +91,7 @@ export function BottomNav({ role }: Props) {
           <button
             onClick={() => setDrawerAberto(true)}
             className={cn(
-              'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors',
+              'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors touch-manipulation',
               maisAtivo ? 'text-primary' : 'text-muted-foreground'
             )}
           >
@@ -134,7 +134,7 @@ export function BottomNav({ role }: Props) {
                         href={href}
                         onClick={() => setDrawerAberto(false)}
                         className={cn(
-                          'flex items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors',
+                          'flex items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors touch-manipulation',
                           active
                             ? 'bg-primary/10 text-primary font-medium'
                             : 'text-foreground hover:bg-accent'
