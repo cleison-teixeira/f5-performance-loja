@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import {
   ChevronRight, Package, Bell, TrendingUp, AlertCircle,
-  RefreshCw, Clock, Send,
+  RefreshCw, Clock, Send, DollarSign,
 } from 'lucide-react'
 import type { VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo, RankingRecomprasItem, TopProdutoRecompra, RankingLojasItem } from './page'
 
@@ -161,7 +161,7 @@ export function DashboardDono({
           <div className="flex flex-wrap items-center justify-between gap-3 mb-7">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-white/10 ring-1 ring-white/15 flex items-center justify-center flex-none">
-                <TrendingUp className="h-4 w-4 text-emerald-300" />
+                <DollarSign className="h-4 w-4 text-emerald-300" />
               </div>
               <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-300/90">
                 Dinheiro na Mesa
@@ -198,7 +198,7 @@ export function DashboardDono({
                   <p className="text-2xl font-bold text-white tabular-nums">{qtdOportunidades}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Próximos 7 dias</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Próx. 7 dias</p>
                   <p className="text-2xl font-bold text-white tabular-nums">{fmt(potencial7Dias)}</p>
                 </div>
                 <div>
