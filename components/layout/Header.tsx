@@ -10,7 +10,7 @@ interface HeaderProps {
 export function Header({ nomeUsuario = '', nomeLoja = '' }: HeaderProps) {
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b bg-background sticky top-0 z-40">
-      <div className="md:hidden font-semibold text-base tracking-tight">Recway</div>
+      <div className="md:hidden font-semibold text-base tracking-tight">F5 Recompra</div>
       <div className="hidden md:block text-sm text-muted-foreground">{nomeLoja}</div>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon">

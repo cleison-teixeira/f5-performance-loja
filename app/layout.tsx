@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Recway',
-  description: 'Performance de Loja para recompra, metas e oportunidades de venda.',
+  title: 'F5 Recompra',
+  description: 'Motor de recompra para lojas. Recupere vendas de clientes que já compraram.',
 }
 
 export const viewport: Viewport = {

@@ -40,7 +40,7 @@ const configuracaoDrawer = [
 ]
 
 const aprenderDrawer = [
-  { href: '/treinamentos', label: 'Recway Academy', icon: GraduationCap },
+  { href: '/treinamentos', label: 'Academia F5', icon: GraduationCap },
 ]
 
 interface Props {

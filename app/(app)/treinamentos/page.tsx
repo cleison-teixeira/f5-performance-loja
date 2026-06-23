@@ -212,7 +212,7 @@ export default function TreinamentosPage() {
 
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-xl font-semibold">Recway Academy</h1>
+        <h1 className="text-xl font-semibold">Academia F5 Recompra</h1>
         <p className="text-sm text-muted-foreground">
           Treinamentos rápidos para sua equipe vender mais e usar melhor a plataforma.
         </p>
@@ -222,15 +222,15 @@ export default function TreinamentosPage() {
       <div className="rounded-xl border bg-card p-4 flex items-start gap-3">
         <GraduationCap className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Aprenda a usar o Recway, treine sua equipe e acesse conteúdos de parceiros
+          Aprenda a usar o F5 Recompra, treine sua equipe e acesse conteúdos de parceiros
           para vender melhor os produtos da loja. Novos treinamentos chegam em breve.
         </p>
       </div>
 
-      {/* Seção: Comece pelo Recway */}
+      {/* Seção: Comece pelo F5 Recompra */}
       <section className="space-y-3">
         <SectionHeader
-          title="Comece pelo Recway"
+          title="Comece pelo F5 Recompra"
           subtitle="Fundamentos da plataforma para toda a equipe."
         />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
