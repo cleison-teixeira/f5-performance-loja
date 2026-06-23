@@ -464,6 +464,17 @@ export default async function DashboardPage() {
   const em4Str = addDias(hoje, 4)
   const em7DiasStr = addDias(hoje, 7)
 
+  const seenComissao7d = new Set<string>()
+  const comissao7Dias = avisos
+    .filter(a => (a.tipo === 'recompra' || a.tipo === 'oferta') && a.data_aviso >= hoje && a.data_aviso <= em7DiasStr)
+    .filter(a => {
+      if (!a.venda_id) return true
+      if (seenComissao7d.has(a.venda_id)) return false
+      seenComissao7d.add(a.venda_id)
+      return true
+    })
+    .reduce((s, a) => s + Number(a.previsao_comissao || 0), 0)
+
   const vendasMes = vendas.filter(v => v.criado_em.split('T')[0] >= inicioMes)
   const totalVendasMes = vendasMes.reduce((s, v) => s + v.valor, 0)
 
@@ -601,6 +612,7 @@ export default async function DashboardPage() {
       topProdutosRecompra={topProdutosRecompra}
       totalRecomprasValorMes={totalRecomprasValorMes}
       qtdRecomprasMes={qtdRecomprasMes}
+      comissao7Dias={comissao7Dias}
     />
   )
 }

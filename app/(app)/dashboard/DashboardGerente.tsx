@@ -416,7 +416,7 @@ export function DashboardGerente({
             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
               <Package className="h-4 w-4 text-emerald-600" />
             </div>
-            <h2 className="text-sm font-semibold">Produtos com mais oportunidades</h2>
+            <h2 className="text-sm font-semibold">Top produtos de recompra</h2>
           </div>
           <Link href="/produtos" className="text-xs text-primary hover:underline">
             Ver produtos →
@@ -424,47 +424,94 @@ export function DashboardGerente({
         </div>
 
         {topProdutosRecompra.length > 0 ? (
-          <div className="space-y-1">
-            {topProdutosRecompra.map((p, i) => {
-              const isFirst = i === 0
-              return (
-                <div
-                  key={p.nome}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
-                    isFirst
-                      ? 'bg-emerald-50/60 dark:bg-emerald-950/15 border border-emerald-100/80 dark:border-emerald-800/30'
-                      : 'hover:bg-muted/40'
-                  }`}
-                >
-                  <span className={`text-[11px] font-bold tabular-nums flex-none w-4 text-center ${
-                    isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/40'
-                  }`}>
-                    {i + 1}
-                  </span>
-                  <div className={`w-9 h-9 rounded-xl overflow-hidden flex-none border ${
-                    isFirst ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-border/60'
-                  }`}>
-                    {p.foto_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.foto_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className={`w-full h-full flex items-center justify-center ${
-                        isFirst ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-muted/60'
-                      }`}>
-                        <Package className={`h-4 w-4 ${isFirst ? 'text-emerald-600' : 'text-muted-foreground/30'}`} />
+          <>
+            <div className="space-y-1">
+              {topProdutosRecompra.map((p, i) => {
+                const isFirst = i === 0
+                const pct = Math.round((p.qtd / topProdutosRecompra[0].qtd) * 100)
+                const barGrad = isFirst
+                  ? 'from-emerald-500 to-green-500'
+                  : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
+                return (
+                  <div
+                    key={p.nome}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
+                      isFirst
+                        ? 'bg-emerald-50/60 dark:bg-emerald-950/15 border border-emerald-100/80 dark:border-emerald-800/30'
+                        : 'hover:bg-muted/40'
+                    }`}
+                  >
+                    <span className={`text-[11px] font-bold tabular-nums flex-none w-4 text-center ${
+                      isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/40'
+                    }`}>
+                      {i + 1}
+                    </span>
+                    <div className={`w-9 h-9 rounded-xl overflow-hidden flex-none border ${
+                      isFirst ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-border/60'
+                    }`}>
+                      {p.foto_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.foto_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className={`w-full h-full flex items-center justify-center ${
+                          isFirst ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-muted/60'
+                        }`}>
+                          <Package className={`h-4 w-4 ${isFirst ? 'text-emerald-600' : 'text-muted-foreground/30'}`} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>
+                          {p.nome}
+                        </p>
+                        <p className={`text-sm tabular-nums flex-none ${
+                          isFirst ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold'
+                        }`}>
+                          {p.qtd} aviso{p.qtd !== 1 ? 's' : ''}
+                        </p>
                       </div>
-                    )}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
+                          isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>{p.nome}</p>
-                    <p className={`text-[11px] tabular-nums mt-0.5 ${isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-                      {p.qtd} aviso{p.qtd !== 1 ? 's' : ''} na fila
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+
+            <div className="h-px bg-border/50" />
+            <div className="rounded-xl bg-muted/30 px-4 py-3 grid grid-cols-3 gap-2">
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">
+                  Total na fila
+                </p>
+                <p className="text-xs font-bold tabular-nums">
+                  {topProdutosRecompra.reduce((s, prod) => s + prod.qtd, 0)} avisos
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Líder</p>
+                <p className="text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {topProdutosRecompra[0]?.qtd ?? 0}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Produtos</p>
+                <p className="text-xs font-bold tabular-nums">{topProdutosRecompra.length}</p>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center gap-4 py-8 text-center rounded-xl bg-muted/20 border border-dashed">
             <Package className="h-7 w-7 text-muted-foreground/25" />

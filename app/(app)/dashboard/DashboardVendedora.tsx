@@ -40,6 +40,7 @@ interface Props {
   topProdutosMes: ProdutoTopMes[]
   totalRecomprasValorMes: number
   qtdRecomprasMes: number
+  comissao7Dias: number
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -131,6 +132,7 @@ export function DashboardVendedora({
   topProdutosMes,
   totalRecomprasValorMes,
   qtdRecomprasMes,
+  comissao7Dias,
 }: Props) {
   const firstName = nomeVendedora.split(' ')[0]
   const totalAtrasados = avisosAtrasados.length
@@ -195,18 +197,16 @@ export function DashboardVendedora({
 
               <div className="grid grid-cols-3 gap-x-6">
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Recuperado este mês</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Recompras este mês</p>
                   <p className="text-2xl font-bold text-white tabular-nums">{fmt(totalRecomprasValorMes)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Para hoje</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Oportunidades</p>
                   <p className="text-2xl font-bold text-white tabular-nums">{totalHoje}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Atrasados</p>
-                  <p className={`text-2xl font-bold tabular-nums ${totalAtrasados > 0 ? 'text-red-300' : 'text-white'}`}>
-                    {totalAtrasados}
-                  </p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Próx. 7 dias</p>
+                  <p className="text-2xl font-bold text-white tabular-nums">{fmt(comissao7Dias)}</p>
                 </div>
               </div>
 

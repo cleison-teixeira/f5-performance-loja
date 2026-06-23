@@ -44,6 +44,7 @@ interface Props {
   topProdutosRecompra: TopProdutoRecompra[]
   totalRecomprasValorMes: number
   qtdRecomprasMes: number
+  comissao7Dias: number
 }
 
 export function DashboardView(props: Props) {
@@ -75,6 +76,7 @@ export function DashboardView(props: Props) {
         topProdutosMes={props.topProdutosMes}
         totalRecomprasValorMes={props.totalRecomprasValorMes}
         qtdRecomprasMes={props.qtdRecomprasMes}
+        comissao7Dias={props.comissao7Dias}
       />
     )
   }

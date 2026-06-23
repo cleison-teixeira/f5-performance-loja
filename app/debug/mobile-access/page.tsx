@@ -142,6 +142,7 @@ export default function DebugMobileAccessPage() {
             topProdutosMes={[]}
             totalRecomprasValorMes={0}
             qtdRecomprasMes={0}
+            comissao7Dias={0}
           />
         </main>
       </div>
