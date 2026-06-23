@@ -114,32 +114,6 @@ function MoneyIllustration({ className }: { className?: string }) {
   )
 }
 
-function MiniSparkline({ data, hojeDia }: { data: number[]; hojeDia: number }) {
-  const maxVal = Math.max(...data, 1)
-  return (
-    <div className="flex items-end gap-px h-10" aria-hidden>
-      {data.map((v, i) => {
-        const hPct = v > 0 ? Math.max((v / maxVal) * 100, 4) : 0
-        const isToday = i + 1 === hojeDia
-        const isFuture = i + 1 > hojeDia
-        const bg = isToday ? '#7c3aed' : isFuture ? '#e2e8f0' : '#c4b5fd'
-        return (
-          <div
-            key={i}
-            className="flex-1 rounded-sm"
-            style={{
-              height: hPct > 0 ? `${hPct}%` : '2px',
-              backgroundColor: bg,
-              opacity: isFuture ? 0.35 : 1,
-              minHeight: v > 0 ? '2px' : undefined,
-            }}
-          />
-        )
-      })}
-    </div>
-  )
-}
-
 export function DashboardDono({
   loja,
   nomeUsuario,
@@ -150,8 +124,6 @@ export function DashboardDono({
   rankingMes,
   avisosPrazo,
   topProdutosMes,
-  vendasDiariaMes,
-  hojeDia,
   totalRecomprasValor,
   qtdRecompras,
   totalComissoes,
@@ -334,15 +306,6 @@ export function DashboardDono({
               </>
             )}
           </p>
-
-          {vendasDiariaMes.length > 0 && (
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.08em] mb-2">
-                Vendas por dia — {new Date().toLocaleString('pt-BR', { month: 'long' })}
-              </p>
-              <MiniSparkline data={vendasDiariaMes} hojeDia={hojeDia} />
-            </div>
-          )}
         </div>
 
         {/* — CARD META DIÁRIA — */}
@@ -370,6 +333,18 @@ export function DashboardDono({
             }`}>
               {fmtVal(metaDiariaDono)}
               <span className="text-lg font-semibold opacity-60">/dia</span>
+            </p>
+          </div>
+
+          <div>
+            <div className="h-2 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
+                style={{ width: `${pctDono}%` }}
+              />
+            </div>
+            <p className={`text-[10px] tabular-nums mt-1.5 font-semibold ${statusCls}`}>
+              {pctDono}% da meta mensal
             </p>
           </div>
 
