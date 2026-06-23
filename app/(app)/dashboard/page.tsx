@@ -104,6 +104,8 @@ export interface RankingLojasItem {
   lojaNome: string
   totalPotencial: number
   qtdOportunidades: number
+  valorRecuperadoMes: number
+  qtdRecomprasMes: number
 }
 
 function addDias(base: string, n: number): string {
@@ -551,6 +553,8 @@ export default async function DashboardPage() {
         lojaNome: loja.nome,
         totalPotencial: dinheiroMesaInfo.totalPotencial,
         qtdOportunidades: dinheiroMesaInfo.qtdOportunidades,
+        valorRecuperadoMes: totalRecomprasValorMes,
+        qtdRecomprasMes: qtdRecomprasMes,
       }]
     } else {
       const adminClient = createAdminClient()
@@ -558,19 +562,26 @@ export default async function DashboardPage() {
         .filter(m => m.loja_id !== loja_id)
         .map(m => m.loja_id as string)
 
-      const { data: avisosOutras } = await adminClient
-        .from('avisos')
-        .select('loja_id, venda_id, tipo, vendas(valor)')
-        .in('loja_id', outrasLojaIds)
-        .eq('status', 'pendente')
-        .in('tipo', ['recompra', 'oferta'])
+      const [{ data: avisosOutras }, { data: recomprasOutras }] = await Promise.all([
+        adminClient
+          .from('avisos')
+          .select('loja_id, venda_id, tipo, vendas(valor)')
+          .in('loja_id', outrasLojaIds)
+          .eq('status', 'pendente')
+          .in('tipo', ['recompra', 'oferta']),
+        adminClient
+          .from('recompras')
+          .select('loja_id, valor_total')
+          .in('loja_id', outrasLojaIds)
+          .gte('criado_em', inicioMes),
+      ])
 
-      const outrasMap = new Map<string, { lojaNome: string; totalPotencial: number; qtdOportunidades: number; seen: Set<string> }>()
+      const outrasMap = new Map<string, { lojaNome: string; totalPotencial: number; qtdOportunidades: number; valorRecuperadoMes: number; qtdRecomprasMes: number; seen: Set<string> }>()
       todosMembers.forEach(m => {
         if (m.loja_id === loja_id) return
         const lojaObj = m.lojas as { id: string; nome: string } | Array<{ id: string; nome: string }> | null
         const nomeLoja = Array.isArray(lojaObj) ? lojaObj[0]?.nome : lojaObj?.nome ?? '—'
-        outrasMap.set(m.loja_id as string, { lojaNome: nomeLoja, totalPotencial: 0, qtdOportunidades: 0, seen: new Set() })
+        outrasMap.set(m.loja_id as string, { lojaNome: nomeLoja, totalPotencial: 0, qtdOportunidades: 0, valorRecuperadoMes: 0, qtdRecomprasMes: 0, seen: new Set() })
       })
 
       ;(avisosOutras ?? []).forEach(a => {
@@ -587,13 +598,20 @@ export default async function DashboardPage() {
         entry.qtdOportunidades++
       })
 
-      const allLojas: RankingLojasItem[] = [
-        { lojaId: loja_id, lojaNome: loja.nome, totalPotencial: dinheiroMesaInfo.totalPotencial, qtdOportunidades: dinheiroMesaInfo.qtdOportunidades },
-      ]
-      outrasMap.forEach(({ lojaNome, totalPotencial, qtdOportunidades }, lojaId) => {
-        allLojas.push({ lojaId, lojaNome, totalPotencial, qtdOportunidades })
+      ;(recomprasOutras ?? []).forEach(r => {
+        const entry = outrasMap.get(r.loja_id as string)
+        if (!entry) return
+        entry.valorRecuperadoMes += r.valor_total as number
+        entry.qtdRecomprasMes++
       })
-      rankingLojas = allLojas.sort((a, b) => b.totalPotencial - a.totalPotencial)
+
+      const allLojas: RankingLojasItem[] = [
+        { lojaId: loja_id, lojaNome: loja.nome, totalPotencial: dinheiroMesaInfo.totalPotencial, qtdOportunidades: dinheiroMesaInfo.qtdOportunidades, valorRecuperadoMes: totalRecomprasValorMes, qtdRecomprasMes },
+      ]
+      outrasMap.forEach(({ lojaNome, totalPotencial, qtdOportunidades, valorRecuperadoMes, qtdRecomprasMes: qtdR }, lojaId) => {
+        allLojas.push({ lojaId, lojaNome, totalPotencial, qtdOportunidades, valorRecuperadoMes, qtdRecomprasMes: qtdR })
+      })
+      rankingLojas = allLojas.sort((a, b) => b.valorRecuperadoMes - a.valorRecuperadoMes)
     }
   }
 

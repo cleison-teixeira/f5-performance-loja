@@ -344,7 +344,10 @@ export function DashboardDono({
             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
               <TrendingUp className="h-4 w-4 text-emerald-600" />
             </div>
-            <h2 className="text-sm font-semibold">Ranking de recuperação</h2>
+            <div>
+              <h2 className="text-sm font-semibold leading-none">Ranking de recuperação</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Recuperado por vendedora este mês</p>
+            </div>
           </div>
           <Link href="/configuracoes/equipe" className="text-xs text-primary hover:underline">
             Ver equipe →
@@ -357,6 +360,11 @@ export function DashboardDono({
               {rankingRecompras.slice(0, 5).map((v, i) => {
                 const initials = v.nome.split(' ').filter(Boolean).map(n => n[0].toUpperCase()).slice(0, 2).join('')
                 const isFirst = i === 0
+                const maxVal = rankingRecompras[0]?.valorRecuperado ?? 1
+                const pct = maxVal > 0 ? Math.round((v.valorRecuperado / maxVal) * 100) : 0
+                const barGrad = isFirst
+                  ? 'from-emerald-500 to-green-500'
+                  : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
                 return (
                   <div
                     key={v.vendedora_id}
@@ -377,13 +385,26 @@ export function DashboardDono({
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 mb-1">
                         <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-semibold'}`}>{v.nome}</p>
                         <p className={`text-sm tabular-nums flex-none ${isFirst ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold'}`}>
                           {fmt(v.valorRecuperado)}
                         </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground tabular-nums leading-tight mt-0.5">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
+                          isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground tabular-nums leading-tight">
                         {v.qtd} recompra{v.qtd !== 1 ? 's' : ''} confirmada{v.qtd !== 1 ? 's' : ''}
                       </p>
                     </div>
@@ -536,23 +557,23 @@ export function DashboardDono({
         )}
       </div>
 
-      {/* ══ 7. RANKING DAS LOJAS ══ */}
+      {/* ══ 7. PERFORMANCE DAS LOJAS ══ */}
       <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
             <TrendingUp className="h-4 w-4 text-emerald-600" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold leading-none">Ranking das lojas</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Volume de recompra por unidade</p>
+            <h2 className="text-sm font-semibold leading-none">Performance das lojas</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Dinheiro recuperado e oportunidades em aberto por unidade</p>
           </div>
         </div>
 
         <div className="space-y-1">
           {rankingLojas.map((item, i) => {
             const isFirst = i === 0
-            const maxVal = rankingLojas[0]?.totalPotencial ?? 1
-            const pct = maxVal > 0 ? Math.round((item.totalPotencial / maxVal) * 100) : 0
+            const maxVal = rankingLojas[0]?.valorRecuperadoMes ?? 1
+            const pct = maxVal > 0 ? Math.round((item.valorRecuperadoMes / maxVal) * 100) : 0
             const barGrad = isFirst
               ? 'from-emerald-500 to-green-500'
               : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
@@ -578,10 +599,10 @@ export function DashboardDono({
                     <p className={`text-sm tabular-nums flex-none ${
                       isFirst ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold'
                     }`}>
-                      {fmt(item.totalPotencial)}
+                      {fmt(item.valorRecuperadoMes)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
@@ -591,9 +612,12 @@ export function DashboardDono({
                     <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
                       isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
                     }`}>
-                      {item.qtdOportunidades}
+                      {pct}%
                     </span>
                   </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {item.qtdOportunidades} oportunidade{item.qtdOportunidades !== 1 ? 's' : ''} na fila · {item.qtdRecomprasMes} recompra{item.qtdRecomprasMes !== 1 ? 's' : ''} este mês
+                  </p>
                 </div>
               </div>
             )
@@ -603,15 +627,15 @@ export function DashboardDono({
         <div className="h-px bg-border/50" />
         <div className="rounded-xl bg-muted/30 px-4 py-3 grid grid-cols-3 gap-2">
           <div className="text-center">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Total geral</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Recuperado</p>
             <p className="text-xs font-bold tabular-nums">
-              {fmt(rankingLojas.reduce((s, r) => s + r.totalPotencial, 0))}
+              {fmt(rankingLojas.reduce((s, r) => s + r.valorRecuperadoMes, 0))}
             </p>
           </div>
           <div className="text-center">
             <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Líder</p>
             <p className="text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {fmt(rankingLojas[0]?.totalPotencial ?? 0)}
+              {fmt(rankingLojas[0]?.valorRecuperadoMes ?? 0)}
             </p>
           </div>
           <div className="text-center">
