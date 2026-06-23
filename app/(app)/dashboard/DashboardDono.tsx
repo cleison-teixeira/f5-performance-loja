@@ -388,16 +388,14 @@ export function DashboardDono({
             </p>
           )}
 
-          {/* Linha 6 — Texto de apoio */}
-          <p className={`text-xs mt-auto leading-relaxed ${
-            metaBatida
-              ? 'text-emerald-600/70 dark:text-emerald-400/60'
-              : 'text-violet-400/80 dark:text-violet-500/70'
-          }`}>
-            {metaBatida
-              ? 'Continue vendendo para ampliar o resultado.'
-              : 'Venda esse valor por dia para fechar o mês.'}
-          </p>
+          {/* Linha 6 — Alinhador de fundo (simétrico com card mensal) */}
+          {metaBatida ? (
+            <p className="text-xs mt-auto text-emerald-600/70 dark:text-emerald-400/60">
+              Continue vendendo para ampliar o resultado.
+            </p>
+          ) : (
+            <div className="mt-auto" />
+          )}
         </div>
       </div>
 
