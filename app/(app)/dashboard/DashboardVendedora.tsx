@@ -224,7 +224,7 @@ export function DashboardVendedora({
 
               <div className="grid grid-cols-3 gap-x-6">
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Potencial em aberto</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.12em] mb-1.5">Comissão em aberto</p>
                   <p className="text-2xl font-bold text-white tabular-nums">{fmt(previsaoEmAberto)}</p>
                 </div>
                 <div>

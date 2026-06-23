@@ -140,10 +140,16 @@ export default async function AvisosPage() {
     }
   })
 
-  // Resumo — mesmo critério do "Dinheiro na Mesa" da DashboardDono
+  const seenVendas = new Set<string>()
   const potencialAberto = avisos
     .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
-    .reduce((s, a) => s + a.valor_venda, 0)
+    .filter(a => {
+      if (!a.venda_id) return true
+      if (seenVendas.has(a.venda_id)) return false
+      seenVendas.add(a.venda_id)
+      return true
+    })
+    .reduce((s, a) => s + Number(a.valor_venda || 0), 0)
   const qtdAtrasados = avisos.filter(a => a.data_aviso < hoje).length
   const qtdHoje = avisos.filter(a => a.data_aviso === hoje).length
   const em7Dias = addDias(hoje, 7)
@@ -170,13 +176,13 @@ export default async function AvisosPage() {
         <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
             <TrendingUp className="h-3 w-3 flex-none" />
-            Potencial em aberto
+            Vendas em aberto
           </p>
           <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
             {fmt(potencialAberto)}
           </p>
           <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
-            em recompras e ofertas
+            vendas a reativar
           </p>
         </div>
 

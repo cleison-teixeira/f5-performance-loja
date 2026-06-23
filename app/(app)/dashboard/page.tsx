@@ -327,7 +327,16 @@ export default async function DashboardPage() {
   const avisosAtrasados = avisos.filter(a => a.atrasado)
   const avisosHojeList = avisos.filter(a => a.data_aviso === hoje && !a.atrasado)
   const avisosEnviadosCount = enviadosRes.count ?? 0
-  const previsaoEmAberto = avisos.reduce((s, a) => s + a.previsao_comissao, 0)
+  const seenPrevisao = new Set<string>()
+  const previsaoEmAberto = avisos
+    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
+    .filter(a => {
+      if (!a.venda_id) return true
+      if (seenPrevisao.has(a.venda_id)) return false
+      seenPrevisao.add(a.venda_id)
+      return true
+    })
+    .reduce((s, a) => s + Number(a.previsao_comissao || 0), 0)
   const dinheiroNaMesa = avisos.filter(a => a.tipo === 'recompra' || a.tipo === 'oferta').length
 
   // Chart de comissão acumulada do mês
@@ -447,7 +456,15 @@ export default async function DashboardPage() {
   const rankingMes: VendedoraRankingMeta[] = Array.from(rankingMesMap.values())
     .sort((a, b) => b.totalMes - a.totalMes)
 
-  const oportunidades = avisos.filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
+  const seenOport = new Set<string>()
+  const oportunidades = avisos
+    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
+    .filter(a => {
+      if (!a.venda_id) return true
+      if (seenOport.has(a.venda_id)) return false
+      seenOport.add(a.venda_id)
+      return true
+    })
   const oport7Dias = oportunidades.filter(a => a.data_aviso >= hoje && a.data_aviso <= em7DiasStr)
   const dinheiroMesaInfo: DinheiroMesaInfo = {
     totalPotencial: oportunidades.reduce((s, a) => s + a.valor_venda, 0),
