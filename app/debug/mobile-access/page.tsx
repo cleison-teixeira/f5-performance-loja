@@ -138,6 +138,8 @@ export default function DebugMobileAccessPage() {
             diasRestantes={new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate() - hojeDia}
             funil={funil}
             listaEsperaInfo={{ qtdAguardando: 2, valorPotencial: 350, qtdClientes: 2 }}
+            avisosEnviadosCount={12}
+            topProdutosMes={[]}
           />
         </main>
       </div>

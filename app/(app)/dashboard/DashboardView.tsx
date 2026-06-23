@@ -66,6 +66,8 @@ export function DashboardView(props: Props) {
         diasRestantes={props.diasRestantes}
         funil={props.funil}
         listaEsperaInfo={props.listaEsperaInfo}
+        avisosEnviadosCount={props.avisosEnviadosCount}
+        topProdutosMes={props.topProdutosMes}
       />
     )
   }
