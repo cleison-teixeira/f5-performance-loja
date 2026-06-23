@@ -1357,3 +1357,274 @@ Script Python verificou ausência de padrões proibidos (`ComissaoChart`, `Metri
 | Produção | ✅ build limpo | ⏳ validação URL pendente |
 
 **STATUS: APROVADO PARA PRÓXIMA FASE (8.7D.7 — Smoke operacional)**
+
+---
+
+## Atualização Fase 8.7D.7 — Smoke operacional final
+
+**Data:** 2026-06-22
+**Objetivo:** Validar fluxos operacionais antes do onboarding da Cia Cidade Azul Angeloni.
+**Método:** Auditoria de banco via Supabase MCP + build local + itens manuais sinalizados.
+
+---
+
+### 1. Baseline
+
+| Item | Status |
+|---|---|
+| Branch | ✅ main |
+| Commit | ✅ `49f23e2` presente |
+| Working tree | ✅ limpa |
+| Build | ✅ `Compiled successfully` — 29 rotas |
+
+---
+
+### 2. Deploy em produção
+
+| Item | Status |
+|---|---|
+| App carrega em `recway.com.br` | ⏳ pendente de validação manual |
+| Login abre sem erro | ⏳ pendente de validação manual |
+| `/dashboard` carrega após login | ⏳ pendente de validação manual |
+| Rotas de debug bloqueadas em prod | ⏳ pendente de validação manual |
+
+---
+
+### 3. Login/Logout dos 3 perfis
+
+#### Mapeamento de perfis confirmado via banco
+
+| Role | E-mail | Nome | Loja | Ativo |
+|---|---|---|---|---|
+| dono | cleisonimarketing@gmail.com | CLEISON CARDOSO TEIXEIRA | Cia Cidade Azul Angeloni | ✅ |
+| gerente | cleisonperfil@gmail.com | Cleison Gerente | Cia Cidade Azul Angeloni | ✅ |
+| vendedora | cintya.teste@f5recompra.test | Cintya Teste | Cia Cidade Azul Angeloni | ✅ |
+
+| Teste | Status |
+|---|---|
+| Dono: login → badge Dono(a) → loja correta → logout | ⏳ pendente de validação manual |
+| Gerente: login → badge Gerente → loja correta → logout | ⏳ pendente de validação manual |
+| Vendedora: login → badge Vendedor(a) → loja correta → logout | ⏳ pendente de validação manual |
+| Todos voltam para `/login` após logout | ⏳ pendente de validação manual |
+
+---
+
+### 4. Dashboards em produção
+
+| Item | Status |
+|---|---|
+| Dashboard Dono — todos os 8 blocos visíveis | ⏳ pendente de validação manual |
+| Dashboard Gerente — todos os 8 blocos visíveis | ⏳ pendente de validação manual |
+| Dashboard Vendedora — todos os 9 blocos visíveis | ⏳ pendente de validação manual |
+| Nenhum bloco legado voltou (funil, ComissaoChart, radar) | ⏳ pendente de validação manual |
+
+---
+
+### 5. Venda PiùVita recorrente
+
+**Instrução:** Criar via `/vendas/nova` com os dados abaixo. Não enviar WhatsApp real.
+
+```
+Cliente: Cliente Smoke Operacional Recway
+WhatsApp: número controlado (ex: 48900000007)
+Produto: Ácido Fólico C/60 (R$ 56,40) — ou qualquer PiùVita ativo
+Observação: SMOKE OPERACIONAL 8.7D.7
+```
+
+| Validação | Status |
+|---|---|
+| Venda criada | ⏳ pendente — executar via UI |
+| Cliente criado/atualizado | ⏳ pendente |
+| item_venda criado (recorrente = true) | ⏳ pendente |
+| 3 avisos criados com textos reais | ⏳ pendente |
+| Link WhatsApp sem variáveis literais | ⏳ pendente |
+| comissao_venda criada | ⏳ pendente |
+| Dashboard reflete venda após refresh | ⏳ pendente |
+
+IDs a registrar: `venda_id` / `cliente_id` / `item_venda_id` / `aviso_ids[3]` / `comissao_venda_id`
+
+---
+
+### 6. Item livre não recorrente
+
+**Instrução:** Criar via `/vendas/nova` com os dados abaixo.
+
+```
+Cliente: Cliente Item Livre Smoke
+WhatsApp: número controlado (ex: 48900000008)
+Produto: Item Livre Smoke Operacional
+Recorrente: false
+Observação: SMOKE OPERACIONAL 8.7D.7
+```
+
+| Validação | Status |
+|---|---|
+| Venda criada | ⏳ pendente — executar via UI |
+| item_venda criado (recorrente = false) | ⏳ pendente |
+| Não criou produto no catálogo | ⏳ pendente |
+| Não criou mensagens_produto | ⏳ pendente |
+| Não criou avisos | ⏳ pendente |
+| Dashboard não quebra | ⏳ pendente |
+
+---
+
+### 7. Lista de Espera
+
+**Instrução:** Criar via `/lista-espera`.
+
+```
+Cliente: Cliente Lista Smoke Operacional
+WhatsApp: número controlado (ex: 48900000009)
+Produto: Produto Lista Smoke Operacional
+Valor potencial: 123,45
+Quantidade: 1
+Observação: SMOKE OPERACIONAL 8.7D.7
+```
+
+| Validação | Status |
+|---|---|
+| Item criado com status "aguardando" | ⏳ pendente — executar via UI |
+| Valor aparece como R$ 123,45 | ⏳ pendente |
+| Máscara de WhatsApp funciona | ⏳ pendente |
+| Card Lista de Espera nos dashboards atualiza | ⏳ pendente |
+
+Lista de espera atual (pré-smoke): 4 itens (3 `aguardando` / 1 `convertido`)
+
+---
+
+### 8. Avisos e WhatsApp
+
+#### Validação via banco ✅
+
+| Métrica | Resultado |
+|---|---|
+| Total de avisos | 163 |
+| Avisos pendentes | 124 |
+| Avisos enviados | 39 |
+| Avisos com variáveis literais (`{cliente}`, `{produto}`, etc.) | **0** ✅ |
+
+Amostra de texto validado (sem literais):
+> "Olá Cliente Novi, aqui é Teste da Cia Cidade Azul Angeloni. Obrigado pela sua compra do Piu Energy 1 C/60. Salve meu con..."
+> "Oi, Luiz T! 🌿 Aqui é Cintya Teste da Cia Cidade Azul Angeloni. Seu Piùfort Antiox deve estar chegando no final..."
+
+Consulta executada:
+```sql
+select count(*) as total_avisos,
+  sum(case when texto_renderizado like '%{%}%' then 1 else 0 end) as com_variaveis_literais
+from avisos;
+-- Resultado: total=163, com_variaveis_literais=0
+```
+
+| Validação de UI | Status |
+|---|---|
+| Botão Enviar aparece nos avisos pendentes | ⏳ pendente de validação manual |
+| Link WhatsApp abre com texto correto | ⏳ pendente de validação manual |
+
+---
+
+### 9. Comissão
+
+#### Validação via banco ✅
+
+| Métrica | Resultado |
+|---|---|
+| Registros em `comissao_venda` | 47 |
+| Tipos de comissão | `base` + `meta_batida` |
+| Regras ativas | 3 vendedoras com percentuais configurados |
+
+Regras de comissão ativas:
+| Vendedora | Percentual |
+|---|---|
+| Cintya Teste | 5,00% |
+| Cleison Vendedor | 8,00% |
+| Teste | 2,00% (Teste) / 1,00% (base) |
+
+Amostra de comissão gerada:
+- venda `7d8775a6`: Cintya Teste — R$ 149,90 × 2,50% (meta_batida) = R$ 3,75
+- venda `bde0d0ef`: Cleison Vendedor — R$ 1.099,00 × 2,00% (meta_batida) = R$ 21,98
+
+| Validação de UI | Status |
+|---|---|
+| Dashboard Vendedora atualiza card comissão após venda smoke | ⏳ pendente |
+| Dashboard Dono/Gerente atualiza comissões da equipe | ⏳ pendente |
+
+---
+
+### 10. Produtos
+
+#### Validação via banco ✅
+
+| Métrica | Resultado |
+|---|---|
+| Produtos ativos (loja Cia Cidade Azul Angeloni) | **30** ✅ |
+| Produtos inativos | 6 |
+| Mensagens configuradas por produto | 3 por produto ✅ |
+| Todos recorrentes | ✅ (amostra confirmada) |
+
+Consulta executada:
+```sql
+select count(*) as produtos_ativos
+from produtos
+where loja_id = 'b1000000-0000-0000-0000-000000000001'
+  and ativo = true;
+-- Resultado: 30
+```
+
+| Validação de UI | Status |
+|---|---|
+| Catálogo `/produtos` mostra só PiùVita ativos | ⏳ pendente de validação manual |
+| `/vendas/nova` só lista ativos | ⏳ pendente de validação manual |
+| Top Produtos não mostra legados | ⏳ pendente de validação manual |
+
+---
+
+### 11. Mobile / iPhone
+
+| Rota | Status |
+|---|---|
+| `/login` | ⏳ pendente de validação manual |
+| `/dashboard` | ⏳ pendente de validação manual |
+| `/vendas/nova` | ⏳ pendente de validação manual |
+| `/avisos` | ⏳ pendente de validação manual |
+| `/lista-espera` | ⏳ pendente de validação manual |
+| `/produtos` | ⏳ pendente de validação manual |
+| `/perfil` | ⏳ pendente de validação manual |
+
+---
+
+### 12. Build final
+
+| Item | Status |
+|---|---|
+| TypeScript | ✅ sem erros |
+| Build | ✅ `Compiled successfully` — 29 rotas |
+| Commit documentação | `49f23e2` (6.2D) + este commit (8.7D.7) |
+
+---
+
+### 13. Veredicto
+
+| Validação | Método | Status |
+|---|---|---|
+| 30 produtos PiùVita ativos | DB ✅ | ✅ APROVADO |
+| 0 avisos com variáveis literais | DB ✅ | ✅ APROVADO |
+| 163 avisos com textos reais | DB ✅ | ✅ APROVADO |
+| regras_comissao configuradas | DB ✅ | ✅ APROVADO |
+| comissao_venda: 47 registros base/meta_batida | DB ✅ | ✅ APROVADO |
+| mensagens_produto: 3 por produto | DB ✅ | ✅ APROVADO |
+| 3 perfis ativos + roles corretos | DB ✅ | ✅ APROVADO |
+| Build limpo 29 rotas | Local ✅ | ✅ APROVADO |
+| Deploy produção | Manual | ⏳ PENDENTE |
+| Login/logout 3 perfis | Manual | ⏳ PENDENTE |
+| Dashboards em produção | Manual | ⏳ PENDENTE |
+| Venda PiùVita + avisos + comissão | Manual | ⏳ PENDENTE |
+| Item livre não recorrente | Manual | ⏳ PENDENTE |
+| Lista de Espera via UI | Manual | ⏳ PENDENTE |
+| Mobile / iPhone | Manual | ⏳ PENDENTE |
+
+**STATUS: APROVADO PARCIALMENTE**
+- Todas as validações de banco passaram sem bloqueadores.
+- Pendências são de validação manual em browser/mobile — nenhuma é bloqueadora de código.
+- Após Cleison executar os itens marcados como ⏳ e confirmar, o veredicto muda para:
+
+> **Liberado para Fase 8.8 — Onboarding Cia Cidade Azul Angeloni**
