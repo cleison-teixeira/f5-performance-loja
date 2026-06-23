@@ -114,17 +114,44 @@ function MoneyIllustration({ className }: { className?: string }) {
   )
 }
 
+function MiniSparkline({ data, hojeDia }: { data: number[]; hojeDia: number }) {
+  const maxVal = Math.max(...data, 1)
+  return (
+    <div className="flex items-end gap-px h-10" aria-hidden>
+      {data.map((v, i) => {
+        const hPct = v > 0 ? Math.max((v / maxVal) * 100, 4) : 0
+        const isToday = i + 1 === hojeDia
+        const isFuture = i + 1 > hojeDia
+        const bg = isToday ? '#7c3aed' : isFuture ? '#e2e8f0' : '#c4b5fd'
+        return (
+          <div
+            key={i}
+            className="flex-1 rounded-sm"
+            style={{
+              height: hPct > 0 ? `${hPct}%` : '2px',
+              backgroundColor: bg,
+              opacity: isFuture ? 0.35 : 1,
+              minHeight: v > 0 ? '2px' : undefined,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 export function DashboardDono({
   loja,
   nomeUsuario,
   listaEsperaInfo,
   dinheiroMesaInfo,
   totalVendasMes,
-  metaVendasMes,
   diasRestantes,
   rankingMes,
   avisosPrazo,
   topProdutosMes,
+  vendasDiariaMes,
+  hojeDia,
   totalRecomprasValor,
   qtdRecompras,
   totalComissoes,
@@ -132,30 +159,29 @@ export function DashboardDono({
 }: Props) {
   const { totalPotencial, qtdOportunidades, potencial7Dias, qtdClientes7Dias } = dinheiroMesaInfo
 
-  const pctMeta = metaVendasMes && metaVendasMes > 0
-    ? Math.round((totalVendasMes / metaVendasMes) * 100)
-    : null
-  const pctClamped = pctMeta !== null ? Math.min(pctMeta, 100) : 0
-  const falta = metaVendasMes ? Math.max(metaVendasMes - totalVendasMes, 0) : 0
-  const dailyGoal = diasRestantes > 0 ? falta / diasRestantes : 0
+  // meta visual do piloto — R$ 20.000,00 fixo; não altera banco nem metas_vendedora
+  const META_MENSAL_DONO = 20000
+  const vendidoMes = totalVendasMes
+  const faltanteDono = Math.max(META_MENSAL_DONO - vendidoMes, 0)
+  const diasRestantesSafe = Math.max(diasRestantes, 1)
+  const metaDiariaDono = faltanteDono / diasRestantesSafe
+  const pctDono = Math.min(Math.round((vendidoMes / META_MENSAL_DONO) * 100), 100)
+  const metaBatida = vendidoMes >= META_MENSAL_DONO
 
-  const metaBar = pctMeta === null ? 'from-slate-400 to-slate-500'
-    : pctMeta >= 100 ? 'from-emerald-500 to-green-500'
-    : pctMeta >= 75  ? 'from-blue-500 to-blue-600'
-    : pctMeta >= 40  ? 'from-amber-500 to-orange-500'
-    :                  'from-red-500 to-red-600'
+  const barGradDono = pctDono >= 100 ? 'from-emerald-500 to-green-500'
+    : pctDono >= 75 ? 'from-blue-500 to-blue-600'
+    : pctDono >= 40 ? 'from-amber-500 to-orange-500'
+    :                 'from-red-500 to-red-600'
 
-  const metaPillCls = pctMeta === null ? 'bg-muted text-muted-foreground'
-    : pctMeta >= 100 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-    : pctMeta >= 75  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
-    : pctMeta >= 40  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-    :                  'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+  const statusLabel = pctDono >= 100 ? 'Meta batida!'
+    : pctDono >= 75 ? 'Bom ritmo'
+    : pctDono >= 40 ? 'Em evolução'
+    : 'Atenção'
 
-  const metaPillLabel = pctMeta === null ? ''
-    : pctMeta >= 100 ? 'Meta batida!'
-    : pctMeta >= 75  ? 'Bom ritmo'
-    : pctMeta >= 40  ? 'Em evolução'
-    :                  'Atenção'
+  const statusCls = pctDono >= 100 ? 'text-emerald-600 dark:text-emerald-400'
+    : pctDono >= 75 ? 'text-blue-600 dark:text-blue-400'
+    : pctDono >= 40 ? 'text-amber-600 dark:text-amber-400'
+    : 'text-red-600 dark:text-red-400'
 
   const qtdVendasMes = rankingMes.reduce((s, v) => s + v.qtdMes, 0)
   const teamTotalMes = rankingMes.reduce((s, v) => s + v.totalMes, 0)
@@ -262,106 +288,116 @@ export function DashboardDono({
         </div>
       </div>
 
-      {/* ══ 3. META DO MÊS/DIA (full width) ══ */}
-      <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-800/40 flex items-center justify-center flex-none">
-              <Target className="h-4 w-4 text-violet-500" />
+      {/* ══ 3. META MENSAL + META DIÁRIA ══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* — CARD META MENSAL — */}
+        <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-800/40 flex items-center justify-center flex-none">
+                <Target className="h-4 w-4 text-violet-500" />
+              </div>
+              <h2 className="text-sm font-semibold">Meta mensal</h2>
             </div>
-            <h2 className="text-sm font-semibold">Meta do mês/dia</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            {diasRestantes > 0 && metaVendasMes && (
+            {diasRestantes > 0 && (
               <span className="text-xs text-muted-foreground tabular-nums">
                 {diasRestantes}d restantes
               </span>
             )}
-            <Link
-              href={metaVendasMes ? '/metas' : '/configuracoes/metas'}
-              className="text-xs text-primary hover:underline"
-            >
-              {metaVendasMes ? 'Ver metas →' : 'Configurar meta →'}
-            </Link>
           </div>
+
+          <div>
+            <p className="text-2xl font-bold tabular-nums tracking-tight">{fmtVal(vendidoMes)}</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              de {fmtVal(META_MENSAL_DONO)} da meta mensal
+            </p>
+            <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGradDono}`}
+                style={{ width: `${pctDono}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] tabular-nums">
+              <span className="text-muted-foreground">R$ 0</span>
+              <span className={`font-semibold ${statusCls}`}>{statusLabel}</span>
+              <span className="text-muted-foreground">{fmtVal(META_MENSAL_DONO)}</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            <span className={`font-bold tabular-nums ${statusCls}`}>{pctDono}%</span>
+            {' '}da meta
+            {!metaBatida && (
+              <> · faltam{' '}
+                <span className="font-semibold text-foreground tabular-nums">{fmtVal(faltanteDono)}</span>
+              </>
+            )}
+          </p>
+
+          {vendasDiariaMes.length > 0 && (
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.08em] mb-2">
+                Vendas por dia — {new Date().toLocaleString('pt-BR', { month: 'long' })}
+              </p>
+              <MiniSparkline data={vendasDiariaMes} hojeDia={hojeDia} />
+            </div>
+          )}
         </div>
 
-        {metaVendasMes ? (
-          <>
-            <div>
-              <div className="flex items-baseline gap-2 mb-3 flex-wrap">
-                <p className="text-3xl font-bold tabular-nums tracking-tight">{fmt(totalVendasMes)}</p>
-                <p className="text-sm text-muted-foreground">de {fmt(metaVendasMes)} da meta mensal</p>
-                {metaPillLabel && (
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ml-auto ${metaPillCls}`}>
-                    {metaPillLabel}
-                  </span>
-                )}
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${metaBar}`}
-                  style={{ width: `${pctClamped}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
-                <span>R$ 0</span>
-                <span>{pctClamped}% atingido</span>
-                <span>{fmt(metaVendasMes)}</span>
-              </div>
+        {/* — CARD META DIÁRIA — */}
+        <div className={`rounded-2xl border shadow-sm p-5 flex flex-col gap-4 ${
+          metaBatida
+            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+            : 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/40'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-none ${
+              metaBatida
+                ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/40'
+                : 'bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/40'
+            }`}>
+              <Target className={`h-4 w-4 ${metaBatida ? 'text-emerald-600' : 'text-violet-500'}`} />
             </div>
-
-            {(pctMeta ?? 0) >= 100 ? (
-              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 px-4 py-4 flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 flex-none" />
-                <div>
-                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Meta batida!</p>
-                  <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Meta diária: R$ 0,00/dia</p>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-800/30 px-4 py-4">
-                <p className="text-xs text-violet-500 dark:text-violet-400 mb-1">
-                  Faltam {fmtVal(falta)}
-                </p>
-                <p className="text-xl font-bold text-violet-800 dark:text-violet-200">
-                  Meta diária: {diasRestantes > 0 ? fmtVal(dailyGoal) : '—'} por dia
-                </p>
-                {diasRestantes > 0 && (
-                  <p className="text-xs text-violet-400/80 mt-1">
-                    nos próximos {diasRestantes} dias para fechar a meta do mês
-                  </p>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {totalVendasMes > 0 && (
-              <div>
-                <p className="text-3xl font-bold tabular-nums">{fmt(totalVendasMes)}</p>
-                <p className="text-xs text-muted-foreground mt-1">vendido este mês — sem meta configurada</p>
-              </div>
-            )}
-            <div className="flex flex-col items-center justify-center gap-4 py-8 text-center rounded-xl bg-muted/30 border border-dashed">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                <Target className="h-6 w-6 text-muted-foreground/30" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-muted-foreground">Nenhuma meta mensal configurada</p>
-                <p className="text-xs text-muted-foreground/70 max-w-[220px] mx-auto leading-relaxed">
-                  Configure uma meta para acompanhar o ritmo comercial da sua loja.
-                </p>
-              </div>
-              <Link
-                href="/configuracoes/metas"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-              >
-                Configurar meta <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            <h2 className="text-sm font-semibold">Meta diária</h2>
           </div>
-        )}
+
+          <div>
+            <p className={`text-4xl font-bold tabular-nums leading-none tracking-tight ${
+              metaBatida
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : 'text-violet-800 dark:text-violet-200'
+            }`}>
+              {fmtVal(metaDiariaDono)}
+              <span className="text-lg font-semibold opacity-60">/dia</span>
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            {metaBatida ? (
+              <>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                  Meta batida este mês!
+                </p>
+                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70">
+                  Continue vendendo para ampliar o resultado.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                  Faltam {fmtVal(faltanteDono)} para bater a meta
+                </p>
+                <p className="text-xs text-violet-500 dark:text-violet-400">
+                  {diasRestantes} dia{diasRestantes !== 1 ? 's' : ''} restante{diasRestantes !== 1 ? 's' : ''}
+                </p>
+                <p className="text-xs text-violet-400/80 dark:text-violet-500/70 pt-1 leading-relaxed">
+                  Venda esse valor por dia para fechar o mês.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ══ 4. SEIS CARDS OPERACIONAIS ══ */}
