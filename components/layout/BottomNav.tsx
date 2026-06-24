@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
-  DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, ClipboardList, Clock, GraduationCap, Users
+  Building2, UsersRound,
+  ClipboardList, Clock, GraduationCap, Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,23 +20,18 @@ const mainItems = [
 const operacaoDrawer = [
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
   { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/comissoes', label: 'Comissões', icon: DollarSign },
   { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
 ]
 
 const gestaoDrawerBase = [
   { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
-  { href: '/metas', label: 'Metas', icon: Target },
 ]
 
-const gestaoDrawerVendedora = [
-  { href: '/metas', label: 'Metas', icon: Target },
-]
+const gestaoDrawerVendedora: typeof gestaoDrawerBase = []
 
 const configuracaoDrawer = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
-  { href: '/configuracoes/comissoes', label: 'Comissões da equipe', icon: SlidersHorizontal },
 ]
 
 const aprenderDrawer = [

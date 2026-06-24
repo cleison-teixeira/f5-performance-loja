@@ -40,9 +40,9 @@ const recwayItems: TrainingItem[] = [
     duration: '6 min',
   },
   {
-    id: 'metas-comissoes',
-    title: 'Como acompanhar Metas e Comissões',
-    description: 'Veja o progresso mensal, entenda a previsão de comissão e use metas para motivar a equipe.',
+    id: 'performance-equipe',
+    title: 'Como acompanhar a performance da equipe',
+    description: 'Veja quem está recuperando mais, quais produtos lideram e como usar o ranking para motivar a equipe.',
     category: 'Plataforma',
     categoryColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     status: 'soon',

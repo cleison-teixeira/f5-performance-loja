@@ -89,15 +89,6 @@ export function ConfirmarRecompraModal({
     return acc + (isNaN(preco) ? 0 : preco * item.quantidade)
   }, 0)
 
-  const valorBase = itens
-    .filter(item => item.comissionavel)
-    .reduce((acc, item) => {
-      const preco = parseBRL(item.precoBRL)
-      return acc + (isNaN(preco) ? 0 : preco * item.quantidade)
-    }, 0)
-
-  const comissaoEstimada = percentualComissao > 0 ? (valorBase * percentualComissao) / 100 : 0
-
   const itensValidos = itens.every(item => {
     const preco = parseBRL(item.precoBRL)
     return item.produtoNome.trim().length > 0 && !isNaN(preco) && preco > 0 && item.quantidade >= 1
@@ -261,18 +252,6 @@ export function ConfirmarRecompraModal({
                 <span className="text-muted-foreground">Total da recompra</span>
                 <span className="font-semibold">{formatarBRL(valorTotal)}</span>
               </div>
-              {valorBase < valorTotal && (
-                <div className="flex justify-between items-center px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Base comissionável</span>
-                  <span className="font-medium">{formatarBRL(valorBase)}</span>
-                </div>
-              )}
-              {percentualComissao > 0 && valorBase > 0 && (
-                <div className="flex justify-between items-center px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Comissão ({percentualComissao}%)</span>
-                  <span className="font-semibold text-green-600">{formatarBRL(comissaoEstimada)}</span>
-                </div>
-              )}
             </div>
           )}
 

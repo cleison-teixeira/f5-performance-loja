@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
-  DollarSign, Building2, UsersRound, SlidersHorizontal,
-  Target, Settings, ClipboardList, Clock, GraduationCap, Users
+  Building2, UsersRound,
+  Settings, ClipboardList, Clock, GraduationCap, Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,22 +17,17 @@ const operacaoItems = [
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
-  { href: '/comissoes', label: 'Comissões', icon: DollarSign },
 ]
 
 const gestaoItemsBase = [
   { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
-  { href: '/metas', label: 'Metas', icon: Target },
 ]
 
-const gestaoItemsVendedora = [
-  { href: '/metas', label: 'Metas', icon: Target },
-]
+const gestaoItemsVendedora: typeof gestaoItemsBase = []
 
 const configuracaoItems = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
-  { href: '/configuracoes/comissoes', label: 'Comissões da equipe', icon: SlidersHorizontal },
 ]
 
 const aprenderItems = [
