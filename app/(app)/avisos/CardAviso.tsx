@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Copy, Check, User, Package, Send, CalendarClock, XCircle, Pencil } from 'lucide-react'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
@@ -369,6 +370,19 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
                 </button>
               )}
 
+            </div>
+          )}
+
+          {/* ── Link discreto para editar a compra de origem (apenas gerente/dono) ── */}
+          {!isVendedora && isValorPotencial && (
+            <div className="pt-0.5">
+              <Link
+                href={`/vendas/${aviso.venda_id}/editar`}
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              >
+                <Pencil className="h-2.5 w-2.5 flex-none" />
+                Editar compra de origem
+              </Link>
             </div>
           )}
 

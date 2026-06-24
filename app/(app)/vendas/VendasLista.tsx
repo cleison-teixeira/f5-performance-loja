@@ -35,7 +35,7 @@ interface VendasListaProps {
   vendedoras: { id: string; nome: string }[]
 }
 
-type Periodo = '7' | '30' | '90'
+type Periodo = '7' | '30' | '90' | '180' | '365' | 'tudo'
 
 function formatarBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -55,7 +55,7 @@ function diasAtras(n: number): Date {
 }
 
 export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProps) {
-  const [periodo, setPeriodo] = useState<Periodo>('30')
+  const [periodo, setPeriodo] = useState<Periodo>('90')
   const [vendedoraId, setVendedoraId] = useState('')
   const [busca, setBusca] = useState('')
   const [soRecorrente, setSoRecorrente] = useState(false)
@@ -69,12 +69,18 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
   }, [vendas])
 
   const filtradas = useMemo(() => {
-    const corte = diasAtras(Number(periodo))
     return vendas.filter(v => {
-      if (new Date(v.data_compra + 'T00:00:00') < corte) return false
+      if (periodo !== 'tudo') {
+        const corte = diasAtras(Number(periodo))
+        if (new Date(v.data_compra + 'T00:00:00') < corte) return false
+      }
       if (vendedoraId && v.vendedora_id !== vendedoraId) return false
       if (busca.trim()) {
-        if (!v.cliente_nome.toLowerCase().includes(busca.toLowerCase())) return false
+        const q = busca.toLowerCase()
+        const digits = busca.replace(/\D/g, '')
+        const matchNome = v.cliente_nome.toLowerCase().includes(q)
+        const matchWhatsapp = digits.length >= 4 && v.cliente_whatsapp.includes(digits)
+        if (!matchNome && !matchWhatsapp) return false
       }
       if (soRecorrente && !v.tem_recorrente) return false
       if (produtoNome && !v.itens.some(i => i.produto_nome === produtoNome)) return false
@@ -91,7 +97,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
       {/* Desktop filters */}
       <div className="hidden md:flex flex-wrap items-center gap-3">
         <div className="flex rounded-md border overflow-hidden text-sm">
-          {(['7', '30', '90'] as Periodo[]).map(p => (
+          {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriodo(p)}
@@ -102,7 +108,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                   : 'bg-background hover:bg-accent text-foreground'
               )}
             >
-              {p}d
+              {p === 'tudo' ? 'Tudo' : `${p}d`}
             </button>
           ))}
         </div>
@@ -166,7 +172,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
       {/* Mobile: period + filter button */}
       <div className="flex items-center justify-between gap-3 md:hidden">
         <div className="flex rounded-md border overflow-hidden text-sm">
-          {(['7', '30', '90'] as Periodo[]).map(p => (
+          {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriodo(p)}
@@ -177,7 +183,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                   : 'bg-background hover:bg-accent'
               )}
             >
-              {p}d
+              {p === 'tudo' ? 'Tudo' : `${p}d`}
             </button>
           ))}
         </div>

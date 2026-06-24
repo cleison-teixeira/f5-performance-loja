@@ -54,9 +54,6 @@ export default async function VendasPage() {
   const userRole = membro.role as string
   const isVendedora = userRole === 'vendedora'
 
-  const dataInicio = new Date()
-  dataInicio.setDate(dataInicio.getDate() - 90)
-
   let baseQuery = supabase
     .from('vendas')
     .select(`
@@ -68,9 +65,9 @@ export default async function VendasPage() {
       avisos(id)
     `)
     .eq('loja_id', loja_id)
-    .gte('criado_em', dataInicio.toISOString())
     .order('data_compra', { ascending: false })
     .order('criado_em', { ascending: false })
+    .limit(500)
 
   if (isVendedora) {
     baseQuery = baseQuery.eq('vendedora_id', user.id)
