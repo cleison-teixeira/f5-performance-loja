@@ -121,6 +121,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const [busca, setBusca] = useState('')
   const [produtoFiltro, setProdutoFiltro] = useState('')
   const [dataEspecifica, setDataEspecifica] = useState('')
+  const [tipData, setTipData] = useState<'retorno' | 'compra'>('retorno')
 
   // Sync with fresh server data after router.refresh()
   useEffect(() => {
@@ -139,6 +140,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     setBusca('')
     setProdutoFiltro('')
     setDataEspecifica('')
+    setTipData('retorno')
     setPeriodo('todos')
     setTipo('todos')
   }
@@ -217,7 +219,10 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
       if (!matchNome && !matchWhatsapp && !matchProduto) return false
     }
     if (produtoFiltro && a.produto_nome !== produtoFiltro) return false
-    if (dataEspecifica && a.data_aviso !== dataEspecifica) return false
+    if (dataEspecifica) {
+      const campoData = tipData === 'compra' ? a.data_compra : a.data_aviso
+      if (campoData !== dataEspecifica) return false
+    }
     return true
   })
 
@@ -406,12 +411,25 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           </select>
         )}
 
-        <input
-          type="date"
-          value={dataEspecifica}
-          onChange={e => setDataEspecifica(e.target.value)}
-          className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-40"
-        />
+        <div className="flex rounded-lg border border-input overflow-hidden">
+          {mode === 'recompra' && (
+            <select
+              value={tipData}
+              onChange={e => setTipData(e.target.value as 'retorno' | 'compra')}
+              className="bg-background pl-2.5 pr-1 py-2 text-xs text-muted-foreground border-r border-input focus:outline-none focus:ring-0 shrink-0"
+              aria-label="Tipo de data"
+            >
+              <option value="retorno">Retorno</option>
+              <option value="compra">Compra</option>
+            </select>
+          )}
+          <input
+            type="date"
+            value={dataEspecifica}
+            onChange={e => setDataEspecifica(e.target.value)}
+            className="bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-36"
+          />
+        </div>
 
         {temFiltrosAtivos && (
           <button
@@ -558,34 +576,56 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             />
           )}
           {listaPorTipo.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground space-y-1">
               {temFiltrosBusca ? (
                 <>
-                  Nenhum aviso encontrado com esses filtros.{' '}
-                  <button onClick={limparFiltros} className="text-primary hover:underline">Limpar filtros</button>
+                  <p>
+                    Nenhuma recompra encontrada com esses filtros.{' '}
+                    <button onClick={limparFiltros} className="text-primary hover:underline">Limpar filtros</button>
+                  </p>
+                  {dataEspecifica && mode === 'recompra' && (
+                    <p className="text-xs text-muted-foreground/70">
+                      Filtrando por <span className="font-medium">{tipData === 'compra' ? 'data da compra' : 'data do retorno'}</span>.
+                      {tipData === 'retorno'
+                        ? ' Tente mudar para "Compra" se quiser buscar pela data da venda original.'
+                        : ' Tente mudar para "Retorno" se quiser buscar pela data agendada do aviso.'}
+                    </p>
+                  )}
                 </>
               ) : (
-                mode === 'recompra' ? 'Nenhuma recompra pendente.' : 'Nenhuma mensagem de relacionamento pendente.'
+                <p>{mode === 'recompra' ? 'Nenhuma recompra pendente.' : 'Nenhuma mensagem de relacionamento pendente.'}</p>
               )}
-            </p>
+            </div>
           )}
         </div>
       ) : (
         /* ── Vista de período único — lista plana ── */
         <div>
           {avisosFiltrados.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground space-y-1">
               {temFiltrosBusca ? (
                 <>
-                  Nenhum aviso encontrado com esses filtros.{' '}
-                  <button onClick={limparFiltros} className="text-primary hover:underline">Limpar filtros</button>
+                  <p>
+                    Nenhuma recompra encontrada com esses filtros.{' '}
+                    <button onClick={limparFiltros} className="text-primary hover:underline">Limpar filtros</button>
+                  </p>
+                  {dataEspecifica && mode === 'recompra' && (
+                    <p className="text-xs text-muted-foreground/70">
+                      Filtrando por <span className="font-medium">{tipData === 'compra' ? 'data da compra' : 'data do retorno'}</span>.
+                      {tipData === 'retorno'
+                        ? ' Tente mudar para "Compra" se quiser buscar pela data da venda original.'
+                        : ' Tente mudar para "Retorno" se quiser buscar pela data agendada do aviso.'}
+                    </p>
+                  )}
                 </>
               ) : (
-                periodo === 'atrasados' ? 'Nenhum aviso atrasado.' :
-                periodo === 'hoje'      ? 'Nenhum aviso para hoje.' :
-                'Nenhum aviso neste período.'
+                <p>
+                  {periodo === 'atrasados' ? 'Nenhum aviso atrasado.' :
+                   periodo === 'hoje'      ? 'Nenhum aviso para hoje.' :
+                   'Nenhum aviso neste período.'}
+                </p>
               )}
-            </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {avisosFiltrados.map(aviso => (

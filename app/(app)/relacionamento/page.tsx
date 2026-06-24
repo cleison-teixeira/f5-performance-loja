@@ -94,6 +94,7 @@ export default async function RelacionamentoPage() {
       previsao_comissao: 0,
       venda_id: a.venda_id as string,
       item_venda_id: (a.item_venda_id as string | null) ?? null,
+      data_compra: '',
       observacao_resultado: null,
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',

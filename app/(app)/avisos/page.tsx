@@ -45,7 +45,7 @@ export default async function AvisosPage() {
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
       itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url)),
-      vendas(valor)
+      vendas(valor, data_compra)
     `)
     .eq('loja_id', loja.id)
     .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
@@ -122,7 +122,7 @@ export default async function AvisosPage() {
     } | null
     const produtosRaw = itemVenda?.produtos
     const produtoFoto = Array.isArray(produtosRaw) ? produtosRaw[0] : produtosRaw
-    const venda = a.vendas as unknown as { valor: number } | null
+    const venda = a.vendas as unknown as { valor: number; data_compra: string | null } | null
 
     return {
       id: a.id as string,
@@ -142,6 +142,7 @@ export default async function AvisosPage() {
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
       item_venda_id: (a.item_venda_id as string | null) ?? null,
+      data_compra: venda?.data_compra ?? '',
       observacao_resultado: (a as unknown as { observacao_resultado: string | null }).observacao_resultado ?? null,
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
