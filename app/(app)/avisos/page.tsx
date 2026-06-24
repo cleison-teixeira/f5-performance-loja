@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { TrendingUp, AlertCircle, Bell, Calendar } from 'lucide-react'
 import { AvisosLista } from './AvisosLista'
 import type { AvisoDetalhado } from './types'
 
@@ -9,17 +8,6 @@ export interface CatalogoProduto {
   nome: string
   preco_sugerido: number | null
   comissionavel_recompra: boolean
-}
-
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
-function addDias(base: string, n: number): string {
-  const [y, m, d] = base.split('-').map(Number)
-  const dt = new Date(y, m - 1, d)
-  dt.setDate(dt.getDate() + n)
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
 export default async function AvisosPage() {
@@ -141,21 +129,6 @@ export default async function AvisosPage() {
     }
   })
 
-  const seenVendas = new Set<string>()
-  const potencialAberto = avisos
-    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
-    .filter(a => {
-      if (!a.venda_id) return true
-      if (seenVendas.has(a.venda_id)) return false
-      seenVendas.add(a.venda_id)
-      return true
-    })
-    .reduce((s, a) => s + Number(a.valor_venda || 0), 0)
-  const qtdAtrasados = avisos.filter(a => a.data_aviso < hoje).length
-  const qtdHoje = avisos.filter(a => a.data_aviso === hoje).length
-  const em7Dias = addDias(hoje, 7)
-  const qtdProximos7 = avisos.filter(a => a.data_aviso > hoje && a.data_aviso <= em7Dias).length
-
   return (
     <div className="space-y-5 pb-6">
 
@@ -170,68 +143,7 @@ export default async function AvisosPage() {
         </p>
       </div>
 
-      {/* ── Cards de resumo ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-
-        {/* Potencial em aberto */}
-        <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
-            <TrendingUp className="h-3 w-3 flex-none" />
-            Vendas em aberto
-          </p>
-          <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
-            {fmt(potencialAberto)}
-          </p>
-          <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
-            vendas a reativar
-          </p>
-        </div>
-
-        {/* Atrasados */}
-        <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
-            <AlertCircle className="h-3 w-3 flex-none" />
-            Atrasados
-          </p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
-            {qtdAtrasados}
-          </p>
-          <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">
-            precisam de ação agora
-          </p>
-        </div>
-
-        {/* Para hoje */}
-        <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
-            <Bell className="h-3 w-3 flex-none" />
-            Para hoje
-          </p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
-            {qtdHoje}
-          </p>
-          <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">
-            clientes para acionar
-          </p>
-        </div>
-
-        {/* Próximos 7 dias */}
-        <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
-            <Calendar className="h-3 w-3 flex-none" />
-            Próximos 7 dias
-          </p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdProximos7 > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-            {qtdProximos7}
-          </p>
-          <p className="text-[11px] text-muted-foreground/55 leading-tight">
-            oportunidades chegando
-          </p>
-        </div>
-
-      </div>
-
-      {/* ── Lista de avisos ── */}
+      {/* ── Lista de avisos (inclui cards de resumo reativos) ── */}
       <AvisosLista
         avisos={avisos}
         hoje={hoje}

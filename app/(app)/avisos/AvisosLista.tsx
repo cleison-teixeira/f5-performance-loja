@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { AlertCircle, Bell, Calendar } from 'lucide-react'
+import { AlertCircle, Bell, Calendar, TrendingUp } from 'lucide-react'
 import { CardAviso } from './CardAviso'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
@@ -104,15 +105,37 @@ function SecaoAvisos({
 // ── Lista principal ─────────────────────────────────────────────────────────
 
 export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora }: AvisosListaProps) {
+  const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
   const [lista, setLista] = useState<AvisoDetalhado[]>(avisosIniciais)
 
+  // Sync with fresh server data after router.refresh()
+  useEffect(() => {
+    setLista(avisosIniciais)
+  }, [avisosIniciais])
+
   function handleMarcado(id: string) {
     setLista(prev => prev.filter(a => a.id !== id))
+    router.refresh()
   }
 
   const limite7 = addDays(hoje, 7)
+
+  // Summary stats — computed from live lista so they update when cards are removed
+  const seenVendas = new Set<string>()
+  const potencialAberto = lista
+    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
+    .filter(a => {
+      if (!a.venda_id) return true
+      if (seenVendas.has(a.venda_id)) return false
+      seenVendas.add(a.venda_id)
+      return true
+    })
+    .reduce((s, a) => s + Number(a.valor_venda || 0), 0)
+  const qtdAtrasados = lista.filter(a => a.data_aviso < hoje).length
+  const qtdHoje = lista.filter(a => a.data_aviso === hoje).length
+  const qtdProximos7 = lista.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length
 
   // Filtra por tipo (aplicado em toda a lógica de contagem e exibição)
   const listaPorTipo = lista.filter(a => tipo === 'todos' || a.tipo === tipo)
@@ -150,6 +173,50 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
   return (
     <div className="space-y-4">
+
+      {/* ── Cards de resumo (reactivos ao estado local) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
+            <TrendingUp className="h-3 w-3 flex-none" />
+            Vendas em aberto
+          </p>
+          <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
+            {fmt(potencialAberto)}
+          </p>
+          <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">vendas a reativar</p>
+        </div>
+        <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
+            <AlertCircle className="h-3 w-3 flex-none" />
+            Atrasados
+          </p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+            {qtdAtrasados}
+          </p>
+          <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">precisam de ação agora</p>
+        </div>
+        <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
+            <Bell className="h-3 w-3 flex-none" />
+            Para hoje
+          </p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
+            {qtdHoje}
+          </p>
+          <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">clientes para acionar</p>
+        </div>
+        <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 flex-none" />
+            Próximos 7 dias
+          </p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdProximos7 > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {qtdProximos7}
+          </p>
+          <p className="text-[11px] text-muted-foreground/55 leading-tight">oportunidades chegando</p>
+        </div>
+      </div>
 
       {/* ── Filtros de período ── */}
       <div className="flex gap-1 rounded-lg border bg-muted/40 p-1 w-fit flex-wrap">

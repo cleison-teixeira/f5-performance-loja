@@ -310,7 +310,7 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
                   disabled={loading}
                   className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
                 >
-                  {loading ? 'Salvando…' : 'Marcar como enviado'}
+                  {loading ? 'Salvando…' : 'Marcar contato feito'}
                 </button>
               </div>
 
