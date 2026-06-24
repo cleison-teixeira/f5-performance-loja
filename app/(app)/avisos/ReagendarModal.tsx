@@ -37,6 +37,7 @@ export function ReagendarModal({ aviso, onSucesso, onFechar }: Props) {
     const res = await reagendarOportunidade({
       aviso_id: aviso.id,
       venda_id: aviso.venda_id,
+      item_venda_id: aviso.item_venda_id,
       nova_data: novaData,
       observacao: observacao.trim() || undefined,
     })

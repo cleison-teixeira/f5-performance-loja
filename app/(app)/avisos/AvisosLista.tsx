@@ -56,7 +56,7 @@ interface SecaoProps {
   badgeCls: string
   icone: ReactNode
   valorPotencial: number
-  onMarcado: (id: string, fecharVendaId?: string) => void
+  onMarcado: (id: string, fecharOppKey?: string) => void
   onReagendado: (vendaId: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
@@ -124,17 +124,21 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     setLista(avisosIniciais)
   }, [avisosIniciais])
 
-  function handleMarcado(id: string, fecharVendaId?: string) {
-    setLista(prev => fecharVendaId
-      ? prev.filter(a => a.venda_id !== fecharVendaId)
+  function oppKey(a: AvisoDetalhado) {
+    return a.item_venda_id ?? a.venda_id
+  }
+
+  function handleMarcado(id: string, fecharOppKey?: string) {
+    setLista(prev => fecharOppKey
+      ? prev.filter(a => oppKey(a) !== fecharOppKey)
       : prev.filter(a => a.id !== id)
     )
     router.refresh()
   }
 
-  function handleReagendado(vendaId: string, novaData: string) {
+  function handleReagendado(key: string, novaData: string) {
     setLista(prev => prev.map(a =>
-      a.venda_id === vendaId
+      oppKey(a) === key
         ? { ...a, data_aviso: novaData, status: 'reagendada' as AvisoDetalhado['status'], atrasado: novaData < hoje }
         : a
     ))

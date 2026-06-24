@@ -79,7 +79,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     // Idempotency guard: if aviso already converted, return safe success
     const { data: avisoAtual } = await admin
       .from('avisos')
-      .select('status, recompra_id')
+      .select('status, recompra_id, item_venda_id')
       .eq('id', dados.aviso_id)
       .single()
 
@@ -216,8 +216,9 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       })
       .eq('id', dados.aviso_id)
 
-    // 6b. Fechar todos os demais avisos ativos da mesma oportunidade (mesmo venda_id)
-    await admin
+    // 6b. Fechar todos os demais avisos ativos da mesma oportunidade (venda_id + produto via item_venda_id)
+    const itemVendaIdOriginal = avisoAtual?.item_venda_id as string | null
+    const fechamentoQuery = admin
       .from('avisos')
       .update({
         status: 'convertida',
@@ -226,9 +227,14 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
         updated_at: agora,
         recompra_id,
       })
-      .eq('venda_id', dados.venda_original_id)
       .is('recompra_id', null)
       .in('status', ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagendada'])
+
+    if (itemVendaIdOriginal) {
+      await fechamentoQuery.eq('item_venda_id', itemVendaIdOriginal)
+    } else {
+      await fechamentoQuery.eq('venda_id', dados.venda_original_id)
+    }
 
     // 7. Gerar novos avisos futuros para produtos com mensagens configuradas
     const produtoIds = [...new Set(
@@ -326,6 +332,7 @@ const STATUS_ATIVOS = ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagen
 export async function reagendarOportunidade(dados: {
   aviso_id: string
   venda_id: string
+  item_venda_id?: string | null
   nova_data: string
   observacao?: string
 }): Promise<{ ok: boolean; erro?: string }> {
@@ -343,12 +350,15 @@ export async function reagendarOportunidade(dados: {
       return { ok: true }
     }
 
-    // Buscar todos os avisos ativos da mesma oportunidade
-    const { data: avisosAtivos, error: fetchErr } = await admin
+    // Buscar apenas avisos ativos da mesma oportunidade (venda_id + produto via item_venda_id)
+    const baseQuery = admin
       .from('avisos')
       .select('id, data_aviso, data_prevista_original')
-      .eq('venda_id', dados.venda_id)
       .in('status', [...STATUS_ATIVOS])
+
+    const { data: avisosAtivos, error: fetchErr } = dados.item_venda_id
+      ? await baseQuery.eq('item_venda_id', dados.item_venda_id)
+      : await baseQuery.eq('venda_id', dados.venda_id)
 
     if (fetchErr) return { ok: false, erro: fetchErr.message }
     if (!avisosAtivos?.length) return { ok: true }
@@ -389,6 +399,7 @@ export async function reagendarOportunidade(dados: {
 export async function marcarOportunidadePerdida(dados: {
   aviso_id: string
   venda_id: string
+  item_venda_id?: string | null
   motivo_perda: string
   observacao?: string
 }): Promise<{ ok: boolean; erro?: string }> {
@@ -410,12 +421,15 @@ export async function marcarOportunidadePerdida(dados: {
       return { ok: true }
     }
 
-    // Buscar todos os avisos ativos da mesma oportunidade
-    const { data: avisosAtivos, error: fetchErr } = await admin
+    // Buscar apenas avisos ativos da mesma oportunidade (venda_id + produto via item_venda_id)
+    const baseQuery = admin
       .from('avisos')
       .select('id')
-      .eq('venda_id', dados.venda_id)
       .in('status', [...STATUS_ATIVOS])
+
+    const { data: avisosAtivos, error: fetchErr } = dados.item_venda_id
+      ? await baseQuery.eq('item_venda_id', dados.item_venda_id)
+      : await baseQuery.eq('venda_id', dados.venda_id)
 
     if (fetchErr) return { ok: false, erro: fetchErr.message }
     if (!avisosAtivos?.length) return { ok: true }

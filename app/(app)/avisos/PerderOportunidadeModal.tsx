@@ -34,6 +34,7 @@ export function PerderOportunidadeModal({ aviso, onSucesso, onFechar }: Props) {
     const res = await marcarOportunidadePerdida({
       aviso_id: aviso.id,
       venda_id: aviso.venda_id,
+      item_venda_id: aviso.item_venda_id,
       motivo_perda: motivo,
       observacao: observacao.trim() || undefined,
     })

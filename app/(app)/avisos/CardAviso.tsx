@@ -13,8 +13,8 @@ import type { CatalogoProduto } from './page'
 
 interface CardAvisoProps {
   aviso: AvisoDetalhado
-  onMarcado: (id: string, fecharVendaId?: string) => void
-  onReagendado: (vendaId: string, novaData: string) => void
+  onMarcado: (id: string, fecharOppKey?: string) => void
+  onReagendado: (oppKey: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentualComissao: number
   loja_id: string
@@ -79,6 +79,8 @@ function badgeTemporal(dataAviso: string): { label: string; cls: string; key: st
 }
 
 export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentualComissao, loja_id, isVendedora }: CardAvisoProps) {
+  // Chave da oportunidade: item_venda_id quando disponível, fallback para venda_id
+  const oppKey = aviso.item_venda_id ?? aviso.venda_id
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [modalRecompra, setModalRecompra] = useState(false)
@@ -363,7 +365,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
           catalogo={catalogo}
           percentualComissao={percentualComissao}
           loja_id={loja_id}
-          onSucesso={(id) => { setModalRecompra(false); onMarcado(id, aviso.venda_id) }}
+          onSucesso={(id) => { setModalRecompra(false); onMarcado(id, oppKey) }}
           onFechar={() => setModalRecompra(false)}
         />
       )}
@@ -371,7 +373,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
       {modalReagendar && (
         <ReagendarModal
           aviso={aviso}
-          onSucesso={(novaData) => { setModalReagendar(false); onReagendado(aviso.venda_id, novaData) }}
+          onSucesso={(novaData) => { setModalReagendar(false); onReagendado(oppKey, novaData) }}
           onFechar={() => setModalReagendar(false)}
         />
       )}
@@ -379,7 +381,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
       {modalPerder && (
         <PerderOportunidadeModal
           aviso={aviso}
-          onSucesso={() => { setModalPerder(false); onMarcado(aviso.id, aviso.venda_id) }}
+          onSucesso={() => { setModalPerder(false); onMarcado(aviso.id, oppKey) }}
           onFechar={() => setModalPerder(false)}
         />
       )}

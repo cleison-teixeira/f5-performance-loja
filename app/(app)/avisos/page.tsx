@@ -141,6 +141,7 @@ export default async function AvisosPage() {
       valor_produto: itemVenda?.subtotal ?? 0,
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
+      item_venda_id: (a.item_venda_id as string | null) ?? null,
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
       atrasado: a.data_aviso < hoje,
