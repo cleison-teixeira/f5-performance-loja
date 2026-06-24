@@ -320,3 +320,124 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
   }
 }
+
+const STATUS_ATIVOS = ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagendada'] as const
+
+export async function reagendarOportunidade(dados: {
+  aviso_id: string
+  venda_id: string
+  nova_data: string
+  observacao?: string
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const admin = createAdminClient()
+
+    // Idempotency: não reagendar oportunidade já encerrada
+    const { data: avisoAtual } = await admin
+      .from('avisos')
+      .select('status')
+      .eq('id', dados.aviso_id)
+      .single()
+
+    if (avisoAtual?.status === 'convertida' || avisoAtual?.status === 'perdida') {
+      return { ok: true }
+    }
+
+    // Buscar todos os avisos ativos da mesma oportunidade
+    const { data: avisosAtivos, error: fetchErr } = await admin
+      .from('avisos')
+      .select('id, data_aviso, data_prevista_original')
+      .eq('venda_id', dados.venda_id)
+      .in('status', [...STATUS_ATIVOS])
+
+    if (fetchErr) return { ok: false, erro: fetchErr.message }
+    if (!avisosAtivos?.length) return { ok: true }
+
+    const ids = avisosAtivos.map(a => a.id as string)
+
+    // Preservar data original para quem ainda não tem (antes de sobrescrever data_aviso)
+    const semOriginal = avisosAtivos.filter(a => !a.data_prevista_original)
+    if (semOriginal.length > 0) {
+      await Promise.all(
+        semOriginal.map(a =>
+          admin.from('avisos')
+            .update({ data_prevista_original: a.data_aviso })
+            .eq('id', a.id as string)
+        )
+      )
+    }
+
+    // Atualizar todos os avisos da oportunidade para a nova data
+    const agora = new Date().toISOString()
+    const { error } = await admin
+      .from('avisos')
+      .update({
+        status: 'reagendada',
+        data_aviso: dados.nova_data,
+        observacao_resultado: dados.observacao ?? null,
+        updated_at: agora,
+      })
+      .in('id', ids)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+export async function marcarOportunidadePerdida(dados: {
+  aviso_id: string
+  venda_id: string
+  motivo_perda: string
+  observacao?: string
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado' }
+
+    const admin = createAdminClient()
+
+    // Idempotency: não encerrar oportunidade já encerrada
+    const { data: avisoAtual } = await admin
+      .from('avisos')
+      .select('status')
+      .eq('id', dados.aviso_id)
+      .single()
+
+    if (avisoAtual?.status === 'convertida' || avisoAtual?.status === 'perdida') {
+      return { ok: true }
+    }
+
+    // Buscar todos os avisos ativos da mesma oportunidade
+    const { data: avisosAtivos, error: fetchErr } = await admin
+      .from('avisos')
+      .select('id')
+      .eq('venda_id', dados.venda_id)
+      .in('status', [...STATUS_ATIVOS])
+
+    if (fetchErr) return { ok: false, erro: fetchErr.message }
+    if (!avisosAtivos?.length) return { ok: true }
+
+    const ids = avisosAtivos.map(a => a.id as string)
+    const agora = new Date().toISOString()
+
+    const { error } = await admin
+      .from('avisos')
+      .update({
+        status: 'perdida',
+        motivo_perda: dados.motivo_perda,
+        observacao_resultado: dados.observacao ?? null,
+        encerrado_em: agora,
+        encerrado_por: user.id,
+        updated_at: agora,
+      })
+      .in('id', ids)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}

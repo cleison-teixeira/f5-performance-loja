@@ -57,6 +57,7 @@ interface SecaoProps {
   icone: ReactNode
   valorPotencial: number
   onMarcado: (id: string, fecharVendaId?: string) => void
+  onReagendado: (vendaId: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
@@ -65,7 +66,7 @@ interface SecaoProps {
 
 function SecaoAvisos({
   titulo, subtitulo, avisos, corCls, badgeCls, icone, valorPotencial,
-  onMarcado, catalogo, percentuaisPorVendedora, loja_id, isVendedora,
+  onMarcado, onReagendado, catalogo, percentuaisPorVendedora, loja_id, isVendedora,
 }: SecaoProps) {
   if (avisos.length === 0) return null
 
@@ -98,6 +99,7 @@ function SecaoAvisos({
             key={aviso.id}
             aviso={aviso}
             onMarcado={onMarcado}
+            onReagendado={onReagendado}
             catalogo={catalogo}
             percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
             loja_id={loja_id}
@@ -127,6 +129,15 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
       ? prev.filter(a => a.venda_id !== fecharVendaId)
       : prev.filter(a => a.id !== id)
     )
+    router.refresh()
+  }
+
+  function handleReagendado(vendaId: string, novaData: string) {
+    setLista(prev => prev.map(a =>
+      a.venda_id === vendaId
+        ? { ...a, data_aviso: novaData, status: 'reagendada' as AvisoDetalhado['status'], atrasado: novaData < hoje }
+        : a
+    ))
     router.refresh()
   }
 
@@ -402,6 +413,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             icone={<AlertCircle className="h-4 w-4" />}
             valorPotencial={mode === 'recompra' ? grupos.atrasados.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
+            onReagendado={handleReagendado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
@@ -416,6 +428,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             icone={<Bell className="h-4 w-4" />}
             valorPotencial={mode === 'recompra' ? grupos.hoje.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
+            onReagendado={handleReagendado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
@@ -430,6 +443,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             icone={<Calendar className="h-4 w-4" />}
             valorPotencial={mode === 'recompra' ? grupos.proximos7.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
+            onReagendado={handleReagendado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
@@ -445,6 +459,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               icone={<Calendar className="h-4 w-4" />}
               valorPotencial={0}
               onMarcado={handleMarcado}
+              onReagendado={handleReagendado}
               catalogo={catalogo}
               percentuaisPorVendedora={percentuaisPorVendedora}
               loja_id={loja_id}
@@ -473,6 +488,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                   key={aviso.id}
                   aviso={aviso}
                   onMarcado={handleMarcado}
+                  onReagendado={handleReagendado}
                   catalogo={catalogo}
                   percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
                   loja_id={loja_id}

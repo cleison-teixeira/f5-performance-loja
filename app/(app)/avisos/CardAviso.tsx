@@ -1,17 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, User, Package, Send } from 'lucide-react'
+import { Copy, Check, User, Package, Send, CalendarClock, XCircle } from 'lucide-react'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { marcarEnviado, editarTextoAviso } from './actions'
 import { ConfirmarRecompraModal } from './ConfirmarRecompraModal'
+import { ReagendarModal } from './ReagendarModal'
+import { PerderOportunidadeModal } from './PerderOportunidadeModal'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
 
 interface CardAvisoProps {
   aviso: AvisoDetalhado
   onMarcado: (id: string, fecharVendaId?: string) => void
+  onReagendado: (vendaId: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentualComissao: number
   loja_id: string
@@ -75,10 +78,12 @@ function badgeTemporal(dataAviso: string): { label: string; cls: string; key: st
   }
 }
 
-export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja_id, isVendedora }: CardAvisoProps) {
+export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentualComissao, loja_id, isVendedora }: CardAvisoProps) {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [modalRecompra, setModalRecompra] = useState(false)
+  const [modalReagendar, setModalReagendar] = useState(false)
+  const [modalPerder, setModalPerder] = useState(false)
   const [textoAtual, setTextoAtual] = useState(aviso.texto_renderizado)
   const [editando, setEditando] = useState(false)
   const [rascunho, setRascunho] = useState(aviso.texto_renderizado)
@@ -300,24 +305,51 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
                 Enviar no WhatsApp
               </a>
 
-              {/* Conversão + Operacional */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                {(aviso.tipo === 'recompra' || aviso.tipo === 'oferta') && (
-                  <button
-                    onClick={() => setModalRecompra(true)}
-                    className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
-                  >
-                    Confirmar recompra
-                  </button>
-                )}
+              {isValorPotencial ? (
+                <>
+                  {/* Linha 1: Confirmar + Reagendar */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setModalRecompra(true)}
+                      className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
+                    >
+                      Confirmar recompra
+                    </button>
+                    <button
+                      onClick={() => setModalReagendar(true)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <CalendarClock className="h-3.5 w-3.5 flex-none" />
+                      Reagendar
+                    </button>
+                  </div>
+                  {/* Linha 2: Não quer mais + Contato feito */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setModalPerder(true)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40 transition-colors"
+                    >
+                      <XCircle className="h-3.5 w-3.5 flex-none" />
+                      Não quer mais
+                    </button>
+                    <button
+                      onClick={handleMarcarEnviado}
+                      disabled={loading}
+                      className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                    >
+                      {loading ? 'Salvando…' : 'Contato feito'}
+                    </button>
+                  </div>
+                </>
+              ) : (
                 <button
                   onClick={handleMarcarEnviado}
                   disabled={loading}
-                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
                 >
                   {loading ? 'Salvando…' : 'Marcar contato feito'}
                 </button>
-              </div>
+              )}
 
             </div>
           )}
@@ -333,6 +365,22 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
           loja_id={loja_id}
           onSucesso={(id) => { setModalRecompra(false); onMarcado(id, aviso.venda_id) }}
           onFechar={() => setModalRecompra(false)}
+        />
+      )}
+
+      {modalReagendar && (
+        <ReagendarModal
+          aviso={aviso}
+          onSucesso={(novaData) => { setModalReagendar(false); onReagendado(aviso.venda_id, novaData) }}
+          onFechar={() => setModalReagendar(false)}
+        />
+      )}
+
+      {modalPerder && (
+        <PerderOportunidadeModal
+          aviso={aviso}
+          onSucesso={() => { setModalPerder(false); onMarcado(aviso.id, aviso.venda_id) }}
+          onFechar={() => setModalPerder(false)}
         />
       )}
     </>
