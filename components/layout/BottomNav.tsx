@@ -6,7 +6,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
   Building2, UsersRound,
-  ClipboardList, Clock, GraduationCap, Users
+  ClipboardList, Clock, GraduationCap, Users, MessageCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +18,7 @@ const mainItems = [
 ]
 
 const operacaoDrawer = [
+  { href: '/relacionamento', label: 'Relacionamento', icon: MessageCircle },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },

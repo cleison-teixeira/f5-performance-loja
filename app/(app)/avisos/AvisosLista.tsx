@@ -15,17 +15,22 @@ interface AvisosListaProps {
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
   isVendedora: boolean
+  mode: 'recompra' | 'relacionamento'
 }
 
 type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
 type TipoFiltro = 'todos' | AvisoDetalhado['tipo']
 
-const TIPOS: { value: TipoFiltro; label: string }[] = [
+const TIPOS_RECOMPRA: { value: TipoFiltro; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'recompra', label: 'Recompra' },
+  { value: 'oferta', label: 'Oferta' },
+]
+
+const TIPOS_RELACIONAMENTO: { value: TipoFiltro; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'agradecimento', label: 'Agradecimento' },
   { value: 'relacionamento', label: 'Relacionamento' },
-  { value: 'recompra', label: 'Recompra' },
-  { value: 'oferta', label: 'Oferta' },
 ]
 
 // Normaliza data para comparação sem risco de fuso horário
@@ -104,7 +109,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora, mode }: AvisosListaProps) {
   const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
@@ -180,18 +185,33 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
       {/* ── Cards de resumo (reactivos ao estado local) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
-            <TrendingUp className="h-3 w-3 flex-none" />
-            Recompras em aberto
-          </p>
-          <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
-            {fmt(potencialAberto)}
-          </p>
-          <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
-            {qtdOportunidades} {qtdOportunidades === 1 ? 'recompra para acionar' : 'recompras para acionar'}
-          </p>
-        </div>
+        {mode === 'recompra' ? (
+          <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
+              <TrendingUp className="h-3 w-3 flex-none" />
+              Recompras em aberto
+            </p>
+            <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
+              {fmt(potencialAberto)}
+            </p>
+            <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
+              {qtdOportunidades} {qtdOportunidades === 1 ? 'recompra para acionar' : 'recompras para acionar'}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-violet-50 dark:bg-violet-950/20 border-violet-200/80 dark:border-violet-800/40 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700/65 dark:text-violet-400/60 flex items-center gap-1.5">
+              <Bell className="h-3 w-3 flex-none" />
+              Avisos pendentes
+            </p>
+            <p className="text-xl font-bold tabular-nums text-violet-800 dark:text-violet-300 leading-none">
+              {lista.length}
+            </p>
+            <p className="text-[11px] text-violet-700/55 dark:text-violet-400/50 leading-tight">
+              mensagens de relacionamento
+            </p>
+          </div>
+        )}
         <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
             <AlertCircle className="h-3 w-3 flex-none" />
@@ -258,7 +278,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
       {/* ── Filtros de tipo ── */}
       <div className="flex flex-wrap gap-2">
-        {TIPOS.map(({ value, label }) => {
+        {(mode === 'recompra' ? TIPOS_RECOMPRA : TIPOS_RELACIONAMENTO).map(({ value, label }) => {
           const count = lista.filter(a => {
             const matchPeriodo =
               periodo === 'atrasados' ? a.data_aviso < hoje :
@@ -297,12 +317,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
         <div className="space-y-6">
           <SecaoAvisos
             titulo="Atrasados"
-            subtitulo="Clientes que já deveriam ter sido acionados"
+            subtitulo={mode === 'recompra' ? 'Recompras que já deveriam ter sido acionadas' : 'Mensagens que já deveriam ter sido enviadas'}
             avisos={grupos.atrasados}
             corCls="text-red-700 dark:text-red-400"
             badgeCls="bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
             icone={<AlertCircle className="h-4 w-4" />}
-            valorPotencial={grupos.atrasados.reduce((s, a) => s + a.valor_venda, 0)}
+            valorPotencial={mode === 'recompra' ? grupos.atrasados.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
@@ -311,12 +331,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           />
           <SecaoAvisos
             titulo="Hoje"
-            subtitulo="Clientes para acionar hoje"
+            subtitulo={mode === 'recompra' ? 'Clientes para recomprar hoje' : 'Clientes para contatar hoje'}
             avisos={grupos.hoje}
             corCls="text-blue-700 dark:text-blue-400"
             badgeCls="bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
             icone={<Bell className="h-4 w-4" />}
-            valorPotencial={grupos.hoje.reduce((s, a) => s + a.valor_venda, 0)}
+            valorPotencial={mode === 'recompra' ? grupos.hoje.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
@@ -325,12 +345,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           />
           <SecaoAvisos
             titulo="Próximos dias"
-            subtitulo="Oportunidades chegando nos próximos 7 dias"
+            subtitulo={mode === 'recompra' ? 'Oportunidades chegando nos próximos 7 dias' : 'Mensagens dos próximos 7 dias'}
             avisos={grupos.proximos7}
             corCls="text-emerald-700 dark:text-emerald-400"
             badgeCls="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
             icone={<Calendar className="h-4 w-4" />}
-            valorPotencial={grupos.proximos7.reduce((s, a) => s + a.valor_venda, 0)}
+            valorPotencial={mode === 'recompra' ? grupos.proximos7.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
@@ -340,12 +360,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           {grupos.futuros.length > 0 && (
             <SecaoAvisos
               titulo="Mais adiante"
-              subtitulo="Avisos além dos próximos 7 dias"
+              subtitulo="Além dos próximos 7 dias"
               avisos={grupos.futuros}
               corCls="text-muted-foreground"
               badgeCls="bg-muted text-muted-foreground"
               icone={<Calendar className="h-4 w-4" />}
-              valorPotencial={grupos.futuros.reduce((s, a) => s + a.valor_venda, 0)}
+              valorPotencial={0}
               onMarcado={handleMarcado}
               catalogo={catalogo}
               percentuaisPorVendedora={percentuaisPorVendedora}
@@ -354,7 +374,9 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             />
           )}
           {listaPorTipo.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhum aviso pendente.</p>
+            <p className="text-sm text-muted-foreground">
+              {mode === 'recompra' ? 'Nenhuma recompra pendente.' : 'Nenhuma mensagem de relacionamento pendente.'}
+            </p>
           )}
         </div>
       ) : (

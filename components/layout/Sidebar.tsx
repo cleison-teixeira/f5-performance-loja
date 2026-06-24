@@ -5,13 +5,14 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   Building2, UsersRound,
-  Settings, ClipboardList, Clock, GraduationCap, Users
+  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const operacaoItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
   { href: '/avisos', label: 'Fila de Recompra', icon: Bell },
+  { href: '/relacionamento', label: 'Relacionamento', icon: MessageCircle },
   { href: '/vendas/nova', label: 'Registrar', icon: ShoppingCart },
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/clientes', label: 'Clientes', icon: Users },

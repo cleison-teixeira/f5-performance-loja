@@ -191,14 +191,17 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
             )}
           </div>
 
-          {/* ── Produto + valor potencial ── */}
+          {/* ── Produto + valor potencial (só para recompra/oferta) ── */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <span className="text-muted-foreground truncate">{aviso.produto_nome}</span>
-            <span className="text-muted-foreground/30">·</span>
-            <span className={`font-semibold tabular-nums ${isValorPotencial ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'}`}>
-              {isValorPotencial ? 'Potencial: ' : 'Venda: '}
-              {fmt(aviso.valor_venda)}
-            </span>
+            {isValorPotencial && (
+              <>
+                <span className="text-muted-foreground/30">·</span>
+                <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  Potencial: {fmt(aviso.valor_venda)}
+                </span>
+              </>
+            )}
           </div>
 
           {/* ── Vendedora responsável — apenas para Dono/Gerente ── */}
