@@ -53,14 +53,14 @@ export default async function AvisosPage() {
   let avisosQuery = supabase
     .from('avisos')
     .select(`
-      id, data_aviso, status, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
+      id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
       itens_venda(produto_nome, produto_id, produtos(foto_url)),
       vendas(valor)
     `)
     .eq('loja_id', loja.id)
-    .eq('status', 'pendente')
+    .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
     .order('data_aviso', { ascending: true })
   if (isVendedora) avisosQuery = avisosQuery.eq('vendedora_id', user!.id)
   const { data: avisosRaw } = await avisosQuery
@@ -122,7 +122,8 @@ export default async function AvisosPage() {
     return {
       id: a.id as string,
       data_aviso: a.data_aviso as string,
-      status: a.status as 'pendente' | 'enviado' | 'ignorado',
+      status: a.status as AvisoDetalhado['status'],
+      recompra_id: (a as unknown as { recompra_id: string | null }).recompra_id ?? null,
       texto_renderizado: a.texto_renderizado as string,
       cliente_nome: cliente?.nome ?? 'Cliente',
       cliente_whatsapp: cliente?.whatsapp ?? '',

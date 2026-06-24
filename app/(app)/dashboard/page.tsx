@@ -7,6 +7,8 @@ export interface DashboardAviso {
   id: string
   data_aviso: string
   venda_id: string
+  status: string
+  recompra_id: string | null
   texto_renderizado: string
   cliente_nome: string
   cliente_whatsapp: string
@@ -184,14 +186,14 @@ export default async function DashboardPage() {
       let q = supabase
         .from('avisos')
         .select(`
-          id, data_aviso, venda_id, status, texto_renderizado, vendedora_id, previsao_comissao,
+          id, data_aviso, venda_id, status, recompra_id, texto_renderizado, vendedora_id, previsao_comissao,
           clientes(nome, whatsapp),
           mensagens_produto(tipo),
           itens_venda(produto_nome),
           vendas(valor)
         `)
         .eq('loja_id', loja_id)
-        .eq('status', 'pendente')
+        .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
         .order('data_aviso', { ascending: true })
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
@@ -214,7 +216,7 @@ export default async function DashboardPage() {
         .from('avisos')
         .select('id', { count: 'exact', head: true })
         .eq('loja_id', loja_id)
-        .eq('status', 'enviado')
+        .or('status.eq.enviado,status.eq.convertida')
         .gte('enviado_em', data30.toISOString())
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
@@ -303,7 +305,8 @@ export default async function DashboardPage() {
       id: a.id as string,
       data_aviso: a.data_aviso as string,
       venda_id: a.venda_id as string,
-      status: a.status as 'pendente' | 'enviado' | 'ignorado',
+      status: a.status as string,
+      recompra_id: (a as unknown as { recompra_id: string | null }).recompra_id ?? null,
       texto_renderizado: a.texto_renderizado as string,
       cliente_nome: cliente?.nome ?? 'Cliente',
       cliente_whatsapp: cliente?.whatsapp ?? '',

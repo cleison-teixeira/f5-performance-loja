@@ -21,7 +21,7 @@ export default function DebugMobileAccessPage() {
   // ── Mock avisos ──────────────────────────────────────────────────────────
   const avisosAtrasados: DashboardAviso[] = [
     {
-      id: 'mock-1', data_aviso: d5, venda_id: 'v1',
+      id: 'mock-1', data_aviso: d5, venda_id: 'v1', status: 'aberta', recompra_id: null,
       texto_renderizado: 'Olá Maria! Passando pra saber como você está gostando do Creme Premium. Precisando de mais, pode chamar! 😊',
       cliente_nome: 'Maria Aparecida', cliente_whatsapp: '48988000001',
       produto_nome: 'Creme Premium', tipo: 'recompra',
@@ -29,7 +29,7 @@ export default function DebugMobileAccessPage() {
       previsao_comissao: 45, valor_venda: 300,
     },
     {
-      id: 'mock-2', data_aviso: d3, venda_id: 'v2',
+      id: 'mock-2', data_aviso: d3, venda_id: 'v2', status: 'aberta', recompra_id: null,
       texto_renderizado: 'Oi Joana! Temos uma oferta especial no Sérum que você amou. Quer ver?',
       cliente_nome: 'Joana Rodrigues', cliente_whatsapp: '48988000002',
       produto_nome: 'Sérum Vitamina C', tipo: 'oferta',
@@ -40,7 +40,7 @@ export default function DebugMobileAccessPage() {
 
   const avisosHoje: DashboardAviso[] = [
     {
-      id: 'mock-3', data_aviso: hoje, venda_id: 'v3',
+      id: 'mock-3', data_aviso: hoje, venda_id: 'v3', status: 'aberta', recompra_id: null,
       texto_renderizado: 'Oi Ana! Hoje completou 30 dias desde sua última compra. Temos condições especiais! 💄',
       cliente_nome: 'Ana Paula', cliente_whatsapp: '48988000003',
       produto_nome: 'Base Líquida', tipo: 'relacionamento',
@@ -48,7 +48,7 @@ export default function DebugMobileAccessPage() {
       previsao_comissao: 25, valor_venda: 180,
     },
     {
-      id: 'mock-4', data_aviso: hoje, venda_id: 'v4',
+      id: 'mock-4', data_aviso: hoje, venda_id: 'v4', status: 'aberta', recompra_id: null,
       texto_renderizado: 'Olá Fernanda! Como está a Paleta de Sombras que você comprou? 😍',
       cliente_nome: 'Fernanda Lima', cliente_whatsapp: '48988000004',
       produto_nome: 'Paleta de Sombras', tipo: 'agradecimento',

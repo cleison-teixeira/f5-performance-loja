@@ -3,7 +3,8 @@ import type { MensagemTipo } from '@/types/app'
 export interface AvisoDetalhado {
   id: string
   data_aviso: string
-  status: 'pendente' | 'enviado' | 'ignorado'
+  status: 'pendente' | 'enviado' | 'ignorado' | 'aberta' | 'contato_feito' | 'reagendada' | 'convertida' | 'perdida'
+  recompra_id?: string | null
   texto_renderizado: string
   cliente_nome: string
   cliente_whatsapp: string

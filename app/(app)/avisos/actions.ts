@@ -11,7 +11,7 @@ export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; er
     const supabase = await createClient()
     const { error } = await supabase
       .from('avisos')
-      .update({ status: 'enviado', enviado_em: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({ status: 'contato_feito', enviado_em: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', aviso_id)
 
     if (error) return { ok: false, erro: error.message }
@@ -182,13 +182,16 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
-    // 6. Marcar aviso como enviado e vincular à recompra
+    // 6. Marcar aviso como convertida e vincular à recompra
+    const agora = new Date().toISOString()
     await supabase
       .from('avisos')
       .update({
-        status: 'enviado',
-        enviado_em: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: 'convertida',
+        enviado_em: agora,
+        encerrado_em: agora,
+        encerrado_por: dados.vendedora_id,
+        updated_at: agora,
         recompra_id,
       })
       .eq('id', dados.aviso_id)
@@ -258,6 +261,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
             produto_nome: itemVenda.produto_nome as string,
             vendedora_nome,
             loja_nome,
+            origem_recompra_id: recompra_id,
           },
           hoje
         )

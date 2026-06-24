@@ -10,6 +10,7 @@ interface ContextoAviso {
   produto_nome: string
   vendedora_nome: string
   loja_nome: string
+  origem_recompra_id?: string
 }
 
 interface MensagemProduto {
@@ -30,6 +31,7 @@ export interface AvisoParaInserir {
   data_aviso: string
   status: 'pendente'
   previsao_comissao?: number
+  origem_recompra_id?: string
 }
 
 export function gerarAvisos(
@@ -62,6 +64,7 @@ export function gerarAvisos(
       }),
       data_aviso: `${y}-${m}-${d}`,
       status: 'pendente' as const,
+      ...(ctx.origem_recompra_id ? { origem_recompra_id: ctx.origem_recompra_id } : {}),
     }
   })
 }
