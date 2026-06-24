@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { SlidersHorizontal, X } from 'lucide-react'
+import Link from 'next/link'
+import { SlidersHorizontal, X, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import type { VendaExtrato, VendaItemExtrato } from './page'
@@ -240,6 +241,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Comissão</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Avisos</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
@@ -277,6 +279,17 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
                       {v.qtd_avisos > 0 ? v.qtd_avisos : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {v.origem === 'venda_manual' && (
+                        <Link
+                          href={`/vendas/${v.id}/editar`}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Editar
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -454,14 +467,26 @@ function VendaCard({ venda: v, isVendedora }: { venda: VendaExtrato; isVendedora
         )}
       </div>
 
-      {mostrarExpandir && (
-        <button
-          onClick={() => setExpandido(!expandido)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {expandido ? 'Ver menos' : `Ver ${v.itens.length} produtos`}
-        </button>
-      )}
+      <div className="flex items-center justify-between">
+        {mostrarExpandir ? (
+          <button
+            onClick={() => setExpandido(!expandido)}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {expandido ? 'Ver menos' : `Ver ${v.itens.length} produtos`}
+          </button>
+        ) : <span />}
+
+        {v.origem === 'venda_manual' && (
+          <Link
+            href={`/vendas/${v.id}/editar`}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Pencil className="h-3 w-3" />
+            Editar
+          </Link>
+        )}
+      </div>
     </div>
   )
 }
