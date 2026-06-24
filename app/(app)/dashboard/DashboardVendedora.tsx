@@ -87,7 +87,7 @@ export function DashboardVendedora({
         valorPrincipal={fmt(dinheiroMesaInfo.totalPotencial)}
         isEmpty={dinheiroMesaInfo.totalPotencial === 0}
         zeroStateText="Registre uma venda para começar a gerar recompras."
-        subtexto="em recompras abertas na sua fila"
+        subtexto="em recompras no radar da sua fila"
         ind1Label="Recompras este mês"
         ind1Valor={fmt(totalRecomprasValorMes)}
         ind2Label="Oportunidades"

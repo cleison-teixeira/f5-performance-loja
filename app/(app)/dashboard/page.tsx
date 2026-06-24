@@ -479,6 +479,7 @@ export default async function DashboardPage() {
   const em3Str = addDias(hoje, 3)
   const em4Str = addDias(hoje, 4)
   const em7DiasStr = addDias(hoje, 7)
+  const em90DiasStr = addDias(hoje, 90)
 
   const seenComissao7d = new Set<string>()
   const comissao7Dias = avisos
@@ -528,18 +529,18 @@ export default async function DashboardPage() {
   const rankingMes: VendedoraRankingMeta[] = Array.from(rankingMesMap.values())
     .sort((a, b) => b.totalMes - a.totalMes)
 
-  // Regra canônica para "Dinheiro na Mesa" — mesma lógica da Fila de Recompra:
-  // tipo recompra/oferta, janela até hoje+7 dias, dedup por venda_id+produto_id, valor do item
+  // Regra canônica para "Dinheiro na Mesa" — janela de 90 dias, dedup por venda_id+produto_id, valor do item
+  // Inclui atrasados (continuam sendo dinheiro em aberto) e exclui convertidas/perdidas
   const seenOport = new Set<string>()
   const oportunidades = avisos
-    .filter(a => (a.tipo === 'recompra' || a.tipo === 'oferta') && a.data_aviso <= em7DiasStr)
+    .filter(a => (a.tipo === 'recompra' || a.tipo === 'oferta') && a.data_aviso <= em90DiasStr)
     .filter(a => {
       const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
       if (seenOport.has(key)) return false
       seenOport.add(key)
       return true
     })
-  const oport7Dias = oportunidades.filter(a => a.data_aviso >= hoje)
+  const oport7Dias = oportunidades.filter(a => a.data_aviso >= hoje && a.data_aviso <= em7DiasStr)
   const dinheiroMesaInfo: DinheiroMesaInfo = {
     totalPotencial: oportunidades.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
     qtdOportunidades: oportunidades.length,

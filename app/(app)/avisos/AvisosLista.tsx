@@ -131,21 +131,42 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   }
 
   const limite7 = addDays(hoje, 7)
+  const limite90 = addDays(hoje, 90)
+  const inicioMes = hoje.slice(0, 8) + '01'
+  const fimMes = (() => {
+    const [y, m] = hoje.split('-').map(Number)
+    const lastDay = new Date(y, m, 0).getDate()
+    return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  })()
 
-  // Financial metric — unique recompra/oferta opportunities within operational window (≤7 days)
-  // Future opportunities beyond 7 days are not actionable yet and must not inflate this value
+  // Financial metric — unique recompra/oferta opportunities in the next 90 days (includes overdue)
   const seenOpps = new Set<string>()
   let potencialAberto = 0
   let qtdOportunidades = 0
   for (const a of lista) {
     if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
-    if (a.data_aviso > limite7) continue  // outside operational window
+    if (a.data_aviso > limite90) continue
     const key = `${a.venda_id}__${a.produto_id ?? ''}`
     if (seenOpps.has(key)) continue
     seenOpps.add(key)
     potencialAberto += Number(a.valor_produto || a.valor_venda || 0)
     qtdOportunidades++
   }
+
+  // Financial metric — unique opportunities with data_aviso in the current month
+  const seenMes = new Set<string>()
+  let potencialMes = 0
+  let qtdOportunidadesMes = 0
+  for (const a of lista) {
+    if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
+    if (a.data_aviso < inicioMes || a.data_aviso > fimMes) continue
+    const key = `${a.venda_id}__${a.produto_id ?? ''}`
+    if (seenMes.has(key)) continue
+    seenMes.add(key)
+    potencialMes += Number(a.valor_produto || a.valor_venda || 0)
+    qtdOportunidadesMes++
+  }
+
   // Aviso counts — operational queue (all types, all time buckets)
   const qtdAtrasados = lista.filter(a => a.data_aviso < hoje).length
   const qtdHoje = lista.filter(a => a.data_aviso === hoje).length
@@ -191,7 +212,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
       {/* ── Cards de resumo (reactivos ao estado local) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
-        {/* Card 1: financeiro principal */}
+        {/* Card 1: financeiro principal — 90 dias (recompra) / pendentes (relacionamento) */}
         {mode === 'recompra' ? (
           <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
@@ -202,7 +223,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               {fmt(potencialAberto)}
             </p>
             <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
-              {qtdOportunidades} {qtdOportunidades === 1 ? 'recompra para acionar' : 'recompras para acionar'}
+              {qtdOportunidades} {qtdOportunidades === 1 ? 'recompra no radar' : 'recompras no radar'}
             </p>
           </div>
         ) : (
@@ -220,7 +241,34 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           </div>
         )}
 
-        {/* Card 2: Recuperado (recompra) / Atrasados (relacionamento) */}
+        {/* Card 2: Recompras do mês (recompra) / Atrasados (relacionamento) */}
+        {mode === 'recompra' ? (
+          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/15 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700/65 dark:text-blue-400/60 flex items-center gap-1.5">
+              <Calendar className="h-3 w-3 flex-none" />
+              Recompras do mês
+            </p>
+            <p className="text-xl font-bold tabular-nums text-blue-800 dark:text-blue-300 leading-none">
+              {fmt(potencialMes)}
+            </p>
+            <p className="text-[11px] text-blue-700/55 dark:text-blue-400/50 leading-tight">
+              {qtdOportunidadesMes} {qtdOportunidadesMes === 1 ? 'recompra este mês' : 'recompras este mês'}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3 flex-none" />
+              Avisos atrasados
+            </p>
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+              {qtdAtrasados}
+            </p>
+            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
+          </div>
+        )}
+
+        {/* Card 3: Recuperado (recompra) / Para hoje (relacionamento) */}
         {mode === 'recompra' ? (
           <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-100/80 dark:border-emerald-800/30 p-4 flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
@@ -235,31 +283,6 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
-              <AlertCircle className="h-3 w-3 flex-none" />
-              Avisos atrasados
-            </p>
-            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
-              {qtdAtrasados}
-            </p>
-            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
-          </div>
-        )}
-
-        {/* Card 3: Atrasados (recompra) / Para hoje (relacionamento) */}
-        {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
-              <AlertCircle className="h-3 w-3 flex-none" />
-              Avisos atrasados
-            </p>
-            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
-              {qtdAtrasados}
-            </p>
-            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
-          </div>
-        ) : (
           <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
               <Bell className="h-3 w-3 flex-none" />
@@ -272,17 +295,17 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           </div>
         )}
 
-        {/* Card 4: Para hoje (recompra) / Próximos 7D (relacionamento) */}
+        {/* Card 4: Avisos atrasados (recompra) / Próximos 7D (relacionamento) */}
         {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
-              <Bell className="h-3 w-3 flex-none" />
-              Avisos para hoje
+          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3 flex-none" />
+              Avisos atrasados
             </p>
-            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
-              {qtdHoje}
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+              {qtdAtrasados}
             </p>
-            <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">mensagens para enviar</p>
+            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
           </div>
         ) : (
           <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">

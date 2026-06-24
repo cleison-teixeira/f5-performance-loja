@@ -84,7 +84,7 @@ export function DashboardGerente({
         valorPrincipal={fmt(totalPotencial)}
         isEmpty={totalPotencial === 0}
         zeroStateText="Registre vendas para gerar oportunidades de recompra."
-        subtexto="em recompras abertas e oportunidades na fila"
+        subtexto="em recompras no radar nos próximos 90 dias"
         ind1Label="Oportunidades"
         ind1Valor={String(qtdOportunidades)}
         ind2Label="Próx. 7 dias"
