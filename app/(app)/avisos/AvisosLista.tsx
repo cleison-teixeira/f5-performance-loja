@@ -252,7 +252,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               {fmt(potencialMes)}
             </p>
             <p className="text-[11px] text-blue-700/55 dark:text-blue-400/50 leading-tight">
-              {qtdOportunidadesMes} {qtdOportunidadesMes === 1 ? 'recompra este mês' : 'recompras este mês'}
+              {qtdOportunidadesMes} {qtdOportunidadesMes === 1 ? 'aberta no mês' : 'abertas no mês'}
             </p>
           </div>
         ) : (
