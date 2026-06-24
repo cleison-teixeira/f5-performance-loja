@@ -246,7 +246,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/15 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700/65 dark:text-blue-400/60 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 flex-none" />
-              Recompras do mês
+              Recompras em aberto do mês
             </p>
             <p className="text-xl font-bold tabular-nums text-blue-800 dark:text-blue-300 leading-none">
               {fmt(potencialMes)}
