@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { AlertCircle, Bell, Calendar, TrendingUp, RefreshCw } from 'lucide-react'
+import { AlertCircle, Bell, Calendar, TrendingUp, RefreshCw, Search, X } from 'lucide-react'
 import { CardAviso } from './CardAviso'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
@@ -118,11 +118,30 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
   const [lista, setLista] = useState<AvisoDetalhado[]>(avisosIniciais)
+  const [busca, setBusca] = useState('')
+  const [produtoFiltro, setProdutoFiltro] = useState('')
+  const [dataEspecifica, setDataEspecifica] = useState('')
 
   // Sync with fresh server data after router.refresh()
   useEffect(() => {
     setLista(avisosIniciais)
   }, [avisosIniciais])
+
+  const produtosUnicos = useMemo(
+    () => [...new Set(lista.map(a => a.produto_nome))].sort(),
+    [lista]
+  )
+
+  const temFiltrosBusca = busca !== '' || produtoFiltro !== '' || dataEspecifica !== ''
+  const temFiltrosAtivos = temFiltrosBusca || periodo !== 'todos' || tipo !== 'todos'
+
+  function limparFiltros() {
+    setBusca('')
+    setProdutoFiltro('')
+    setDataEspecifica('')
+    setPeriodo('todos')
+    setTipo('todos')
+  }
 
   function oppKey(a: AvisoDetalhado) {
     return a.item_venda_id ?? a.venda_id
@@ -187,8 +206,23 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const qtdHoje = lista.filter(a => a.data_aviso === hoje).length
   const qtdProximos7 = lista.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length
 
-  // Filtra por tipo (aplicado em toda a lógica de contagem e exibição)
-  const listaPorTipo = lista.filter(a => tipo === 'todos' || a.tipo === tipo)
+  // Filtra por busca/produto/data (antes de tipo, para que contadores de tipo reflitam a busca)
+  const listaComFiltrosBusca = lista.filter(a => {
+    if (busca) {
+      const q = busca.toLowerCase()
+      const digits = busca.replace(/\D/g, '')
+      const matchNome = a.cliente_nome.toLowerCase().includes(q)
+      const matchWhatsapp = digits.length >= 4 && a.cliente_whatsapp.includes(digits)
+      const matchProduto = a.produto_nome.toLowerCase().includes(q)
+      if (!matchNome && !matchWhatsapp && !matchProduto) return false
+    }
+    if (produtoFiltro && a.produto_nome !== produtoFiltro) return false
+    if (dataEspecifica && a.data_aviso !== dataEspecifica) return false
+    return true
+  })
+
+  // Filtra por tipo
+  const listaPorTipo = listaComFiltrosBusca.filter(a => tipo === 'todos' || a.tipo === tipo)
 
   // Contadores por período (sobre a lista já filtrada por tipo)
   const counts: Record<Periodo, number> = {
@@ -337,6 +371,59 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
       </div>
 
+      {/* ── Busca e filtros ── */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar cliente, WhatsApp ou produto…"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background pl-9 pr-8 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          {busca && (
+            <button
+              onClick={() => setBusca('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Limpar busca"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {produtosUnicos.length > 1 && (
+          <select
+            value={produtoFiltro}
+            onChange={e => setProdutoFiltro(e.target.value)}
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-48"
+          >
+            <option value="">Todos os produtos</option>
+            {produtosUnicos.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        )}
+
+        <input
+          type="date"
+          value={dataEspecifica}
+          onChange={e => setDataEspecifica(e.target.value)}
+          className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-40"
+        />
+
+        {temFiltrosAtivos && (
+          <button
+            onClick={limparFiltros}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors whitespace-nowrap"
+          >
+            <X className="h-3.5 w-3.5" />
+            Limpar filtros
+          </button>
+        )}
+      </div>
+
       {/* ── Filtros de período ── */}
       <div className="flex gap-1 rounded-lg border bg-muted/40 p-1 w-fit flex-wrap">
         {periodos.map(({ value, label }) => {
@@ -372,7 +459,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
       {/* ── Filtros de tipo ── */}
       <div className="flex flex-wrap gap-2">
         {(mode === 'recompra' ? TIPOS_RECOMPRA : TIPOS_RELACIONAMENTO).map(({ value, label }) => {
-          const count = lista.filter(a => {
+          const count = listaComFiltrosBusca.filter(a => {
             const matchPeriodo =
               periodo === 'atrasados' ? a.data_aviso < hoje :
               periodo === 'hoje'      ? a.data_aviso === hoje :
@@ -472,7 +559,14 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           )}
           {listaPorTipo.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              {mode === 'recompra' ? 'Nenhuma recompra pendente.' : 'Nenhuma mensagem de relacionamento pendente.'}
+              {temFiltrosBusca ? (
+                <>
+                  Nenhum aviso encontrado com esses filtros.{' '}
+                  <button onClick={limparFiltros} className="text-primary hover:underline">Limpar filtros</button>
+                </>
+              ) : (
+                mode === 'recompra' ? 'Nenhuma recompra pendente.' : 'Nenhuma mensagem de relacionamento pendente.'
+              )}
             </p>
           )}
         </div>
@@ -481,9 +575,16 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
         <div>
           {avisosFiltrados.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {periodo === 'atrasados' ? 'Nenhum aviso atrasado.' :
-               periodo === 'hoje'      ? 'Nenhum aviso para hoje.' :
-               'Nenhum aviso neste período.'}
+              {temFiltrosBusca ? (
+                <>
+                  Nenhum aviso encontrado com esses filtros.{' '}
+                  <button onClick={limparFiltros} className="text-primary hover:underline">Limpar filtros</button>
+                </>
+              ) : (
+                periodo === 'atrasados' ? 'Nenhum aviso atrasado.' :
+                periodo === 'hoje'      ? 'Nenhum aviso para hoje.' :
+                'Nenhum aviso neste período.'
+              )}
             </p>
           ) : (
             <div className="space-y-3">
