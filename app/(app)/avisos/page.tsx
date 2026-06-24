@@ -45,13 +45,28 @@ export default async function AvisosPage() {
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
       itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url)),
-      vendas(valor, data_compra)
+      vendas(valor)
     `)
     .eq('loja_id', loja.id)
     .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
     .order('data_aviso', { ascending: true })
   if (isVendedora) avisosQuery = avisosQuery.eq('vendedora_id', user!.id)
   const { data: avisosRaw } = await avisosQuery
+
+  // Busca data_compra via query direta — o join vendas(data_compra) pode ser ambíguo
+  // quando itens_venda também tem FK para vendas no mesmo select, retornando null.
+  const vendaIds = [...new Set((avisosRaw ?? []).map(a => a.venda_id as string).filter(Boolean))]
+  const dataCompraMap = new Map<string, string>()
+  if (vendaIds.length > 0) {
+    const { data: vendasDatas } = await supabase
+      .from('vendas')
+      .select('id, data_compra')
+      .in('id', vendaIds)
+    for (const v of vendasDatas ?? []) {
+      const dc = v.data_compra as string | null
+      if (dc) dataCompraMap.set(v.id as string, dc.slice(0, 10))
+    }
+  }
 
   // Catálogo de produtos para o form de recompra
   const { data: catalogoRaw } = await supabase
@@ -122,7 +137,7 @@ export default async function AvisosPage() {
     } | null
     const produtosRaw = itemVenda?.produtos
     const produtoFoto = Array.isArray(produtosRaw) ? produtosRaw[0] : produtosRaw
-    const venda = a.vendas as unknown as { valor: number; data_compra: string | null } | null
+    const venda = a.vendas as unknown as { valor: number } | null
 
     return {
       id: a.id as string,
@@ -142,7 +157,7 @@ export default async function AvisosPage() {
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
       item_venda_id: (a.item_venda_id as string | null) ?? null,
-      data_compra: venda?.data_compra ?? '',
+      data_compra: dataCompraMap.get(a.venda_id as string) ?? '',
       observacao_resultado: (a as unknown as { observacao_resultado: string | null }).observacao_resultado ?? null,
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
