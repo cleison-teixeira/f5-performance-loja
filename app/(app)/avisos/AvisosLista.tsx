@@ -56,7 +56,7 @@ interface SecaoProps {
   badgeCls: string
   icone: ReactNode
   valorPotencial: number
-  onMarcado: (id: string) => void
+  onMarcado: (id: string, fecharVendaId?: string) => void
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
@@ -122,8 +122,11 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     setLista(avisosIniciais)
   }, [avisosIniciais])
 
-  function handleMarcado(id: string) {
-    setLista(prev => prev.filter(a => a.id !== id))
+  function handleMarcado(id: string, fecharVendaId?: string) {
+    setLista(prev => fecharVendaId
+      ? prev.filter(a => a.venda_id !== fecharVendaId)
+      : prev.filter(a => a.id !== id)
+    )
     router.refresh()
   }
 

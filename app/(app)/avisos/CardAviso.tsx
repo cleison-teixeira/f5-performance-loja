@@ -11,7 +11,7 @@ import type { CatalogoProduto } from './page'
 
 interface CardAvisoProps {
   aviso: AvisoDetalhado
-  onMarcado: (id: string) => void
+  onMarcado: (id: string, fecharVendaId?: string) => void
   catalogo: CatalogoProduto[]
   percentualComissao: number
   loja_id: string
@@ -198,7 +198,7 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
               <>
                 <span className="text-muted-foreground/30">·</span>
                 <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                  Potencial: {fmt(aviso.valor_venda)}
+                  Potencial: {fmt(aviso.valor_produto)}
                 </span>
               </>
             )}
@@ -331,7 +331,7 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
           catalogo={catalogo}
           percentualComissao={percentualComissao}
           loja_id={loja_id}
-          onSucesso={(id) => { setModalRecompra(false); onMarcado(id) }}
+          onSucesso={(id) => { setModalRecompra(false); onMarcado(id, aviso.venda_id) }}
           onFechar={() => setModalRecompra(false)}
         />
       )}

@@ -216,6 +216,20 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       })
       .eq('id', dados.aviso_id)
 
+    // 6b. Fechar todos os demais avisos ativos da mesma oportunidade (mesmo venda_id)
+    await admin
+      .from('avisos')
+      .update({
+        status: 'convertida',
+        encerrado_em: agora,
+        encerrado_por: dados.vendedora_id,
+        updated_at: agora,
+        recompra_id,
+      })
+      .eq('venda_id', dados.venda_original_id)
+      .is('recompra_id', null)
+      .in('status', ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagendada'])
+
     // 7. Gerar novos avisos futuros para produtos com mensagens configuradas
     const produtoIds = [...new Set(
       itensVendaData
