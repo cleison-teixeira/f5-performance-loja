@@ -41,7 +41,7 @@ export default async function AvisosPage() {
   let avisosQuery = supabase
     .from('avisos')
     .select(`
-      id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
+      id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
       itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url)),
@@ -142,6 +142,7 @@ export default async function AvisosPage() {
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
       item_venda_id: (a.item_venda_id as string | null) ?? null,
+      observacao_resultado: (a as unknown as { observacao_resultado: string | null }).observacao_resultado ?? null,
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
       atrasado: a.data_aviso < hoje,

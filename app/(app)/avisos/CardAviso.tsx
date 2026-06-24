@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, User, Package, Send, CalendarClock, XCircle } from 'lucide-react'
+import { Copy, Check, User, Package, Send, CalendarClock, XCircle, Pencil } from 'lucide-react'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { marcarEnviado, editarTextoAviso } from './actions'
@@ -221,6 +221,18 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
             </div>
           )}
 
+          {/* ── Observação do reagendamento ── */}
+          {aviso.status === 'reagendada' && aviso.observacao_resultado && (
+            <div className="rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/30 px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-amber-700/70 dark:text-amber-400/60 uppercase tracking-[0.08em] mb-1">
+                Obs. do reagendamento
+              </p>
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                {aviso.observacao_resultado}
+              </p>
+            </div>
+          )}
+
           {/* ── Separador ── */}
           <div className="h-px bg-border/50" />
 
@@ -261,32 +273,36 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
                   Mensagem sugerida
                 </p>
-                <button
-                  onClick={handleCopiar}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  {copiado ? (
-                    <>
-                      <Check className="h-3 w-3 text-emerald-500" />
-                      <span className="text-emerald-600 dark:text-emerald-400">Copiado</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3" />
-                      <span>Copiar</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={handleCopiar}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    {copiado ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400">Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                  <span className="text-border/60 select-none">|</span>
+                  <button
+                    onClick={handleAbrirEdicao}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    <span>Editar</span>
+                  </button>
+                </div>
               </div>
               <div className="rounded-lg bg-muted/50 px-3 py-3">
                 <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{textoAtual}</p>
               </div>
-              <button
-                onClick={handleAbrirEdicao}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Editar mensagem
-              </button>
             </div>
           )}
 

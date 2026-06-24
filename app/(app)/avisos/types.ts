@@ -21,4 +21,5 @@ export interface AvisoDetalhado {
   vendedora_id: string
   vendedora_nome: string
   atrasado: boolean
+  observacao_resultado: string | null
 }
