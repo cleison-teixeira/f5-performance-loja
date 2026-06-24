@@ -19,6 +19,8 @@ export interface DashboardAviso {
   vendedora_nome: string
   previsao_comissao: number
   valor_venda: number
+  produto_id?: string | null
+  valor_produto?: number
 }
 
 export interface ProdutoRadarItem {
@@ -189,7 +191,7 @@ export default async function DashboardPage() {
           id, data_aviso, venda_id, status, recompra_id, texto_renderizado, vendedora_id, previsao_comissao,
           clientes(nome, whatsapp),
           mensagens_produto(tipo),
-          itens_venda(produto_nome),
+          itens_venda(produto_nome, produto_id, subtotal),
           vendas(valor)
         `)
         .eq('loja_id', loja_id)
@@ -299,7 +301,7 @@ export default async function DashboardPage() {
   const avisos: DashboardAviso[] = (avisosRes.data ?? []).map(a => {
     const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
     const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
-    const itemVenda = a.itens_venda as unknown as { produto_nome: string } | null
+    const itemVenda = a.itens_venda as unknown as { produto_nome: string; produto_id: string | null; subtotal: number | null } | null
     const vendaRaw = (a as unknown as { vendas: { valor: number } | null }).vendas
     return {
       id: a.id as string,
@@ -317,6 +319,8 @@ export default async function DashboardPage() {
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? nomeVendedora,
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       valor_venda: vendaRaw?.valor ?? 0,
+      produto_id: itemVenda?.produto_id ?? null,
+      valor_produto: itemVenda?.subtotal ?? 0,
     }
   })
 
@@ -524,20 +528,22 @@ export default async function DashboardPage() {
   const rankingMes: VendedoraRankingMeta[] = Array.from(rankingMesMap.values())
     .sort((a, b) => b.totalMes - a.totalMes)
 
+  // Regra canônica para "Dinheiro na Mesa" — mesma lógica da Fila de Recompra:
+  // tipo recompra/oferta, janela até hoje+7 dias, dedup por venda_id+produto_id, valor do item
   const seenOport = new Set<string>()
   const oportunidades = avisos
-    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
+    .filter(a => (a.tipo === 'recompra' || a.tipo === 'oferta') && a.data_aviso <= em7DiasStr)
     .filter(a => {
-      if (!a.venda_id) return true
-      if (seenOport.has(a.venda_id)) return false
-      seenOport.add(a.venda_id)
+      const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
+      if (seenOport.has(key)) return false
+      seenOport.add(key)
       return true
     })
-  const oport7Dias = oportunidades.filter(a => a.data_aviso >= hoje && a.data_aviso <= em7DiasStr)
+  const oport7Dias = oportunidades.filter(a => a.data_aviso >= hoje)
   const dinheiroMesaInfo: DinheiroMesaInfo = {
-    totalPotencial: oportunidades.reduce((s, a) => s + a.valor_venda, 0),
+    totalPotencial: oportunidades.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
     qtdOportunidades: oportunidades.length,
-    potencial7Dias: oport7Dias.reduce((s, a) => s + a.valor_venda, 0),
+    potencial7Dias: oport7Dias.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
     qtdClientes7Dias: new Set(oport7Dias.map(a => a.cliente_nome)).size,
   }
 

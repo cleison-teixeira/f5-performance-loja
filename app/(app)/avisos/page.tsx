@@ -68,6 +68,18 @@ export default async function AvisosPage() {
     comissionavel_recompra: (p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra ?? true,
   }))
 
+  // Recompras do mês corrente para card "Recuperado"
+  const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
+  let recomprasQuery = supabase
+    .from('recompras')
+    .select('valor_total')
+    .eq('loja_id', loja.id)
+    .gte('criado_em', inicioMes)
+  if (isVendedora) recomprasQuery = recomprasQuery.eq('vendedora_id', user!.id)
+  const { data: recomprasData } = await recomprasQuery
+  const totalRecomprasValorMes = (recomprasData ?? []).reduce((s, r) => s + ((r.valor_total as number) ?? 0), 0)
+  const qtdRecomprasMes = (recomprasData ?? []).length
+
   // Percentuais de comissão + nomes das vendedoras que aparecem nos avisos
   const vendedoraIds = [...new Set((avisosRaw ?? []).map(a => a.vendedora_id as string).filter(Boolean))]
   const percentuaisPorVendedora: Record<string, number> = {}
@@ -158,6 +170,8 @@ export default async function AvisosPage() {
         loja_id={loja.id}
         isVendedora={isVendedora}
         mode="recompra"
+        totalRecomprasValorMes={totalRecomprasValorMes}
+        qtdRecomprasMes={qtdRecomprasMes}
       />
 
     </div>

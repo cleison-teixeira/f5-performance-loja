@@ -67,6 +67,7 @@ type ResultadoRecompra =
       valor_base_comissao: number
       valor_comissao: number
       percentual: number
+      jaConfirmada?: boolean
     }
   | { ok: false; erro: string }
 
@@ -74,6 +75,25 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
   try {
     const supabase = await createClient()
     const admin = createAdminClient()
+
+    // Idempotency guard: if aviso already converted, return safe success
+    const { data: avisoAtual } = await admin
+      .from('avisos')
+      .select('status, recompra_id')
+      .eq('id', dados.aviso_id)
+      .single()
+
+    if (avisoAtual?.status === 'convertida' || avisoAtual?.recompra_id) {
+      return {
+        ok: true,
+        recompra_id: (avisoAtual?.recompra_id as string | null) ?? '',
+        valor_total: 0,
+        valor_base_comissao: 0,
+        valor_comissao: 0,
+        percentual: 0,
+        jaConfirmada: true,
+      }
+    }
 
     const hoje = new Date().toISOString().slice(0, 10)
     const valor_total = dados.itens.reduce(
@@ -182,9 +202,9 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
-    // 6. Marcar aviso como convertida e vincular à recompra
+    // 6. Marcar aviso como convertida e vincular à recompra (admin para contornar RLS)
     const agora = new Date().toISOString()
-    await supabase
+    await admin
       .from('avisos')
       .update({
         status: 'convertida',

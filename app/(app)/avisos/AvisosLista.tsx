@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { AlertCircle, Bell, Calendar, TrendingUp } from 'lucide-react'
+import { AlertCircle, Bell, Calendar, TrendingUp, RefreshCw } from 'lucide-react'
 import { CardAviso } from './CardAviso'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
@@ -16,6 +16,8 @@ interface AvisosListaProps {
   loja_id: string
   isVendedora: boolean
   mode: 'recompra' | 'relacionamento'
+  totalRecomprasValorMes?: number
+  qtdRecomprasMes?: number
 }
 
 type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
@@ -109,7 +111,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora, mode }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0 }: AvisosListaProps) {
   const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
@@ -185,6 +187,8 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
       {/* ── Cards de resumo (reactivos ao estado local) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+        {/* Card 1: financeiro principal */}
         {mode === 'recompra' ? (
           <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
@@ -212,36 +216,84 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </p>
           </div>
         )}
-        <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
-            <AlertCircle className="h-3 w-3 flex-none" />
-            Avisos atrasados
-          </p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
-            {qtdAtrasados}
-          </p>
-          <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
-        </div>
-        <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
-            <Bell className="h-3 w-3 flex-none" />
-            Avisos para hoje
-          </p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
-            {qtdHoje}
-          </p>
-          <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">mensagens para enviar</p>
-        </div>
-        <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
-            <Calendar className="h-3 w-3 flex-none" />
-            Avisos próximos 7d
-          </p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${qtdProximos7 > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-            {qtdProximos7}
-          </p>
-          <p className="text-[11px] text-muted-foreground/55 leading-tight">na fila de contato</p>
-        </div>
+
+        {/* Card 2: Recuperado (recompra) / Atrasados (relacionamento) */}
+        {mode === 'recompra' ? (
+          <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-100/80 dark:border-emerald-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
+              <RefreshCw className="h-3 w-3 flex-none" />
+              Recuperado
+            </p>
+            <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
+              {fmt(totalRecomprasValorMes)}
+            </p>
+            <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
+              {qtdRecomprasMes} {qtdRecomprasMes === 1 ? 'recompra este mês' : 'recompras este mês'}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3 flex-none" />
+              Avisos atrasados
+            </p>
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+              {qtdAtrasados}
+            </p>
+            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
+          </div>
+        )}
+
+        {/* Card 3: Atrasados (recompra) / Para hoje (relacionamento) */}
+        {mode === 'recompra' ? (
+          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3 flex-none" />
+              Avisos atrasados
+            </p>
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+              {qtdAtrasados}
+            </p>
+            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
+              <Bell className="h-3 w-3 flex-none" />
+              Avisos para hoje
+            </p>
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
+              {qtdHoje}
+            </p>
+            <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">mensagens para enviar</p>
+          </div>
+        )}
+
+        {/* Card 4: Para hoje (recompra) / Próximos 7D (relacionamento) */}
+        {mode === 'recompra' ? (
+          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
+              <Bell className="h-3 w-3 flex-none" />
+              Avisos para hoje
+            </p>
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
+              {qtdHoje}
+            </p>
+            <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">mensagens para enviar</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
+              <Calendar className="h-3 w-3 flex-none" />
+              Avisos próximos 7d
+            </p>
+            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdProximos7 > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+              {qtdProximos7}
+            </p>
+            <p className="text-[11px] text-muted-foreground/55 leading-tight">na fila de contato</p>
+          </div>
+        )}
+
       </div>
 
       {/* ── Filtros de período ── */}
