@@ -123,16 +123,19 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const limite7 = addDays(hoje, 7)
 
   // Summary stats — computed from live lista so they update when cards are removed
-  const seenVendas = new Set<string>()
-  const potencialAberto = lista
-    .filter(a => a.tipo === 'recompra' || a.tipo === 'oferta')
-    .filter(a => {
-      if (!a.venda_id) return true
-      if (seenVendas.has(a.venda_id)) return false
-      seenVendas.add(a.venda_id)
-      return true
-    })
-    .reduce((s, a) => s + Number(a.valor_venda || 0), 0)
+  // Oportunidade única = venda_id + produto_id (only recompra/oferta tipos are financial)
+  const seenOpps = new Set<string>()
+  let potencialAberto = 0
+  let qtdOportunidades = 0
+  for (const a of lista) {
+    if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
+    const key = `${a.venda_id}__${a.produto_id ?? ''}`
+    if (seenOpps.has(key)) continue
+    seenOpps.add(key)
+    potencialAberto += Number(a.valor_produto || a.valor_venda || 0)
+    qtdOportunidades++
+  }
+  // Aviso counts — operational queue (all types, all time buckets)
   const qtdAtrasados = lista.filter(a => a.data_aviso < hoje).length
   const qtdHoje = lista.filter(a => a.data_aviso === hoje).length
   const qtdProximos7 = lista.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length
@@ -179,12 +182,14 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
         <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
             <TrendingUp className="h-3 w-3 flex-none" />
-            Vendas em aberto
+            Oportunidades
           </p>
           <p className="text-xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-none">
             {fmt(potencialAberto)}
           </p>
-          <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">vendas a reativar</p>
+          <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
+            {qtdOportunidades} {qtdOportunidades === 1 ? 'recompra em aberto' : 'recompras em aberto'}
+          </p>
         </div>
         <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
@@ -194,7 +199,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
             {qtdAtrasados}
           </p>
-          <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">precisam de ação agora</p>
+          <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">avisos com ação pendente</p>
         </div>
         <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
@@ -204,7 +209,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           <p className={`text-2xl font-bold tabular-nums leading-none ${qtdHoje > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'}`}>
             {qtdHoje}
           </p>
-          <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">clientes para acionar</p>
+          <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">mensagens para enviar</p>
         </div>
         <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
@@ -214,7 +219,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           <p className={`text-2xl font-bold tabular-nums leading-none ${qtdProximos7 > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
             {qtdProximos7}
           </p>
-          <p className="text-[11px] text-muted-foreground/55 leading-tight">oportunidades chegando</p>
+          <p className="text-[11px] text-muted-foreground/55 leading-tight">na fila de contato</p>
         </div>
       </div>
 

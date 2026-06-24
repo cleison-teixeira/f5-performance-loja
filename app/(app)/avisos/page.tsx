@@ -44,7 +44,7 @@ export default async function AvisosPage() {
       id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
-      itens_venda(produto_nome, produto_id, produtos(foto_url)),
+      itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url)),
       vendas(valor)
     `)
     .eq('loja_id', loja.id)
@@ -101,6 +101,7 @@ export default async function AvisosPage() {
     const itemVenda = a.itens_venda as unknown as {
       produto_nome: string
       produto_id: string | null
+      subtotal: number | null
       produtos: { foto_url: string | null } | Array<{ foto_url: string | null }> | null
     } | null
     const produtosRaw = itemVenda?.produtos
@@ -121,6 +122,7 @@ export default async function AvisosPage() {
       produto_foto_url: produtoFoto?.foto_url ?? null,
       tipo: (mensagem?.tipo ?? 'agradecimento') as AvisoDetalhado['tipo'],
       valor_venda: venda?.valor ?? 0,
+      valor_produto: itemVenda?.subtotal ?? 0,
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
       vendedora_id: a.vendedora_id as string,

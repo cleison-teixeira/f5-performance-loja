@@ -299,12 +299,14 @@ export function CardAviso({ aviso, onMarcado, catalogo, percentualComissao, loja
 
               {/* Conversão + Operacional */}
               <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={() => setModalRecompra(true)}
-                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
-                >
-                  Confirmar recompra
-                </button>
+                {(aviso.tipo === 'recompra' || aviso.tipo === 'oferta') && (
+                  <button
+                    onClick={() => setModalRecompra(true)}
+                    className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
+                  >
+                    Confirmar recompra
+                  </button>
+                )}
                 <button
                   onClick={handleMarcarEnviado}
                   disabled={loading}

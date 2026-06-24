@@ -14,6 +14,7 @@ export interface AvisoDetalhado {
   produto_foto_url: string | null
   tipo: MensagemTipo
   valor_venda: number
+  valor_produto: number
   previsao_comissao: number
   venda_id: string
   vendedora_id: string
