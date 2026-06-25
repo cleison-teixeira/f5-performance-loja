@@ -13,8 +13,9 @@ interface Props {
   loja_id: string
   onSucesso: (aviso_id: string) => void
   onFechar: () => void
-  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string }>
+  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string; preco_unitario?: number }>
   item_venda_ids_grupo?: string[]
+  isGrupo?: boolean
 }
 
 interface ItemForm {
@@ -46,17 +47,22 @@ export function ConfirmarRecompraModal({
   onFechar,
   itensPreenchidos,
   item_venda_ids_grupo,
+  isGrupo = false,
 }: Props) {
   function criarItensIniciais(): ItemForm[] {
     if (itensPreenchidos && itensPreenchidos.length > 0) {
       return itensPreenchidos.map(item => {
         const prod = catalogo.find(p => p.id === item.produto_id)
+        // Prefer the real opportunity value; fall back to catalog price
+        const preco = item.preco_unitario != null
+          ? item.preco_unitario
+          : (prod?.preco_sugerido ?? null)
         return {
           key: crypto.randomUUID(),
           produtoId: item.produto_id ?? '',
           produtoNome: item.produto_nome,
           quantidade: 1,
-          precoBRL: prod?.preco_sugerido != null ? prod.preco_sugerido.toFixed(2).replace('.', ',') : '',
+          precoBRL: preco != null ? preco.toFixed(2).replace('.', ',') : '',
           comissionavel: prod?.comissionavel_recompra ?? true,
         }
       })
@@ -175,13 +181,15 @@ export function ConfirmarRecompraModal({
                   {itens.length > 1 && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => setItens(prev => prev.filter(i => i.key !== item.key))}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                      {!isGrupo && (
+                        <button
+                          type="button"
+                          onClick={() => setItens(prev => prev.filter(i => i.key !== item.key))}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   )}
 

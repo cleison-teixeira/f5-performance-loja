@@ -345,8 +345,9 @@ export function CardGrupoRecompra({
           loja_id={loja_id}
           onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
           onFechar={() => setModalRecompra(false)}
-          itensPreenchidos={grupo.avisos.map(a => ({ produto_id: a.produto_id, produto_nome: a.produto_nome }))}
+          itensPreenchidos={grupo.avisos.map(a => ({ produto_id: a.produto_id, produto_nome: a.produto_nome, preco_unitario: a.valor_produto }))}
           item_venda_ids_grupo={grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}
+          isGrupo
         />
       )}
 
