@@ -24,3 +24,17 @@ export interface AvisoDetalhado {
   atrasado: boolean
   observacao_resultado: string | null
 }
+
+export interface GrupoRecompra {
+  venda_id: string
+  avisos: AvisoDetalhado[]
+  cliente_nome: string
+  cliente_whatsapp: string
+  cliente_id: string
+  vendedora_id: string
+  vendedora_nome: string
+  data_aviso: string
+  data_compra: string
+  atrasado: boolean
+  valor_total: number
+}

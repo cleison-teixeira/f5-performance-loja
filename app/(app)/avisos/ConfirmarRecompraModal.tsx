@@ -13,6 +13,8 @@ interface Props {
   loja_id: string
   onSucesso: (aviso_id: string) => void
   onFechar: () => void
+  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string }>
+  item_venda_ids_grupo?: string[]
 }
 
 interface ItemForm {
@@ -42,12 +44,25 @@ export function ConfirmarRecompraModal({
   loja_id,
   onSucesso,
   onFechar,
+  itensPreenchidos,
+  item_venda_ids_grupo,
 }: Props) {
-  // Pré-preenche com o produto do aviso
-  const produtoInicial = catalogo.find(p => p.id === aviso.produto_id)
-
-  function criarItemInicial(): ItemForm {
-    return {
+  function criarItensIniciais(): ItemForm[] {
+    if (itensPreenchidos && itensPreenchidos.length > 0) {
+      return itensPreenchidos.map(item => {
+        const prod = catalogo.find(p => p.id === item.produto_id)
+        return {
+          key: crypto.randomUUID(),
+          produtoId: item.produto_id ?? '',
+          produtoNome: item.produto_nome,
+          quantidade: 1,
+          precoBRL: prod?.preco_sugerido != null ? prod.preco_sugerido.toFixed(2).replace('.', ',') : '',
+          comissionavel: prod?.comissionavel_recompra ?? true,
+        }
+      })
+    }
+    const produtoInicial = catalogo.find(p => p.id === aviso.produto_id)
+    return [{
       key: crypto.randomUUID(),
       produtoId: aviso.produto_id ?? '',
       produtoNome: aviso.produto_nome,
@@ -56,10 +71,10 @@ export function ConfirmarRecompraModal({
         ? produtoInicial.preco_sugerido.toFixed(2).replace('.', ',')
         : '',
       comissionavel: produtoInicial?.comissionavel_recompra ?? true,
-    }
+    }]
   }
 
-  const [itens, setItens] = useState<ItemForm[]>([criarItemInicial()])
+  const [itens, setItens] = useState<ItemForm[]>(() => criarItensIniciais())
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -112,6 +127,7 @@ export function ConfirmarRecompraModal({
         quantidade: item.quantidade,
         preco_unitario: parseBRL(item.precoBRL),
       })),
+      item_venda_ids_grupo,
     })
 
     setSalvando(false)

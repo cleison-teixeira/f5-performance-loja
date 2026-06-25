@@ -57,6 +57,7 @@ interface DadosRecompra {
   cliente_id: string
   vendedora_id: string
   itens: ItemRecompraInput[]
+  item_venda_ids_grupo?: string[]
 }
 
 type ResultadoRecompra =
@@ -234,6 +235,25 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       await fechamentoQuery.eq('item_venda_id', itemVendaIdOriginal)
     } else {
       await fechamentoQuery.eq('venda_id', dados.venda_original_id)
+    }
+
+    // 6c. Fechar avisos de outros produtos do mesmo grupo de venda (recompra multi-produto)
+    if (dados.item_venda_ids_grupo && dados.item_venda_ids_grupo.length > 0) {
+      const outrosIds = dados.item_venda_ids_grupo.filter(id => id !== itemVendaIdOriginal)
+      if (outrosIds.length > 0) {
+        await admin
+          .from('avisos')
+          .update({
+            status: 'convertida',
+            encerrado_em: agora,
+            encerrado_por: dados.vendedora_id,
+            updated_at: agora,
+            recompra_id,
+          })
+          .is('recompra_id', null)
+          .in('status', ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagendada'])
+          .in('item_venda_id', outrosIds)
+      }
     }
 
     // 7. Gerar novos avisos futuros para produtos com mensagens configuradas

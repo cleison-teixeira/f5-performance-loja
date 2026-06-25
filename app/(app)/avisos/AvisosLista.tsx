@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { AlertCircle, Bell, Calendar, TrendingUp, RefreshCw, Search, X } from 'lucide-react'
 import { CardAviso } from './CardAviso'
-import type { AvisoDetalhado } from './types'
+import { CardGrupoRecompra } from './CardGrupoRecompra'
+import type { AvisoDetalhado, GrupoRecompra } from './types'
 import type { CatalogoProduto } from './page'
 
 interface AvisosListaProps {
@@ -35,6 +36,31 @@ const TIPOS_RELACIONAMENTO: { value: TipoFiltro; label: string }[] = [
   { value: 'relacionamento', label: 'Relacionamento' },
 ]
 
+function agruparPorVenda(avisos: AvisoDetalhado[]): GrupoRecompra[] {
+  const mapa = new Map<string, AvisoDetalhado[]>()
+  for (const a of avisos) {
+    if (!mapa.has(a.venda_id)) mapa.set(a.venda_id, [])
+    mapa.get(a.venda_id)!.push(a)
+  }
+  return Array.from(mapa.values()).map(grupo => {
+    const sorted = [...grupo].sort((a, b) => a.data_aviso.localeCompare(b.data_aviso))
+    const primary = sorted[0]
+    return {
+      venda_id: primary.venda_id,
+      avisos: sorted,
+      cliente_nome: primary.cliente_nome,
+      cliente_whatsapp: primary.cliente_whatsapp,
+      cliente_id: primary.cliente_id,
+      vendedora_id: primary.vendedora_id,
+      vendedora_nome: primary.vendedora_nome,
+      data_aviso: primary.data_aviso,
+      data_compra: primary.data_compra,
+      atrasado: primary.atrasado,
+      valor_total: grupo.reduce((s, a) => s + a.valor_produto, 0),
+    }
+  })
+}
+
 // Normaliza data para comparação sem risco de fuso horário
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T12:00:00')
@@ -58,17 +84,23 @@ interface SecaoProps {
   valorPotencial: number
   onMarcado: (id: string, fecharOppKey?: string) => void
   onReagendado: (vendaId: string, novaData: string) => void
+  onGrupoMarcado: (venda_id: string) => void
+  onGrupoReagendado: (venda_id: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
   isVendedora: boolean
+  mode: 'recompra' | 'relacionamento'
 }
 
 function SecaoAvisos({
   titulo, subtitulo, avisos, corCls, badgeCls, icone, valorPotencial,
-  onMarcado, onReagendado, catalogo, percentuaisPorVendedora, loja_id, isVendedora,
+  onMarcado, onReagendado, onGrupoMarcado, onGrupoReagendado,
+  catalogo, percentuaisPorVendedora, loja_id, isVendedora, mode,
 }: SecaoProps) {
-  if (avisos.length === 0) return null
+  const grupos = mode === 'recompra' ? agruparPorVenda(avisos) : null
+  const displayCount = grupos ? grupos.length : avisos.length
+  if (displayCount === 0) return null
 
   return (
     <div className="space-y-3">
@@ -80,7 +112,7 @@ function SecaoAvisos({
             {titulo}
           </span>
           <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full flex-none ${badgeCls}`}>
-            {avisos.length}
+            {displayCount}
           </span>
           <div className="flex-1 h-px bg-border/50" />
           {valorPotencial > 0 && (
@@ -94,7 +126,31 @@ function SecaoAvisos({
 
       {/* Cards */}
       <div className="space-y-3">
-        {avisos.map(aviso => (
+        {grupos ? grupos.map(grupo =>
+          grupo.avisos.length === 1 ? (
+            <CardAviso
+              key={grupo.avisos[0].id}
+              aviso={grupo.avisos[0]}
+              onMarcado={onMarcado}
+              onReagendado={onReagendado}
+              catalogo={catalogo}
+              percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
+              loja_id={loja_id}
+              isVendedora={isVendedora}
+            />
+          ) : (
+            <CardGrupoRecompra
+              key={grupo.venda_id}
+              grupo={grupo}
+              onGrupoMarcado={onGrupoMarcado}
+              onGrupoReagendado={onGrupoReagendado}
+              catalogo={catalogo}
+              percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
+              loja_id={loja_id}
+              isVendedora={isVendedora}
+            />
+          )
+        ) : avisos.map(aviso => (
           <CardAviso
             key={aviso.id}
             aviso={aviso}
@@ -160,6 +216,20 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   function handleReagendado(key: string, novaData: string) {
     setLista(prev => prev.map(a =>
       oppKey(a) === key
+        ? { ...a, data_aviso: novaData, status: 'reagendada' as AvisoDetalhado['status'], atrasado: novaData < hoje }
+        : a
+    ))
+    router.refresh()
+  }
+
+  function handleGrupoMarcado(venda_id: string) {
+    setLista(prev => prev.filter(a => a.venda_id !== venda_id))
+    router.refresh()
+  }
+
+  function handleGrupoReagendado(venda_id: string, novaData: string) {
+    setLista(prev => prev.map(a =>
+      a.venda_id === venda_id
         ? { ...a, data_aviso: novaData, status: 'reagendada' as AvisoDetalhado['status'], atrasado: novaData < hoje }
         : a
     ))
@@ -523,10 +593,13 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             valorPotencial={mode === 'recompra' ? grupos.atrasados.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
             onReagendado={handleReagendado}
+            onGrupoMarcado={handleGrupoMarcado}
+            onGrupoReagendado={handleGrupoReagendado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
             isVendedora={isVendedora}
+            mode={mode}
           />
           <SecaoAvisos
             titulo="Hoje"
@@ -538,10 +611,13 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             valorPotencial={mode === 'recompra' ? grupos.hoje.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
             onReagendado={handleReagendado}
+            onGrupoMarcado={handleGrupoMarcado}
+            onGrupoReagendado={handleGrupoReagendado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
             isVendedora={isVendedora}
+            mode={mode}
           />
           <SecaoAvisos
             titulo="Próximos dias"
@@ -553,10 +629,13 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             valorPotencial={mode === 'recompra' ? grupos.proximos7.reduce((s, a) => s + a.valor_produto, 0) : 0}
             onMarcado={handleMarcado}
             onReagendado={handleReagendado}
+            onGrupoMarcado={handleGrupoMarcado}
+            onGrupoReagendado={handleGrupoReagendado}
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
             isVendedora={isVendedora}
+            mode={mode}
           />
           {grupos.futuros.length > 0 && (
             <SecaoAvisos
@@ -569,10 +648,13 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               valorPotencial={0}
               onMarcado={handleMarcado}
               onReagendado={handleReagendado}
+              onGrupoMarcado={handleGrupoMarcado}
+              onGrupoReagendado={handleGrupoReagendado}
               catalogo={catalogo}
               percentuaisPorVendedora={percentuaisPorVendedora}
               loja_id={loja_id}
               isVendedora={isVendedora}
+              mode={mode}
             />
           )}
           {listaPorTipo.length === 0 && (
@@ -624,6 +706,34 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                    periodo === 'hoje'      ? 'Nenhum aviso para hoje.' :
                    'Nenhum aviso neste período.'}
                 </p>
+              )}
+            </div>
+          ) : mode === 'recompra' ? (
+            <div className="space-y-3">
+              {agruparPorVenda(avisosFiltrados).map(grupo =>
+                grupo.avisos.length === 1 ? (
+                  <CardAviso
+                    key={grupo.avisos[0].id}
+                    aviso={grupo.avisos[0]}
+                    onMarcado={handleMarcado}
+                    onReagendado={handleReagendado}
+                    catalogo={catalogo}
+                    percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
+                    loja_id={loja_id}
+                    isVendedora={isVendedora}
+                  />
+                ) : (
+                  <CardGrupoRecompra
+                    key={grupo.venda_id}
+                    grupo={grupo}
+                    onGrupoMarcado={handleGrupoMarcado}
+                    onGrupoReagendado={handleGrupoReagendado}
+                    catalogo={catalogo}
+                    percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
+                    loja_id={loja_id}
+                    isVendedora={isVendedora}
+                  />
+                )
               )}
             </div>
           ) : (

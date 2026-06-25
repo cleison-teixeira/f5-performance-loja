@@ -1,0 +1,275 @@
+'use client'
+
+import { useState } from 'react'
+import { Send, CalendarClock, XCircle, Package, User, Layers } from 'lucide-react'
+import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
+import { formatarWhatsapp } from '@/lib/whatsapp/mask'
+import { marcarEnviado } from './actions'
+import { ConfirmarRecompraModal } from './ConfirmarRecompraModal'
+import { ReagendarModal } from './ReagendarModal'
+import { PerderOportunidadeModal } from './PerderOportunidadeModal'
+import type { AvisoDetalhado, GrupoRecompra } from './types'
+import type { CatalogoProduto } from './page'
+
+interface CardGrupoRecompraProps {
+  grupo: GrupoRecompra
+  onGrupoMarcado: (venda_id: string) => void
+  onGrupoReagendado: (venda_id: string, novaData: string) => void
+  catalogo: CatalogoProduto[]
+  percentualComissao: number
+  loja_id: string
+  isVendedora: boolean
+}
+
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+function formatarData(iso: string) {
+  const [ano, mes, dia] = iso.split('-')
+  return `${dia}/${mes}/${ano}`
+}
+
+function hojeISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function badgeTemporal(dataAviso: string): { label: string; cls: string; key: string } {
+  const hoje = hojeISO()
+  if (dataAviso < hoje) return {
+    key: 'atrasado',
+    label: 'Atrasado',
+    cls: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/40',
+  }
+  if (dataAviso === hoje) return {
+    key: 'hoje',
+    label: 'Hoje',
+    cls: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/40',
+  }
+  const [ay, am, ad] = dataAviso.split('-').map(Number)
+  const [hy, hm, hd] = hojeISO().split('-').map(Number)
+  const diff = Math.round(
+    (new Date(ay, am - 1, ad).getTime() - new Date(hy, hm - 1, hd).getTime()) / 86400000
+  )
+  if (diff === 1) return {
+    key: 'amanha',
+    label: 'Amanhã',
+    cls: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/30',
+  }
+  return {
+    key: 'futuro',
+    label: `Em ${diff} dias`,
+    cls: 'bg-muted text-muted-foreground border-border/60',
+  }
+}
+
+export function CardGrupoRecompra({
+  grupo,
+  onGrupoMarcado,
+  onGrupoReagendado,
+  catalogo,
+  percentualComissao,
+  loja_id,
+  isVendedora,
+}: CardGrupoRecompraProps) {
+  const primaryAviso = grupo.avisos[0]
+  const [loading, setLoading] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [modalRecompra, setModalRecompra] = useState(false)
+  const [modalReagendar, setModalReagendar] = useState(false)
+  const [modalPerder, setModalPerder] = useState(false)
+
+  // item_venda_id: null forces reagendar/perder to match by venda_id (affects all products in purchase)
+  const representativeAviso: AvisoDetalhado = {
+    ...primaryAviso,
+    item_venda_id: null,
+    produto_nome: grupo.avisos.length === 2
+      ? `${grupo.avisos[0].produto_nome} e ${grupo.avisos[1].produto_nome}`
+      : `${grupo.avisos.length} produtos de recompra`,
+  }
+
+  const linkWhatsApp = gerarLinkWhatsApp(grupo.cliente_whatsapp, primaryAviso.texto_renderizado)
+  const temporal = badgeTemporal(grupo.data_aviso)
+
+  const cardCls = temporal.key === 'atrasado'
+    ? 'border-rose-200/80 dark:border-rose-800/40 bg-rose-50/20 dark:bg-rose-950/5'
+    : temporal.key === 'hoje'
+    ? 'border-blue-200/60 dark:border-blue-800/30'
+    : ''
+
+  async function handleMarcarEnviado() {
+    setLoading(true)
+    setErro(null)
+    const resultados = await Promise.all(grupo.avisos.map(a => marcarEnviado(a.id)))
+    setLoading(false)
+    const algumErro = resultados.find(r => !r.ok)
+    if (algumErro) {
+      setErro(algumErro.erro ?? 'Erro ao marcar contato feito')
+      return
+    }
+    onGrupoMarcado(grupo.venda_id)
+  }
+
+  return (
+    <>
+      <div className={`rounded-xl border bg-card shadow-sm overflow-hidden ${cardCls}`}>
+        {temporal.key === 'atrasado' && (
+          <div className="h-0.5 bg-gradient-to-r from-rose-400 to-red-500" />
+        )}
+
+        <div className="p-4 space-y-3.5">
+
+          {/* Badges: temporal + grupo + data */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${temporal.cls}`}>
+              {temporal.key === 'atrasado' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3 w-3 flex-none">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              )}
+              {temporal.label}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400">
+              <Layers className="h-3 w-3" />
+              {grupo.avisos.length} produtos
+            </span>
+            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+              {formatarData(grupo.data_aviso)}
+            </span>
+          </div>
+
+          {/* Cliente */}
+          <div>
+            <p className="text-base font-bold leading-tight">{grupo.cliente_nome}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatarWhatsapp(grupo.cliente_whatsapp)}</p>
+          </div>
+
+          {/* Lista de produtos */}
+          <div className="rounded-lg border border-border/50 bg-muted/20 divide-y divide-border/40">
+            {grupo.avisos.map(aviso => (
+              <div key={aviso.id} className="flex items-center gap-3 px-3 py-2.5">
+                {aviso.produto_foto_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={aviso.produto_foto_url}
+                    alt={aviso.produto_nome}
+                    className="w-9 h-9 rounded-lg object-cover shrink-0 border border-border/50"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-muted/60 border border-border/40 flex items-center justify-center shrink-0">
+                    <Package className="h-4 w-4 text-muted-foreground/30" />
+                  </div>
+                )}
+                <span className="flex-1 text-sm text-foreground/80 truncate">{aviso.produto_nome}</span>
+                <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400 shrink-0">
+                  {fmt(aviso.valor_produto)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Potencial total */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Potencial total</span>
+            <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+              {fmt(grupo.valor_total)}
+            </span>
+          </div>
+
+          {/* Vendedora responsável — apenas para Dono/Gerente */}
+          {!isVendedora && grupo.vendedora_nome && (
+            <div className="flex items-center gap-1.5">
+              <User className="h-3 w-3 text-muted-foreground/50 flex-none" />
+              <span className="text-xs text-muted-foreground">
+                Responsável: <span className="font-medium text-foreground">{grupo.vendedora_nome}</span>
+              </span>
+            </div>
+          )}
+
+          <div className="h-px bg-border/50" />
+
+          {erro && <p className="text-xs text-destructive">{erro}</p>}
+
+          {/* Ações */}
+          <div className="flex flex-col gap-2 pt-0.5">
+            <a
+              href={linkWhatsApp}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
+            >
+              <Send className="h-4 w-4 flex-none" />
+              Enviar no WhatsApp
+            </a>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setModalRecompra(true)}
+                className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
+              >
+                Confirmar recompra
+              </button>
+              <button
+                onClick={() => setModalReagendar(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <CalendarClock className="h-3.5 w-3.5 flex-none" />
+                Reagendar
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setModalPerder(true)}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40 transition-colors"
+              >
+                <XCircle className="h-3.5 w-3.5 flex-none" />
+                Não quer mais
+              </button>
+              <button
+                onClick={handleMarcarEnviado}
+                disabled={loading}
+                className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Salvando…' : 'Contato feito'}
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {modalRecompra && (
+        <ConfirmarRecompraModal
+          aviso={primaryAviso}
+          catalogo={catalogo}
+          percentualComissao={percentualComissao}
+          loja_id={loja_id}
+          onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
+          onFechar={() => setModalRecompra(false)}
+          itensPreenchidos={grupo.avisos.map(a => ({ produto_id: a.produto_id, produto_nome: a.produto_nome }))}
+          item_venda_ids_grupo={grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}
+        />
+      )}
+
+      {modalReagendar && (
+        <ReagendarModal
+          aviso={representativeAviso}
+          onSucesso={(novaData) => { setModalReagendar(false); onGrupoReagendado(grupo.venda_id, novaData) }}
+          onFechar={() => setModalReagendar(false)}
+        />
+      )}
+
+      {modalPerder && (
+        <PerderOportunidadeModal
+          aviso={representativeAviso}
+          onSucesso={() => { setModalPerder(false); onGrupoMarcado(grupo.venda_id) }}
+          onFechar={() => setModalPerder(false)}
+        />
+      )}
+    </>
+  )
+}
