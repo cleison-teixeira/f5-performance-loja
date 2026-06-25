@@ -15,6 +15,7 @@ interface AvisosListaProps {
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
+  loja_nome?: string
   isVendedora: boolean
   mode: 'recompra' | 'relacionamento'
   totalRecomprasValorMes?: number
@@ -89,6 +90,7 @@ interface SecaoProps {
   catalogo: CatalogoProduto[]
   percentuaisPorVendedora: Record<string, number>
   loja_id: string
+  loja_nome: string
   isVendedora: boolean
   mode: 'recompra' | 'relacionamento'
 }
@@ -96,7 +98,7 @@ interface SecaoProps {
 function SecaoAvisos({
   titulo, subtitulo, avisos, corCls, badgeCls, icone, valorPotencial,
   onMarcado, onReagendado, onGrupoMarcado, onGrupoReagendado,
-  catalogo, percentuaisPorVendedora, loja_id, isVendedora, mode,
+  catalogo, percentuaisPorVendedora, loja_id, loja_nome, isVendedora, mode,
 }: SecaoProps) {
   const grupos = mode === 'recompra' ? agruparPorVenda(avisos) : null
   const displayCount = grupos ? grupos.length : avisos.length
@@ -147,6 +149,7 @@ function SecaoAvisos({
               catalogo={catalogo}
               percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
               loja_id={loja_id}
+              loja_nome={loja_nome}
               isVendedora={isVendedora}
             />
           )
@@ -169,7 +172,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0 }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0 }: AvisosListaProps) {
   const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
@@ -598,6 +601,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
+            loja_nome={loja_nome}
             isVendedora={isVendedora}
             mode={mode}
           />
@@ -616,6 +620,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
+            loja_nome={loja_nome}
             isVendedora={isVendedora}
             mode={mode}
           />
@@ -634,6 +639,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             catalogo={catalogo}
             percentuaisPorVendedora={percentuaisPorVendedora}
             loja_id={loja_id}
+            loja_nome={loja_nome}
             isVendedora={isVendedora}
             mode={mode}
           />
@@ -653,6 +659,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               catalogo={catalogo}
               percentuaisPorVendedora={percentuaisPorVendedora}
               loja_id={loja_id}
+              loja_nome={loja_nome}
               isVendedora={isVendedora}
               mode={mode}
             />
@@ -731,6 +738,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                     catalogo={catalogo}
                     percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
                     loja_id={loja_id}
+                    loja_nome={loja_nome}
                     isVendedora={isVendedora}
                   />
                 )

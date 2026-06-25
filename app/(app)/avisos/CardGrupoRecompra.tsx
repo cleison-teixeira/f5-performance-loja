@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, CalendarClock, XCircle, Package, User, Layers } from 'lucide-react'
+import { Send, CalendarClock, XCircle, Package, User, Layers, Copy, Check, Pencil } from 'lucide-react'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { marcarEnviado } from './actions'
@@ -18,6 +18,7 @@ interface CardGrupoRecompraProps {
   catalogo: CatalogoProduto[]
   percentualComissao: number
   loja_id: string
+  loja_nome: string
   isVendedora: boolean
 }
 
@@ -64,6 +65,17 @@ function badgeTemporal(dataAviso: string): { label: string; cls: string; key: st
   }
 }
 
+function montarMensagemGrupoRecompra(grupo: GrupoRecompra, loja_nome: string): string {
+  const primeiroNome = grupo.cliente_nome.split(' ')[0]
+  const nomesProdutos = grupo.avisos.map(a => a.produto_nome)
+  const lojaRef = loja_nome ? ` na ${loja_nome}` : ''
+
+  if (nomesProdutos.length === 2) {
+    return `Oi ${primeiroNome}! Passando para lembrar dos seus produtos: ${nomesProdutos[0]} e ${nomesProdutos[1]}. Posso separar para você${lojaRef}?`
+  }
+  return `Oi ${primeiroNome}! Passando para lembrar dos seus produtos de recompra. Posso separar para você${lojaRef}?`
+}
+
 export function CardGrupoRecompra({
   grupo,
   onGrupoMarcado,
@@ -71,9 +83,15 @@ export function CardGrupoRecompra({
   catalogo,
   percentualComissao,
   loja_id,
+  loja_nome,
   isVendedora,
 }: CardGrupoRecompraProps) {
   const primaryAviso = grupo.avisos[0]
+
+  const [textoAtual, setTextoAtual] = useState(() => montarMensagemGrupoRecompra(grupo, loja_nome))
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState(textoAtual)
+  const [copiado, setCopiado] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [modalRecompra, setModalRecompra] = useState(false)
@@ -89,7 +107,7 @@ export function CardGrupoRecompra({
       : `${grupo.avisos.length} produtos de recompra`,
   }
 
-  const linkWhatsApp = gerarLinkWhatsApp(grupo.cliente_whatsapp, primaryAviso.texto_renderizado)
+  const linkWhatsApp = gerarLinkWhatsApp(grupo.cliente_whatsapp, textoAtual)
   const temporal = badgeTemporal(grupo.data_aviso)
 
   const cardCls = temporal.key === 'atrasado'
@@ -97,6 +115,13 @@ export function CardGrupoRecompra({
     : temporal.key === 'hoje'
     ? 'border-blue-200/60 dark:border-blue-800/30'
     : ''
+
+  function handleCopiar() {
+    navigator.clipboard.writeText(textoAtual).then(() => {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    }).catch(() => {})
+  }
 
   async function handleMarcarEnviado() {
     setLoading(true)
@@ -191,53 +216,123 @@ export function CardGrupoRecompra({
 
           <div className="h-px bg-border/50" />
 
+          {/* ── Mensagem sugerida ── */}
+          {editando ? (
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+                Editando mensagem
+              </p>
+              <textarea
+                value={rascunho}
+                onChange={e => setRascunho(e.target.value)}
+                rows={4}
+                autoFocus
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm resize-y leading-relaxed ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setTextoAtual(rascunho.trim()); setEditando(false) }}
+                  disabled={!rascunho.trim()}
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  Salvar
+                </button>
+                <button
+                  onClick={() => setEditando(false)}
+                  className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+                  Mensagem sugerida
+                </p>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={handleCopiar}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    {copiado ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400">Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                  <span className="text-border/60 select-none">|</span>
+                  <button
+                    onClick={() => { setRascunho(textoAtual); setEditando(true) }}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    <span>Editar</span>
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-3 py-3">
+                <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{textoAtual}</p>
+              </div>
+            </div>
+          )}
+
           {erro && <p className="text-xs text-destructive">{erro}</p>}
 
-          {/* Ações */}
-          <div className="flex flex-col gap-2 pt-0.5">
-            <a
-              href={linkWhatsApp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
-            >
-              <Send className="h-4 w-4 flex-none" />
-              Enviar no WhatsApp
-            </a>
+          {/* ── Ações (ocultas durante edição) ── */}
+          {!editando && (
+            <div className="flex flex-col gap-2 pt-0.5">
+              <a
+                href={linkWhatsApp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
+              >
+                <Send className="h-4 w-4 flex-none" />
+                Enviar no WhatsApp
+              </a>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => setModalRecompra(true)}
-                className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
-              >
-                Confirmar recompra
-              </button>
-              <button
-                onClick={() => setModalReagendar(true)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <CalendarClock className="h-3.5 w-3.5 flex-none" />
-                Reagendar
-              </button>
-            </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setModalRecompra(true)}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 transition-colors"
+                >
+                  Confirmar recompra
+                </button>
+                <button
+                  onClick={() => setModalReagendar(true)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <CalendarClock className="h-3.5 w-3.5 flex-none" />
+                  Reagendar
+                </button>
+              </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => setModalPerder(true)}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40 transition-colors"
-              >
-                <XCircle className="h-3.5 w-3.5 flex-none" />
-                Não quer mais
-              </button>
-              <button
-                onClick={handleMarcarEnviado}
-                disabled={loading}
-                className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
-              >
-                {loading ? 'Salvando…' : 'Contato feito'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setModalPerder(true)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40 transition-colors"
+                >
+                  <XCircle className="h-3.5 w-3.5 flex-none" />
+                  Não quer mais
+                </button>
+                <button
+                  onClick={handleMarcarEnviado}
+                  disabled={loading}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando…' : 'Contato feito'}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>

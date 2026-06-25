@@ -186,6 +186,7 @@ export default async function AvisosPage() {
         catalogo={catalogo}
         percentuaisPorVendedora={percentuaisPorVendedora}
         loja_id={loja.id}
+        loja_nome={loja.nome}
         isVendedora={isVendedora}
         mode="recompra"
         totalRecomprasValorMes={totalRecomprasValorMes}
