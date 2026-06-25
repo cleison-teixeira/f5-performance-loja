@@ -21,7 +21,7 @@ function limiteISO(dias: number): string {
   return d.toISOString()
 }
 
-export function PerdasLista({ perdas, isVendedora }: { perdas: PerdaItem[]; isVendedora: boolean }) {
+export function PerdasLista({ perdas, isVendedora, mostrarLoja }: { perdas: PerdaItem[]; isVendedora: boolean; mostrarLoja?: boolean }) {
   const [periodo, setPeriodo] = useState<Periodo>('90')
   const [motivoFiltro, setMotivoFiltro] = useState<string>('todos')
 
@@ -228,6 +228,11 @@ export function PerdasLista({ perdas, isVendedora }: { perdas: PerdaItem[]; isVe
                   <span className="text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">{p.vendedora_nome}</span>
                   </span>
+                </div>
+              )}
+              {mostrarLoja && p.loja_nome && (
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="text-xs text-muted-foreground font-medium">{p.loja_nome}</span>
                 </div>
               )}
             </div>

@@ -1,6 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 
 function formatarBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -13,20 +18,22 @@ function cicloRecompra(mensagens: Array<{ tipo: string; dias_apos_venda: number 
   return Math.max(...mensagens.map(m => m.dias_apos_venda))
 }
 
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
 export default async function ProdutosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Produtos recorrentes</h1>
@@ -35,15 +42,36 @@ export default async function ProdutosPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { nome: string } | Array<{ nome: string }>
-  const lojaNome = (Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw)?.nome ?? ''
-  const loja_id = membro.loja_id as string
-  const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(membro.role as string)
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
 
-  const { data: produtos } = await supabase
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Produtos recorrentes</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
+
+  // Edição de produtos requer loja específica
+  const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole) && ctx.escopo === 'loja'
+  const mostrarLoja = ctx.escopo === 'rede'
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+  const qtdLojas = ctx.lojas.length
+  const subtitulo = ctx.escopo === 'rede'
+    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'} · Configure ciclo, preço médio e mensagens de recompra.`
+    : `${ctx.lojaNome} · Configure ciclo, preço médio e mensagens de recompra.`
+
+  const { data: produtos } = await admin
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, mensagens_produto(tipo, dias_apos_venda)')
-    .eq('loja_id', loja_id)
+    .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, loja_id, mensagens_produto(tipo, dias_apos_venda)')
+    .in('loja_id', ctx.lojaIds)
     .eq('ativo', true)
     .order('nome')
 
@@ -54,19 +82,18 @@ export default async function ProdutosPage() {
     foto_url: string | null
     recorrente: boolean
     qtd_mensagens: number | null
+    loja_id: string
     mensagens_produto: Array<{ tipo: string; dias_apos_venda: number }>
   }
 
-  const lista = ((produtos ?? []) as unknown as ProdutoRaw[])
+  const lista = (produtos ?? []) as unknown as ProdutoRaw[]
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold">Produtos recorrentes</h1>
-          <p className="text-sm text-muted-foreground">
-            {lojaNome} · Configure ciclo, preço médio e mensagens de recompra.
-          </p>
+          <p className="text-sm text-muted-foreground">{subtitulo}</p>
         </div>
         {podeEditar && (
           <Link href="/configuracoes/produtos" className="shrink-0 text-sm text-primary hover:underline whitespace-nowrap">
@@ -81,6 +108,12 @@ export default async function ProdutosPage() {
           <Link href="/configuracoes/produtos" className="text-primary hover:underline">
             Produtos e mensagens
           </Link>.
+        </p>
+      )}
+
+      {mostrarLoja && (
+        <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2 leading-relaxed">
+          Para gerenciar produtos de uma loja, selecione-a no seletor <strong>Visão</strong> acima.
         </p>
       )}
 
@@ -102,11 +135,13 @@ export default async function ProdutosPage() {
             const mensagens = Array.isArray(p.mensagens_produto) ? p.mensagens_produto : []
             const dias = p.recorrente ? cicloRecompra(mensagens) : null
             const qtd = p.qtd_mensagens ?? mensagens.length
+            const lojaNome = mostrarLoja ? (lojaNomeMap.get(p.loja_id) ?? '') : null
 
             return (
               <div key={p.id} className="rounded-xl border bg-card p-4 space-y-2.5">
                 <div className="flex items-start gap-3">
                   {p.foto_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={p.foto_url}
                       alt={p.nome}
@@ -141,6 +176,11 @@ export default async function ProdutosPage() {
                       <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400">
                         Ativo
                       </span>
+                      {lojaNome && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          {lojaNome}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

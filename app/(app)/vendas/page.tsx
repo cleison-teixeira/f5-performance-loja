@@ -1,5 +1,10 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 import { VendasLista } from './VendasLista'
 
 export interface VendaItemExtrato {
@@ -24,22 +29,25 @@ export interface VendaExtrato {
   valor_comissao: number
   origem: string
   qtd_avisos: number
+  loja_nome?: string
 }
+
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
 export default async function VendasPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Extrato de vendas</h1>
@@ -48,23 +56,42 @@ export default async function VendasPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { nome: string } | Array<{ nome: string }>
-  const lojaNome = (Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw)?.nome ?? ''
-  const loja_id = membro.loja_id as string
-  const userRole = membro.role as string
-  const isVendedora = userRole === 'vendedora'
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
 
-  let baseQuery = supabase
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Extrato de vendas</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
+
+  const isVendedora = userRole === 'vendedora'
+  const mostrarLoja = ctx.escopo === 'rede'
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+  const qtdLojas = ctx.lojas.length
+  const subtitulo = ctx.escopo === 'rede'
+    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
+    : ctx.lojaNome
+
+  let baseQuery = admin
     .from('vendas')
     .select(`
-      id, valor, criado_em, data_compra, vendedora_id, origem,
+      id, valor, criado_em, data_compra, vendedora_id, origem, loja_id,
       clientes(nome, whatsapp),
       perfis!vendas_vendedora_id_fkey(nome),
       itens_venda(produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente),
       comissao_venda(valor_comissao),
       avisos(id)
     `)
-    .eq('loja_id', loja_id)
+    .in('loja_id', ctx.lojaIds)
     .order('data_compra', { ascending: false })
     .order('criado_em', { ascending: false })
     .limit(500)
@@ -77,17 +104,20 @@ export default async function VendasPage() {
 
   let vendedoras: { id: string; nome: string }[] = []
   if (!isVendedora) {
-    const { data: membros } = await supabase
+    const { data: membros } = await admin
       .from('membros_loja')
       .select('perfil_id, perfis(nome)')
-      .eq('loja_id', loja_id)
-      .eq('role', 'vendedora')
+      .in('loja_id', ctx.lojaIds)
       .eq('ativo', true)
 
-    vendedoras = (membros ?? []).map(m => {
+    const seen = new Set<string>()
+    vendedoras = (membros ?? []).flatMap(m => {
+      const pid = m.perfil_id as string
+      if (seen.has(pid)) return []
+      seen.add(pid)
       const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }>
       const perfil = Array.isArray(p) ? p[0] : p
-      return { id: m.perfil_id as string, nome: perfil?.nome ?? 'Sem nome' }
+      return [{ id: pid, nome: perfil?.nome ?? 'Sem nome' }]
     })
   }
 
@@ -103,6 +133,7 @@ export default async function VendasPage() {
     const cvRaw = v.comissao_venda as unknown as
       | Array<{ valor_comissao: number }> | { valor_comissao: number } | null
     const cv = Array.isArray(cvRaw) ? cvRaw[0] : cvRaw
+    const vendaLojaId = (v as unknown as { loja_id: string }).loja_id
 
     const itens = (itensRaw ?? []).map(i => ({
       produto_nome: i.produto_nome,
@@ -126,6 +157,7 @@ export default async function VendasPage() {
       valor_comissao: cv?.valor_comissao ?? 0,
       origem: (v as unknown as { origem: string }).origem ?? 'venda_manual',
       qtd_avisos: (avisosArr ?? []).length,
+      loja_nome: mostrarLoja ? (lojaNomeMap.get(vendaLojaId) ?? '') : undefined,
     }
   })
 
@@ -133,9 +165,9 @@ export default async function VendasPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Extrato de vendas</h1>
-        <p className="text-sm text-muted-foreground">{lojaNome}</p>
+        <p className="text-sm text-muted-foreground">{subtitulo}</p>
       </div>
-      <VendasLista vendas={vendas} isVendedora={isVendedora} vendedoras={vendedoras} />
+      <VendasLista vendas={vendas} isVendedora={isVendedora} vendedoras={vendedoras} mostrarLoja={mostrarLoja} />
     </div>
   )
 }

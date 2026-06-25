@@ -33,6 +33,7 @@ interface VendasListaProps {
   vendas: VendaExtrato[]
   isVendedora: boolean
   vendedoras: { id: string; nome: string }[]
+  mostrarLoja?: boolean
 }
 
 type Periodo = '7' | '30' | '90' | '180' | '365' | 'tudo'
@@ -54,7 +55,7 @@ function diasAtras(n: number): Date {
   return d
 }
 
-export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProps) {
+export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: VendasListaProps) {
   const [periodo, setPeriodo] = useState<Periodo>('90')
   const [vendedoraId, setVendedoraId] = useState('')
   const [busca, setBusca] = useState('')
@@ -218,7 +219,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
           {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
             {filtradas.map(v => (
-              <VendaCard key={v.id} venda={v} isVendedora={isVendedora} />
+              <VendaCard key={v.id} venda={v} isVendedora={isVendedora} mostrarLoja={mostrarLoja} />
             ))}
           </div>
 
@@ -231,6 +232,9 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cliente</th>
                   {!isVendedora && (
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Vendedora</th>
+                  )}
+                  {mostrarLoja && (
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Loja</th>
                   )}
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Produtos</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
@@ -253,6 +257,9 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                     </td>
                     {!isVendedora && (
                       <td className="px-4 py-3 text-muted-foreground">{v.vendedora_nome}</td>
+                    )}
+                    {mostrarLoja && (
+                      <td className="px-4 py-3 text-muted-foreground">{v.loja_nome ?? '—'}</td>
                     )}
                     <td className="px-4 py-3 max-w-[220px]">
                       <ProdutosCell itens={v.itens} />
@@ -388,7 +395,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
   )
 }
 
-function VendaCard({ venda: v, isVendedora }: { venda: VendaExtrato; isVendedora: boolean }) {
+function VendaCard({ venda: v, isVendedora, mostrarLoja }: { venda: VendaExtrato; isVendedora: boolean; mostrarLoja?: boolean }) {
   const [expandido, setExpandido] = useState(false)
   const mostrarExpandir = v.itens.length > 1
 
@@ -435,6 +442,9 @@ function VendaCard({ venda: v, isVendedora }: { venda: VendaExtrato; isVendedora
           <span className="text-muted-foreground">
             {v.vendedora_nome}
           </span>
+        )}
+        {mostrarLoja && v.loja_nome && (
+          <span className="text-muted-foreground font-medium">{v.loja_nome}</span>
         )}
         {v.tem_recorrente && (
           <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">

@@ -1,6 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { Package } from 'lucide-react'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 import { ListaEsperaForm } from './ListaEsperaForm'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 
@@ -8,20 +13,22 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
 export default async function ListaEsperaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Lista de Espera</h1>
@@ -30,46 +37,67 @@ export default async function ListaEsperaPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { nome: string } | Array<{ nome: string }>
-  const lojaNome = (Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw)?.nome ?? ''
-  const loja_id = membro.loja_id as string
-  const role = membro.role as string
-  const isVendedora = role === 'vendedora'
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Lista de Espera</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
+
+  const isVendedora = userRole === 'vendedora'
+  const mostrarLoja = ctx.escopo === 'rede'
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+  const qtdLojas = ctx.lojas.length
+  const subtitulo = ctx.escopo === 'rede'
+    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'} · Demanda real para comprar melhor`
+    : `${ctx.lojaNome} · Demanda real para comprar melhor`
+
+  const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
 
   const [registrosRes, categoriasRes, vendedorasRes] = await Promise.all([
-    supabase
+    admin
       .from('lista_espera')
-      .select('id, cliente_nome, cliente_whatsapp, produto_nome, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id')
-      .eq('loja_id', loja_id)
+      .select('id, cliente_nome, cliente_whatsapp, produto_nome, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
+      .in('loja_id', ctx.lojaIds)
       .order('criado_em', { ascending: false }),
-    supabase
-      .from('categorias')
-      .select('id, nome')
-      .eq('loja_id', loja_id)
-      .eq('ativa', true)
-      .order('nome'),
-    isVendedora
-      ? Promise.resolve({ data: [] as Array<{ perfil_id: unknown; perfis: unknown }> })
-      : supabase
+    ctx.escopo === 'loja'
+      ? admin
+          .from('categorias')
+          .select('id, nome')
+          .eq('loja_id', loja_id)
+          .eq('ativa', true)
+          .order('nome')
+      : Promise.resolve({ data: [] as Array<{ id: unknown; nome: unknown }> }),
+    ctx.escopo === 'loja' && !isVendedora
+      ? admin
           .from('membros_loja')
           .select('perfil_id, perfis(id, nome)')
           .eq('loja_id', loja_id)
           .eq('role', 'vendedora')
-          .eq('ativo', true),
+          .eq('ativo', true)
+      : Promise.resolve({ data: [] as Array<{ perfil_id: unknown; perfis: unknown }> }),
   ])
 
-  // Categoria name map for display
   const categoriaMap: Record<string, string> = {}
   for (const c of categoriasRes.data ?? []) {
     categoriaMap[c.id as string] = c.nome as string
   }
 
-  // Vendedora names for dono/gerente display
   const nomeMap: Record<string, string> = {}
   if (!isVendedora) {
     const ids = [...new Set((registrosRes.data ?? []).map(r => r.vendedora_id as string).filter(Boolean))]
     if (ids.length > 0) {
-      const { data: perfisData } = await supabase
+      const { data: perfisData } = await admin
         .from('perfis')
         .select('id, nome')
         .in('id', ids)
@@ -91,9 +119,10 @@ export default async function ListaEsperaPage() {
     observacao: r.observacao as string | null,
     criado_em: r.criado_em as string,
     vendedora_nome: !isVendedora ? (nomeMap[r.vendedora_id as string] ?? '—') : undefined,
+    loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
   }))
 
-  const vendedoras = isVendedora
+  const vendedoras = isVendedora || ctx.escopo === 'rede'
     ? []
     : (vendedorasRes.data ?? []).map(m => {
         const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
@@ -105,12 +134,10 @@ export default async function ListaEsperaPage() {
     ? user.id
     : (vendedoras[0]?.id ?? user.id)
 
-  const categorias = (categoriasRes.data ?? []).map(c => ({
-    id: c.id as string,
-    nome: c.nome as string,
-  }))
+  const categorias = ctx.escopo === 'loja'
+    ? (categoriasRes.data ?? []).map(c => ({ id: c.id as string, nome: c.nome as string }))
+    : []
 
-  // Stats
   const total = registros.length
   const aguardando = registros.filter(r => r.status === 'aguardando').length
   const valorPotencial = registros.reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
@@ -120,7 +147,7 @@ export default async function ListaEsperaPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Lista de Espera</h1>
-        <p className="text-sm text-muted-foreground">{lojaNome} · Demanda real para comprar melhor</p>
+        <p className="text-sm text-muted-foreground">{subtitulo}</p>
       </div>
 
       {total > 0 && (
@@ -142,7 +169,6 @@ export default async function ListaEsperaPage() {
         </div>
       )}
 
-      {/* Oportunidade em destaque */}
       {aguardando > 0 && valorPotencial > 0 && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 flex items-start gap-3">
           <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm mt-0.5">
@@ -160,13 +186,19 @@ export default async function ListaEsperaPage() {
         </div>
       )}
 
-      <ListaEsperaForm
-        loja_id={loja_id}
-        isVendedora={isVendedora}
-        defaultVendedoraId={defaultVendedoraId}
-        vendedoras={vendedoras}
-        categorias={categorias}
-      />
+      {ctx.escopo === 'loja' ? (
+        <ListaEsperaForm
+          loja_id={loja_id}
+          isVendedora={isVendedora}
+          defaultVendedoraId={defaultVendedoraId}
+          vendedoras={vendedoras}
+          categorias={categorias}
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2 leading-relaxed">
+          Selecione uma loja no seletor <strong>Visão</strong> acima para adicionar itens à lista de espera.
+        </p>
+      )}
 
       <ListaEsperaCards registros={registros} />
     </div>

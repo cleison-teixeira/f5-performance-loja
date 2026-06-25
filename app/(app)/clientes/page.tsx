@@ -1,6 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { Users, TrendingUp, UserMinus } from 'lucide-react'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 
 function formatarData(iso: string): string {
   const [ano, mes, dia] = iso.split('T')[0].split('-')
@@ -23,20 +28,22 @@ function iniciais(nome: string): string {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?'
 }
 
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
 export default async function ClientesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Clientes de recompra</h1>
@@ -45,25 +52,43 @@ export default async function ClientesPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { nome: string } | Array<{ nome: string }>
-  const lojaNome = (Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw)?.nome ?? ''
-  const loja_id = membro.loja_id as string
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Clientes de recompra</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
+
+  const mostrarLoja = ctx.escopo === 'rede'
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+  const qtdLojas = ctx.lojas.length
+  const subtitulo = ctx.escopo === 'rede'
+    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
+    : ctx.lojaNome
 
   const [clientesRes, vendasRes] = await Promise.all([
-    supabase
+    admin
       .from('clientes')
-      .select('id, nome, whatsapp, criado_em')
-      .eq('loja_id', loja_id)
+      .select('id, nome, whatsapp, criado_em, loja_id')
+      .in('loja_id', ctx.lojaIds)
       .order('nome'),
-    supabase
+    admin
       .from('vendas')
       .select('cliente_id, valor, data_compra')
-      .eq('loja_id', loja_id)
+      .in('loja_id', ctx.lojaIds)
       .order('data_compra', { ascending: false }),
   ])
 
-  // Agregação em memória — vendas já chegam ordenadas desc, logo a primeira
-  // ocorrência por cliente é a mais recente
   type VendaStats = { qtd: number; total: number; ultima: string }
   const vendasPorCliente: Record<string, VendaStats> = {}
   for (const v of vendasRes.data ?? []) {
@@ -86,6 +111,7 @@ export default async function ClientesPage() {
       qtd: stats?.qtd ?? 0,
       total: stats?.total ?? 0,
       ultima: stats?.ultima ?? null,
+      loja_nome: mostrarLoja ? (lojaNomeMap.get(c.loja_id as string) ?? '') : null,
     }
   })
 
@@ -99,7 +125,7 @@ export default async function ClientesPage() {
       {/* ── Cabeçalho ── */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Clientes de recompra</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{lojaNome}</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{subtitulo}</p>
         <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
           Base de clientes que podem comprar de novo.
         </p>
@@ -118,7 +144,7 @@ export default async function ClientesPage() {
               {total}
             </p>
             <p className="text-[11px] text-blue-600/55 dark:text-blue-400/50 leading-tight">
-              na base da loja
+              {mostrarLoja ? 'na rede' : 'na base da loja'}
             </p>
           </div>
 
@@ -131,7 +157,7 @@ export default async function ClientesPage() {
               {comCompras}
             </p>
             <p className="text-[11px] text-emerald-700/55 dark:text-emerald-400/50 leading-tight">
-              já compraram na loja
+              já compraram
             </p>
           </div>
 
@@ -206,6 +232,11 @@ export default async function ClientesPage() {
                       <p className="text-xs text-muted-foreground">
                         Cliente desde {formatarData(c.criado_em)}
                       </p>
+                      {c.loja_nome && (
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {c.loja_nome}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

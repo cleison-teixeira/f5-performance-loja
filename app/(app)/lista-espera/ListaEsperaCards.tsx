@@ -17,6 +17,7 @@ export interface RegistroListaEspera {
   observacao: string | null
   criado_em: string
   vendedora_nome?: string
+  loja_nome?: string
 }
 
 function fmtData(iso: string) {
@@ -80,6 +81,12 @@ function RegistroCard({ registro }: { registro: RegistroListaEspera }) {
           <div>
             <p className="text-muted-foreground">Vendedora</p>
             <p className="font-medium truncate">{registro.vendedora_nome}</p>
+          </div>
+        )}
+        {registro.loja_nome && (
+          <div>
+            <p className="text-muted-foreground">Loja</p>
+            <p className="font-medium truncate">{registro.loja_nome}</p>
           </div>
         )}
         <div>

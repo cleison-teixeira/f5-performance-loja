@@ -1,5 +1,10 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 import { ListaProdutos } from './ListaProdutos'
 import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
 
@@ -23,32 +28,59 @@ export interface ProdutoItem {
   mensagens: MensagemSlot[]
 }
 
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
 export default async function ConfigProdutosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Produtos</h1>
+        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { nome: string } | Array<{ nome: string }>
-  const lojaNome = (Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw)?.nome ?? ''
-  const loja_id = membro.loja_id as string
-  const userRole = membro.role as string
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.escopo === 'rede') {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
+        <p className="text-sm text-muted-foreground">
+          Selecione uma loja no seletor <strong>Visão</strong> acima para gerenciar produtos desta unidade.
+        </p>
+      </div>
+    )
+  }
+
+  if (!ctx.lojaId) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
+
+  const loja_id = ctx.lojaId
   const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
 
   const { data: produtosRaw } = await supabase
@@ -69,7 +101,6 @@ export default async function ConfigProdutosPage() {
           ? { id: existente.id, ordem: slot.ordem, tipo: slot.tipo, texto: existente.texto, dias_apos_venda: existente.dias_apos_venda }
           : { id: null, ordem: slot.ordem, tipo: slot.tipo, texto: slot.texto, dias_apos_venda: slot.dias_apos_venda }
       }),
-      // Slot 4: oferta (opcional — só gera aviso se texto salvo)
       (() => {
         const existente = mensagensDB.find(m => m.ordem === 4)
         return existente
@@ -95,7 +126,7 @@ export default async function ConfigProdutosPage() {
     <div className="space-y-4 max-w-2xl mx-auto">
       <div>
         <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
-        <p className="text-sm text-muted-foreground">{lojaNome}</p>
+        <p className="text-sm text-muted-foreground">{ctx.lojaNome}</p>
       </div>
       <ListaProdutos produtos={produtos} loja_id={loja_id} podeEditar={podeEditar} />
     </div>
