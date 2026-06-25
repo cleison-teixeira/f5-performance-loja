@@ -14,7 +14,10 @@ export function SeletorLoja({ lojas, lojaAtiva }: Props) {
       <label className="text-sm font-medium shrink-0">Loja</label>
       <select
         value={lojaAtiva}
-        onChange={e => router.replace(`/configuracoes/equipe?loja_id=${e.target.value}`)}
+        onChange={e => {
+          router.replace(`/configuracoes/equipe?loja_id=${e.target.value}`)
+          router.refresh()
+        }}
         className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {lojas.map(l => (

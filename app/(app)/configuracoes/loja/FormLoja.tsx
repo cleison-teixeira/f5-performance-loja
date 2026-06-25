@@ -175,7 +175,7 @@ export function FormLoja({ empresa, loja, podeEditar }: Props) {
             className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${ativa ? 'translate-x-6' : 'translate-x-1'}`}
           />
         </button>
-        <label className="text-sm font-medium">{ativa ? 'Loja ativa' : 'Loja inativa'}</label>
+        <label className="text-sm font-medium">{ativa ? 'Unidade ativa' : 'Unidade inativa'}</label>
       </div>
 
       {mensagem && (
