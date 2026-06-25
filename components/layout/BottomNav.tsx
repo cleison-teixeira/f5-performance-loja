@@ -9,7 +9,6 @@ import {
   ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 
 const mainItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
@@ -48,14 +47,14 @@ interface Props {
 export function BottomNav({ role }: Props) {
   const pathname = usePathname()
   const [drawerAberto, setDrawerAberto] = useState(false)
-  const isVendedora = isAcessoLoja(role)
+  const hideGestao = role === 'vendedora'
 
-  const gestaoDrawer = isVendedora ? gestaoDrawerVendedora : gestaoDrawerBase
+  const gestaoDrawer = hideGestao ? gestaoDrawerVendedora : gestaoDrawerBase
 
   const drawerSections = [
     { label: 'Operação', items: operacaoDrawer },
     { label: 'Gestão', items: gestaoDrawer },
-    ...(!isVendedora ? [{ label: 'Configuração', items: configuracaoDrawer }] : []),
+    { label: 'Configuração', items: configuracaoDrawer },
     { label: 'Aprender', items: aprenderDrawer },
   ]
 

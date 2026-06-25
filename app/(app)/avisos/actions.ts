@@ -96,6 +96,30 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       }
     }
 
+    // Validar usuário logado e pertencimento à loja antes de gravar com admin
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado' }
+
+    const { data: membroLogado } = await admin
+      .from('membros_loja')
+      .select('loja_id')
+      .eq('perfil_id', user.id)
+      .eq('loja_id', dados.loja_id)
+      .eq('ativo', true)
+      .maybeSingle()
+    if (!membroLogado) return { ok: false, erro: 'Acesso negado à loja' }
+
+    if (dados.vendedora_id !== user.id) {
+      const { data: membroResponsavel } = await admin
+        .from('membros_loja')
+        .select('loja_id')
+        .eq('perfil_id', dados.vendedora_id)
+        .eq('loja_id', dados.loja_id)
+        .eq('ativo', true)
+        .maybeSingle()
+      if (!membroResponsavel) return { ok: false, erro: 'Responsável não pertence à loja' }
+    }
+
     const hoje = new Date().toISOString().slice(0, 10)
     const valor_total = dados.itens.reduce(
       (acc, item) => acc + item.quantidade * item.preco_unitario, 0
@@ -105,7 +129,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       .reduce((acc, item) => acc + item.quantidade * item.preco_unitario, 0)
 
     // 1. Criar venda canônica com origem='recompra'
-    const { data: vendaData, error: vendaError } = await supabase
+    const { data: vendaData, error: vendaError } = await admin
       .from('vendas')
       .insert({
         loja_id: dados.loja_id,
@@ -125,7 +149,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     const nova_venda_id = vendaData.id as string
 
     // 2. INSERT itens_venda
-    const { data: itensVendaData, error: itensVendaError } = await supabase
+    const { data: itensVendaData, error: itensVendaError } = await admin
       .from('itens_venda')
       .insert(
         dados.itens.map(item => ({
@@ -146,7 +170,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     }
 
     // 3. INSERT recompra com venda_id canônico
-    const { data: recompraData, error: recompraError } = await supabase
+    const { data: recompraData, error: recompraError } = await admin
       .from('recompras')
       .insert({
         loja_id: dados.loja_id,
@@ -168,7 +192,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     const recompra_id = recompraData.id as string
 
     // 4. INSERT itens_recompra (mantidos)
-    const { error: itensRecompraError } = await supabase.from('itens_recompra').insert(
+    const { error: itensRecompraError } = await admin.from('itens_recompra').insert(
       dados.itens.map(item => ({
         recompra_id,
         produto_id: item.produto_id,
@@ -279,7 +303,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       for (const itemVenda of itensVendaData) {
         if (!itemVenda.produto_id) continue
 
-        const { data: produtoData } = await supabase
+        const { data: produtoData } = await admin
           .from('produtos')
           .select('qtd_mensagens')
           .eq('id', itemVenda.produto_id)
@@ -289,7 +313,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
           (produtoData as unknown as { qtd_mensagens: number } | null)?.qtd_mensagens ?? 3
         ) as 1 | 2 | 3 | 4
 
-        const { data: mensagensData } = await supabase
+        const { data: mensagensData } = await admin
           .from('mensagens_produto')
           .select('id, ordem, tipo, texto, dias_apos_venda')
           .eq('produto_id', itemVenda.produto_id)
@@ -330,7 +354,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       }
 
       if (todosAvisosNovos.length > 0) {
-        await supabase.from('avisos').insert(todosAvisosNovos)
+        await admin.from('avisos').insert(todosAvisosNovos)
       }
     }
 

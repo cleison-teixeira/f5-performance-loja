@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { AvisosLista } from './AvisosLista'
 import type { AvisoDetalhado } from './types'
@@ -37,8 +38,12 @@ export default async function AvisosPage() {
   const hoje = new Date().toISOString().split('T')[0]
   const isVendedora = false
 
-  // Avisos pendentes — vendedora vê apenas os próprios; dono/gerente veem toda a loja
-  let avisosQuery = supabase
+  // Admin client usado para leituras loja-wide — contorna RLS que restringe vendedora
+  // aos próprios avisos. Segurança: loja_id sempre validado via membros_loja acima.
+  const admin = createAdminClient()
+
+  // Avisos pendentes (toda a loja)
+  const { data: avisosRaw } = await admin
     .from('avisos')
     .select(`
       id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
@@ -50,15 +55,13 @@ export default async function AvisosPage() {
     .eq('loja_id', loja.id)
     .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
     .order('data_aviso', { ascending: true })
-  if (isVendedora) avisosQuery = avisosQuery.eq('vendedora_id', user!.id)
-  const { data: avisosRaw } = await avisosQuery
 
   // Busca data_compra via query direta — o join vendas(data_compra) pode ser ambíguo
   // quando itens_venda também tem FK para vendas no mesmo select, retornando null.
   const vendaIds = [...new Set((avisosRaw ?? []).map(a => a.venda_id as string).filter(Boolean))]
   const dataCompraMap = new Map<string, string>()
   if (vendaIds.length > 0) {
-    const { data: vendasDatas } = await supabase
+    const { data: vendasDatas } = await admin
       .from('vendas')
       .select('id, data_compra')
       .in('id', vendaIds)
@@ -83,20 +86,18 @@ export default async function AvisosPage() {
     comissionavel_recompra: (p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra ?? true,
   }))
 
-  // Recompras do mês corrente para card "Recuperado"
+  // Recompras do mês corrente para card "Recuperado" (toda a loja)
   const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
-  let recomprasQuery = supabase
+  const { data: recomprasData } = await admin
     .from('recompras')
     .select('valor_total')
     .eq('loja_id', loja.id)
     .gte('criado_em', inicioMes)
-  if (isVendedora) recomprasQuery = recomprasQuery.eq('vendedora_id', user!.id)
-  const { data: recomprasData } = await recomprasQuery
   const totalRecomprasValorMes = (recomprasData ?? []).reduce((s, r) => s + ((r.valor_total as number) ?? 0), 0)
   const qtdRecomprasMes = (recomprasData ?? []).length
 
   // Todos os membros ativos da loja (para seletor de responsável)
-  const { data: membrosAtivos } = await supabase
+  const { data: membrosAtivos } = await admin
     .from('membros_loja')
     .select('perfil_id, perfis(nome)')
     .eq('loja_id', loja.id)
@@ -118,7 +119,7 @@ export default async function AvisosPage() {
 
   const allIds = [...new Set([...vendedoraIds, ...todosMembrosIds])]
   if (allIds.length > 0) {
-    const regrasRes = await supabase
+    const regrasRes = await admin
       .from('regras_comissao')
       .select('vendedora_id, percentual')
       .in('vendedora_id', allIds)

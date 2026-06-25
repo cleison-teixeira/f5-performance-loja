@@ -89,7 +89,6 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
   }, [vendas, periodo, vendedoraId, busca, soRecorrente, produtoNome])
 
   const totalValor = filtradas.reduce((s, v) => s + v.valor_total, 0)
-  const totalComissao = filtradas.reduce((s, v) => s + v.valor_comissao, 0)
   const temFiltrosAtivos = !!(vendedoraId || busca.trim() || soRecorrente || produtoNome)
 
   return (
@@ -210,15 +209,6 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
             {filtradas.length} venda{filtradas.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {totalComissao > 0 && (
-          <div className="rounded-lg border bg-card p-3">
-            <p className="text-xs text-muted-foreground">Comissão real</p>
-            <p className="text-xl font-bold mt-0.5 text-green-600 dark:text-green-400">
-              {formatarBRL(totalComissao)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">via comissão registrada</p>
-          </div>
-        )}
       </div>
 
       {filtradas.length === 0 ? (
@@ -245,7 +235,6 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Produtos</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Comissão</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Avisos</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -273,15 +262,6 @@ export function VendasLista({ vendas, isVendedora, vendedoras }: VendasListaProp
                     </td>
                     <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
                       {formatarBRL(v.valor_total)}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {v.valor_comissao > 0 ? (
-                        <span className="text-green-600 dark:text-green-400 font-semibold">
-                          {formatarBRL(v.valor_comissao)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
                       {v.qtd_avisos > 0 ? v.qtd_avisos : '—'}
@@ -464,11 +444,6 @@ function VendaCard({ venda: v, isVendedora }: { venda: VendaExtrato; isVendedora
         {v.qtd_avisos > 0 && (
           <span className="text-muted-foreground">
             {v.qtd_avisos} aviso{v.qtd_avisos !== 1 ? 's' : ''}
-          </span>
-        )}
-        {v.valor_comissao > 0 && (
-          <span className="text-green-600 dark:text-green-400 font-medium">
-            {formatarBRL(v.valor_comissao)}
           </span>
         )}
       </div>

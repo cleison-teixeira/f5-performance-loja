@@ -8,7 +8,6 @@ import {
   Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 
 const operacaoItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
@@ -45,7 +44,7 @@ interface Props {
 
 export function Sidebar({ role }: Props) {
   const pathname = usePathname()
-  const isVendedora = isAcessoLoja(role)
+  const hideGestao = role === 'vendedora'
 
   function isActive(href: string) {
     if (pathname === href) return true
@@ -83,7 +82,7 @@ export function Sidebar({ role }: Props) {
     )
   }
 
-  const gestaoItems = isVendedora ? gestaoItemsVendedora : gestaoItemsBase
+  const gestaoItems = hideGestao ? gestaoItemsVendedora : gestaoItemsBase
 
   return (
     <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
@@ -93,7 +92,7 @@ export function Sidebar({ role }: Props) {
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />
         <Section label="Gestão" Icon={Building2} items={gestaoItems} />
-        {!isVendedora && <Section label="Configuração" Icon={Settings} items={configuracaoItems} />}
+        <Section label="Configuração" Icon={Settings} items={configuracaoItems} />
         <Section label="Aprender" Icon={GraduationCap} items={aprenderItems} />
       </nav>
     </aside>

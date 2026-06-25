@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { AvisosLista } from '@/app/(app)/avisos/AvisosLista'
 import type { AvisoDetalhado } from '@/app/(app)/avisos/types'
@@ -30,7 +31,11 @@ export default async function RelacionamentoPage() {
   const hoje = new Date().toISOString().split('T')[0]
   const isVendedora = false
 
-  let avisosQuery = supabase
+  // Admin client para contornar RLS que restringe vendedora aos próprios avisos.
+  // Segurança garantida via membros_loja acima (loja_id e ativo validados).
+  const admin = createAdminClient()
+
+  const { data: avisosRaw } = await admin
     .from('avisos')
     .select(`
       id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
@@ -42,14 +47,12 @@ export default async function RelacionamentoPage() {
     .eq('loja_id', loja.id)
     .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
     .order('data_aviso', { ascending: true })
-  if (isVendedora) avisosQuery = avisosQuery.eq('vendedora_id', user!.id)
-  const { data: avisosRaw } = await avisosQuery
 
   // Nomes das vendedoras visíveis nos cards
   const vendedoraIds = [...new Set((avisosRaw ?? []).map(a => a.vendedora_id as string).filter(Boolean))]
   const vendedoraNomeMap = new Map<string, string>()
   if (vendedoraIds.length > 0) {
-    const { data: perfisData } = await supabase
+    const { data: perfisData } = await admin
       .from('perfis')
       .select('id, nome')
       .in('id', vendedoraIds)

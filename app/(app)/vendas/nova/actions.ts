@@ -75,6 +75,31 @@ interface ItemProcessado {
 export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
+
+    // 0. Validar que o usuário logado pertence à loja e que o responsável também pertence
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado' }
+
+    const { data: membroLogado } = await admin
+      .from('membros_loja')
+      .select('loja_id')
+      .eq('perfil_id', user.id)
+      .eq('loja_id', dados.loja_id)
+      .eq('ativo', true)
+      .maybeSingle()
+    if (!membroLogado) return { ok: false, erro: 'Acesso negado à loja' }
+
+    if (dados.vendedora_id !== user.id) {
+      const { data: membroResponsavel } = await admin
+        .from('membros_loja')
+        .select('loja_id')
+        .eq('perfil_id', dados.vendedora_id)
+        .eq('loja_id', dados.loja_id)
+        .eq('ativo', true)
+        .maybeSingle()
+      if (!membroResponsavel) return { ok: false, erro: 'Responsável não pertence à loja' }
+    }
 
     // 1. Upsert cliente
     const { data: clienteData, error: clienteError } = await supabase
@@ -155,7 +180,6 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     }
 
     // 3. Calcular previsão de comissão com lógica de prioridade (admin para bypass RLS)
-    const admin = createAdminClient()
     const itensComissionaveisRecorrentes = itensProcessados.filter(i => i.recorrente && i.comissionavel_recompra)
     const produtosIds = itensComissionaveisRecorrentes
       .map(i => i.produto_id)
@@ -199,12 +223,12 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       ? Math.round(previsaoBase * percentual_comissao / 100 * 100) / 100
       : 0)
 
-    // 4. INSERT venda
+    // 4. INSERT venda (admin para contornar RLS: vendedora só pode inserir com próprio id)
     const valor_total = itensProcessados.reduce(
       (acc, item) => acc + item.quantidade * item.preco_unitario, 0
     )
 
-    const { data: vendaData, error: vendaError } = await supabase
+    const { data: vendaData, error: vendaError } = await admin
       .from('vendas')
       .insert({
         loja_id: dados.loja_id,
@@ -224,7 +248,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     const venda_id = vendaData.id as string
 
     // 5. INSERT itens_venda
-    const { data: itensVendaData, error: itensError } = await supabase
+    const { data: itensVendaData, error: itensError } = await admin
       .from('itens_venda')
       .insert(
         itensProcessados.map(item => ({
@@ -317,7 +341,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
 
     // 7. INSERT avisos
     if (todosAvisos.length > 0) {
-      await supabase.from('avisos').insert(todosAvisos)
+      await admin.from('avisos').insert(todosAvisos)
     }
 
     return {
