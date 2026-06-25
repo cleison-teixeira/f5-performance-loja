@@ -47,6 +47,7 @@ interface Props {
   qtdRecomprasMes: number
   comissao7Dias: number
   rankingLojas: RankingLojasItem[]
+  subtitulo?: string
 }
 
 export function DashboardView(props: Props) {
@@ -103,6 +104,7 @@ export function DashboardView(props: Props) {
       totalRecomprasValorMes={props.totalRecomprasValorMes}
       qtdRecomprasMes={props.qtdRecomprasMes}
       rankingLojas={props.rankingLojas}
+      subtitulo={props.subtitulo}
     />
   )
 }

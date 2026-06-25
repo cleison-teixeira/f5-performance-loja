@@ -13,23 +13,26 @@ export type ContextoLoja = {
 
 export async function getLojasDoUsuario(userId: string): Promise<{ id: string; nome: string }[]> {
   const admin = createAdminClient()
-  const { data } = await admin
+
+  // Step 1: loja IDs (no PostgREST join — avoids FK resolution ambiguity)
+  const { data: membros } = await admin
     .from('membros_loja')
-    .select('loja_id, lojas(id, nome)')
+    .select('loja_id')
     .eq('perfil_id', userId)
     .eq('ativo', true)
 
-  const seen = new Set<string>()
-  const lojas: { id: string; nome: string }[] = []
-  for (const m of data ?? []) {
-    const l = m.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }> | null
-    const loja = Array.isArray(l) ? l[0] : l
-    if (loja && !seen.has(loja.id)) {
-      seen.add(loja.id)
-      lojas.push({ id: loja.id, nome: loja.nome })
-    }
-  }
-  return lojas
+  if (!membros || membros.length === 0) return []
+
+  const lojaIds = [...new Set(membros.map(m => m.loja_id as string))]
+
+  // Step 2: loja names from lojas table directly
+  const { data: lojas } = await admin
+    .from('lojas')
+    .select('id, nome')
+    .in('id', lojaIds)
+    .order('nome')
+
+  return (lojas ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))
 }
 
 export async function getContextoLoja(userId: string, multiLoja: boolean): Promise<ContextoLoja> {

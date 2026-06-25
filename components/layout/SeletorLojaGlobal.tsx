@@ -22,7 +22,7 @@ export function SeletorLojaGlobal({ lojas, lojaAtiva }: Props) {
 
   return (
     <div className="border-b bg-muted/30 px-4 py-2 flex items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground shrink-0">Loja</span>
+      <span className="text-xs font-medium text-muted-foreground shrink-0">Visão</span>
       <select
         value={lojaAtiva ?? ''}
         onChange={handleChange}

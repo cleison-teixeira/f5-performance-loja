@@ -163,12 +163,23 @@ export default async function DashboardPage() {
   const multiLoja = ctx.escopo === 'rede'
   const lojaIds = ctx.lojaIds.length > 0 ? ctx.lojaIds : [membrosRaw[0].loja_id as string]
 
-  // Display loja: selected or first
-  const lojaRaw0 = membrosRaw[0].lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
-  const lojaDefault = Array.isArray(lojaRaw0) ? lojaRaw0[0] : lojaRaw0
-  const lojaDisplay = ctx.lojas.find(l => l.id === (ctx.lojaId ?? lojaIds[0])) ?? lojaDefault
-  const loja = { id: lojaDisplay?.id ?? lojaIds[0], nome: lojaDisplay?.nome ?? '' }
-  const loja_id = loja.id
+  // loja_id for queries (first in list or selected)
+  const loja_id = ctx.lojaId ?? lojaIds[0]
+
+  // Display loja: selected or fallback to first
+  const lojaDisplay = ctx.lojas.find(l => l.id === loja_id) ?? ctx.lojas[0] ?? null
+  const lojaFallbackNome = lojaDisplay?.nome ?? ''
+
+  // Subtitle and loja.nome vary by escopo
+  const qtdLojas = ctx.lojas.length
+  const subtitulo = ctx.escopo === 'rede'
+    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'} · Dinheiro na mesa, recompras em aberto e fila da equipe.`
+    : `${ctx.lojaNome} · Visão da loja selecionada.`
+
+  const loja = {
+    id: lojaDisplay?.id ?? loja_id,
+    nome: ctx.escopo === 'rede' ? 'Toda a rede' : (ctx.lojaNome || lojaFallbackNome),
+  }
 
   const data30 = new Date()
   data30.setDate(data30.getDate() - 30)
@@ -720,6 +731,7 @@ export default async function DashboardPage() {
       qtdRecomprasMes={qtdRecomprasMes}
       comissao7Dias={comissao7Dias}
       rankingLojas={rankingLojas}
+      subtitulo={subtitulo}
     />
   )
 }
