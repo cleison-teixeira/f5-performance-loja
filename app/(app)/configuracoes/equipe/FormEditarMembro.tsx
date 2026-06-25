@@ -26,7 +26,6 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
   const [telefone, setTelefone] = useState(membro.telefone)
   const [role, setRole] = useState<'dono' | 'gerente' | 'vendedora'>(membro.role as 'dono' | 'gerente' | 'vendedora')
   const [ativo, setAtivo] = useState(membro.ativo)
-  const [comissao, setComissao] = useState(String(membro.percentual_comissao ?? 0))
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -34,25 +33,13 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
     ? ROLES.filter(r => r.value === 'vendedora')
     : ROLES
 
-  const isVendedora = role === 'vendedora'
-  const pctNum = parseFloat(comissao) || 0
-  const preview100 = isVendedora && pctNum > 0 ? (100 * pctNum / 100).toFixed(2) : null
-
   async function handleSalvar() {
     if (!nome.trim()) {
       setErro('Nome é obrigatório')
       return
     }
-    if (isVendedora) {
-      const pct = parseFloat(comissao)
-      if (isNaN(pct) || pct < 0 || pct > 100) {
-        setErro('Comissão inválida (0–100%)')
-        return
-      }
-    }
     setSalvando(true)
     setErro(null)
-    const percentual_comissao = isVendedora ? (parseFloat(comissao) || 0) : undefined
     const res = await editarMembro({
       membro_id: membro.membro_id,
       loja_id,
@@ -61,7 +48,6 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
       telefone: normalizarWhatsapp(telefone),
       role,
       ativo,
-      percentual_comissao,
     })
     setSalvando(false)
     if (res.ok) {
@@ -71,7 +57,6 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
         telefone: normalizarWhatsapp(telefone),
         role,
         ativo,
-        percentual_comissao: percentual_comissao ?? membro.percentual_comissao,
       })
     } else {
       setErro(res.erro ?? 'Erro ao salvar')

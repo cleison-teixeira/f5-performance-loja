@@ -25,15 +25,16 @@ export default async function ConfigEquipePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: meuMembro } = await supabase
+  // Use admin client to fetch ALL active lojas for this user — avoids RLS ordering
+  // issues that caused .limit(1) to return the wrong role for multi-loja donos.
+  const admin = createAdminClient()
+  const { data: todosMembros } = await admin
     .from('membros_loja')
     .select('loja_id, role, lojas(id, nome)')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!meuMembro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Equipe</h1>
@@ -42,46 +43,36 @@ export default async function ConfigEquipePage({
     )
   }
 
-  const userRole = meuMembro.role as string
+  // Derive effective role: dono/admin_f5 beats gerente beats vendedora
+  const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
   const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
   const multiLoja = !isAcessoLoja(userRole)
 
-  const admin = createAdminClient()
-
-  // For multi-loja: fetch all lojas the user belongs to
+  // Build deduplicated loja list preserving insertion order
   type LojaOpcao = { id: string; nome: string }
-  let lojasDisponiveis: LojaOpcao[] = []
-
-  if (multiLoja) {
-    const { data: todosMembros } = await admin
-      .from('membros_loja')
-      .select('loja_id, lojas(id, nome)')
-      .eq('perfil_id', user.id)
-      .eq('ativo', true)
-
-    const seen = new Set<string>()
-    for (const m of todosMembros ?? []) {
-      const l = m.lojas as unknown as LojaOpcao | Array<LojaOpcao> | null
-      const lojaItem = Array.isArray(l) ? l[0] : l
-      if (lojaItem && !seen.has(lojaItem.id)) {
-        seen.add(lojaItem.id)
-        lojasDisponiveis.push({ id: lojaItem.id, nome: lojaItem.nome })
-      }
+  const seen = new Set<string>()
+  const lojasDisponiveis: LojaOpcao[] = []
+  for (const m of todosMembros) {
+    const l = m.lojas as unknown as LojaOpcao | Array<LojaOpcao> | null
+    const lojaItem = Array.isArray(l) ? l[0] : l
+    if (lojaItem && !seen.has(lojaItem.id)) {
+      seen.add(lojaItem.id)
+      lojasDisponiveis.push({ id: lojaItem.id, nome: lojaItem.nome })
     }
-  } else {
-    const lojaRaw = meuMembro.lojas as unknown as LojaOpcao | Array<LojaOpcao>
-    const l = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
-    lojasDisponiveis = [{ id: l.id, nome: l.nome }]
   }
 
-  // Determine active loja from searchParams (multi-loja) or default to first
+  // Resolve selected loja: searchParam → validate membership → fallback to first
   const { loja_id: lojaIdParam } = await searchParams
-  const loja_id = (multiLoja && lojaIdParam && lojasDisponiveis.some(l => l.id === lojaIdParam))
+  const loja_id = (lojaIdParam && lojasDisponiveis.some(l => l.id === lojaIdParam))
     ? lojaIdParam
-    : lojasDisponiveis[0]?.id ?? (meuMembro.loja_id as string)
+    : lojasDisponiveis[0].id
 
-  const lojaAtiva = lojasDisponiveis.find(l => l.id === loja_id)
-  const lojaNome = lojaAtiva?.nome ?? ''
+  const lojaNome = lojasDisponiveis.find(l => l.id === loja_id)?.nome ?? ''
 
   // Members for selected loja
   const { data: membros } = await admin
@@ -97,7 +88,7 @@ export default async function ConfigEquipePage({
     emailPorId[u.id] = u.email ?? ''
   }
 
-  // Comissões padrão
+  // Comissões (kept for data completeness, not shown in UI)
   const { data: regrasData } = await admin
     .from('regras_comissao')
     .select('vendedora_id, percentual')

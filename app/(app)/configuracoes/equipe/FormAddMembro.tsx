@@ -16,7 +16,6 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [role, setRole] = useState<'dono' | 'gerente' | 'vendedora'>('vendedora')
-  const [comissao, setComissao] = useState(0)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -25,7 +24,7 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
     if (!nome.trim() || !email.trim()) return
     setSalvando(true)
     setErro(null)
-    const res = await addMembro({ loja_id, nome, email, telefone, role, comissao })
+    const res = await addMembro({ loja_id, nome, email, telefone, role, comissao: 0 })
     setSalvando(false)
     if (res.ok) {
       onSucesso()
