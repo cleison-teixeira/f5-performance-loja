@@ -90,22 +90,6 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
         </select>
       </div>
 
-      {role === 'vendedora' && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="add-comissao">Comissão (%)</label>
-          <input
-            id="add-comissao"
-            type="number"
-            min={0}
-            max={100}
-            step={0.5}
-            value={comissao}
-            onChange={e => setComissao(parseFloat(e.target.value) || 0)}
-            className={inputClass}
-          />
-        </div>
-      )}
-
       {erro && (
         <p className="text-sm font-medium text-destructive">{erro}</p>
       )}

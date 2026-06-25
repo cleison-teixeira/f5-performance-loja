@@ -1,7 +1,6 @@
 // Server-side only — não importar em arquivos com 'use client'
 // Usado pelas Server Actions de nova venda e confirmar recompra (Fases 3 e 4).
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calcularComissaoAvancada } from './calculador'
 import type { TipoComissao } from '@/types/app'
@@ -43,7 +42,6 @@ export async function gravarComissaoVenda(
 ): Promise<ResultadoGravarComissao> {
   try {
     const { loja_id, venda_id, vendedora_id, itens, data_venda, recompra_id } = params
-    const supabase = await createClient()
     const admin = createAdminClient()
 
     // ── Guard: evita comissão duplicada para a mesma venda ──────────────────
@@ -274,7 +272,7 @@ export async function gravarComissaoVenda(
     }
 
     // ── INSERT comissao_venda ───────────────────────────────────────────────
-    const { data: comissaoData, error: comissaoError } = await supabase
+    const { data: comissaoData, error: comissaoError } = await admin
       .from('comissao_venda')
       .insert({
         venda_id,

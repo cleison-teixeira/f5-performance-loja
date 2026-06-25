@@ -44,12 +44,11 @@ export default async function NovaVendaPage() {
     .eq('ativo', true)
     .order('nome')
 
-  // Vendedoras da loja (para gerente/dono selecionar)
-  const { data: membrosVendedoras } = await supabase
+  // Todos os membros ativos da loja (Acesso Loja — qualquer membro pode ser responsável)
+  const { data: membrosVendedoras } = await createAdminClient()
     .from('membros_loja')
     .select('perfil_id, perfis(id, nome)')
     .eq('loja_id', loja.id)
-    .eq('role', 'vendedora')
     .eq('ativo', true)
 
   const vendedoraIds = (membrosVendedoras ?? []).map(m => m.perfil_id as string)

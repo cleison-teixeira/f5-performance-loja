@@ -4,7 +4,6 @@ import { useState, useEffect, useTransition } from 'react'
 import { buscarCliente, salvarVenda } from './actions'
 import { ResumoVenda } from './ResumoVenda'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
-import { calcularComissao } from '@/lib/comissoes/calculador'
 import { CheckCircle, Loader2, UserPlus, Plus, X } from 'lucide-react'
 
 interface Vendedora {
@@ -54,8 +53,6 @@ type ResumoData = {
     comissionavel_recompra: boolean
   }>
   valor_total: number
-  previsao_comissao: number
-  percentual_comissao: number
   avisos: Array<{ data_aviso: string; texto_renderizado: string; tipo: string }>
 }
 
@@ -163,8 +160,6 @@ export function FormNovaVenda({
   const vendedoraSelecionada = todasVendedoras.find(v => v.id === vendedoraId)
     ?? { id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: 0 }
 
-  const percentualComissao = vendedoraSelecionada?.percentual_comissao ?? 0
-
   const valorTotal = itens.reduce((acc, item) => {
     const preco = parseBRL(item.precoBRL)
     return acc + (isNaN(preco) ? 0 : preco * item.quantidade)
@@ -185,10 +180,6 @@ export function FormNovaVenda({
       previsaoBaseSemFixo += preco * item.quantidade
     }
   }
-  const previsaoComissao = previsaoFixa + calcularComissao(previsaoBaseSemFixo, percentualComissao)
-  const apenasFixo = previsaoFixa > 0 && previsaoBaseSemFixo === 0
-  const temFixo = previsaoFixa > 0
-
   const digits = normalizarWhatsapp(whatsapp)
   const itensValidos = itens.every(item => {
     const preco = parseBRL(item.precoBRL)
@@ -242,8 +233,6 @@ export function FormNovaVenda({
       data_compra: dataCompra,
       itens: resultado.itens,
       valor_total: resultado.valor_total,
-      previsao_comissao: resultado.previsao_comissao,
-      percentual_comissao: resultado.percentual_comissao,
       avisos: resultado.avisos,
     })
     setEtapa('resumo')
@@ -268,8 +257,6 @@ export function FormNovaVenda({
         data_compra={resumo.data_compra}
         itens={resumo.itens}
         valor_total={resumo.valor_total}
-        previsao_comissao={resumo.previsao_comissao}
-        percentual_comissao={resumo.percentual_comissao}
         avisos={resumo.avisos}
         onNovaVenda={handleNovaVenda}
       />
@@ -472,18 +459,6 @@ export function FormNovaVenda({
               <div className="text-sm flex justify-between items-center">
                 <span className="text-muted-foreground">Base prevista de recompra</span>
                 <span className="font-medium">{formatarBRL(previsaoBaseSemFixo + previsaoFixa)}</span>
-              </div>
-            )}
-            {previsaoComissao > 0 && (
-              <div className="text-sm flex justify-between items-center">
-                <span className="text-muted-foreground">
-                  {apenasFixo
-                    ? 'Previsão de comissão (fixo)'
-                    : temFixo
-                      ? 'Previsão de comissão (fixo + %)'
-                      : `Previsão de comissão (${percentualComissao}%)`}
-                </span>
-                <span className="font-medium text-amber-600 dark:text-amber-400">{formatarBRL(previsaoComissao)}</span>
               </div>
             )}
           </div>

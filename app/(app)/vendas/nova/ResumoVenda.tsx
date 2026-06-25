@@ -13,8 +13,6 @@ interface ResumoProps {
   data_compra: string
   itens: ItemResumo[]
   valor_total: number
-  previsao_comissao: number
-  percentual_comissao: number
   avisos: Array<{ data_aviso: string; texto_renderizado: string; tipo: string }>
   onNovaVenda: () => void
 }
@@ -69,8 +67,6 @@ export function ResumoVenda({
   data_compra,
   itens,
   valor_total,
-  previsao_comissao,
-  percentual_comissao,
   avisos,
   onNovaVenda,
 }: ResumoProps) {
@@ -111,12 +107,6 @@ export function ResumoVenda({
         <InfoRow label="Total da venda original" value={formatarBRL(valor_total)} />
         {previsao_base > 0 && previsao_base < valor_total && (
           <InfoRow label="Base prevista de recompra" value={formatarBRL(previsao_base)} />
-        )}
-        {previsao_comissao > 0 && (
-          <div className="flex justify-between items-center px-4 py-3 text-sm">
-            <span className="text-muted-foreground">Previsão de comissão futura ({percentual_comissao}%)</span>
-            <span className="font-medium text-amber-600 dark:text-amber-400">{formatarBRL(previsao_comissao)}</span>
-          </div>
         )}
       </div>
 

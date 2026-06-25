@@ -49,17 +49,25 @@ export default async function RelacionamentoPage() {
     .order('data_aviso', { ascending: true })
 
   // Nomes das vendedoras visíveis nos cards
-  const vendedoraIds = [...new Set((avisosRaw ?? []).map(a => a.vendedora_id as string).filter(Boolean))]
+  // Todos os membros ativos da loja (para filtro de responsável)
+  const { data: membrosAtivos } = await admin
+    .from('membros_loja')
+    .select('perfil_id, perfis(nome)')
+    .eq('loja_id', loja.id)
+    .eq('ativo', true)
+
   const vendedoraNomeMap = new Map<string, string>()
-  if (vendedoraIds.length > 0) {
-    const { data: perfisData } = await admin
-      .from('perfis')
-      .select('id, nome')
-      .in('id', vendedoraIds)
-    for (const p of perfisData ?? []) {
-      vendedoraNomeMap.set(p.id as string, p.nome as string)
-    }
+  for (const m of membrosAtivos ?? []) {
+    const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
+    const perfil = Array.isArray(p) ? p[0] : p
+    if (perfil?.nome) vendedoraNomeMap.set(m.perfil_id as string, perfil.nome)
   }
+
+  const vendedorasLoja = (membrosAtivos ?? []).map(m => ({
+    id: m.perfil_id as string,
+    nome: vendedoraNomeMap.get(m.perfil_id as string) ?? '—',
+    percentual: 0,
+  }))
 
   // Filtra apenas agradecimento/relacionamento
   const avisos: AvisoDetalhado[] = (avisosRaw ?? []).filter(a => {
@@ -123,6 +131,7 @@ export default async function RelacionamentoPage() {
         hoje={hoje}
         catalogo={[]}
         percentuaisPorVendedora={{}}
+        vendedorasLoja={vendedorasLoja}
         loja_id={loja.id}
         isVendedora={isVendedora}
         mode="relacionamento"

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { DashboardView } from './DashboardView'
+import { isAcessoMultiloja } from '@/lib/acessos/perfil-produto'
 
 export interface DashboardAviso {
   id: string
@@ -148,6 +149,21 @@ export default async function DashboardPage() {
   const isVendedora = false
   const vidFilter: string | null = null
 
+  // Multi-loja: buscar todos os lojaIds vinculados ao usuário
+  const admin = createAdminClient()
+  const multiLoja = isAcessoMultiloja(role)
+  let lojaIds: string[] = [loja_id]
+  if (multiLoja) {
+    const { data: todosMembros } = await admin
+      .from('membros_loja')
+      .select('loja_id')
+      .eq('perfil_id', user.id)
+      .eq('ativo', true)
+    if (todosMembros && todosMembros.length > 0) {
+      lojaIds = [...new Set(todosMembros.map(m => m.loja_id as string))]
+    }
+  }
+
   const data30 = new Date()
   data30.setDate(data30.getDate() - 30)
   const hoje = new Date().toISOString().split('T')[0]
@@ -169,23 +185,25 @@ export default async function DashboardPage() {
   }
   const hojeDia = agora.getDate()
 
+  const qClient = multiLoja ? admin : supabase
+
   const [vendasRes, avisosRes, recomprasRes, enviadosRes, produtosRes, membrosRes, perfilRes, metasRes, comissaoVendaRes, listaEsperaRes] = await Promise.all([
     (() => {
-      let q = supabase
+      let q = qClient
         .from('vendas')
         .select(`
           id, criado_em, valor, vendedora_id,
           perfis!vendas_vendedora_id_fkey(nome),
           itens_venda(produto_nome, subtotal, recorrente)
         `)
-        .eq('loja_id', loja_id)
+        .in('loja_id', lojaIds)
         .gte('criado_em', data30.toISOString())
         .order('criado_em', { ascending: false })
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
     (() => {
-      let q = supabase
+      let q = qClient
         .from('avisos')
         .select(`
           id, data_aviso, venda_id, status, recompra_id, texto_renderizado, vendedora_id, previsao_comissao,
@@ -194,72 +212,70 @@ export default async function DashboardPage() {
           itens_venda(produto_nome, produto_id, subtotal),
           vendas(valor)
         `)
-        .eq('loja_id', loja_id)
+        .in('loja_id', lojaIds)
         .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
         .order('data_aviso', { ascending: true })
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
     (() => {
-      let q = supabase
+      let q = qClient
         .from('recompras')
         .select(`
           id, criado_em, valor_total, vendedora_id,
           perfis!recompras_vendedora_id_fkey(nome)
         `)
-        .eq('loja_id', loja_id)
+        .in('loja_id', lojaIds)
         .gte('criado_em', data30.toISOString())
         .order('criado_em', { ascending: false })
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
     (() => {
-      let q = supabase
+      let q = qClient
         .from('avisos')
         .select('id', { count: 'exact', head: true })
-        .eq('loja_id', loja_id)
+        .in('loja_id', lojaIds)
         .or('status.eq.enviado,status.eq.convertida')
         .gte('enviado_em', data30.toISOString())
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
-    supabase
+    qClient
       .from('produtos')
       .select('nome, foto_url')
-      .eq('loja_id', loja_id)
+      .in('loja_id', lojaIds)
       .eq('ativo', true),
-    // Vendedoras da loja (para mapa de nomes nos avisos)
+    // Membros das lojas (para mapa de nomes nos avisos)
     !isVendedora
-      ? supabase
+      ? admin
           .from('membros_loja')
           .select('perfil_id, perfis(nome)')
-          .eq('loja_id', loja_id)
+          .in('loja_id', lojaIds)
           .eq('ativo', true)
       : Promise.resolve({ data: [] as Array<{ perfil_id: unknown; perfis: unknown }> }),
     // Nome do usuário atual
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
     // metas do mês corrente
-    // vendedora: usa client autenticado (só vê a própria meta via RLS)
-    // dono/gerente: usa admin client para garantir soma de todas as metas da equipe
     isVendedora
       ? supabase.from('metas_vendedora').select('valor_meta, vendedora_id').eq('loja_id', loja_id).eq('mes', inicioMes).eq('vendedora_id', user.id)
-      : createAdminClient().from('metas_vendedora').select('valor_meta, vendedora_id').eq('loja_id', loja_id).eq('mes', inicioMes),
-    // Comissão canônica: vendas + comissao_venda (inclui venda_manual e recompra)
+      : admin.from('metas_vendedora').select('valor_meta, vendedora_id').in('loja_id', lojaIds).eq('mes', inicioMes),
+    // Comissão canônica: vendas + comissao_venda
     (() => {
-      let q = supabase
+      let q = admin
         .from('vendas')
         .select('data_compra, vendedora_id, comissao_venda!inner(valor_comissao)')
-        .eq('loja_id', loja_id)
+        .in('loja_id', lojaIds)
         .gte('criado_em', data30.toISOString())
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
     // Lista de espera — bloco compacto nos dashboards
     (() => {
-      let q = supabase
+      let q = qClient
         .from('lista_espera')
         .select('id, valor_potencial, cliente_nome')
-        .eq('loja_id', loja_id)
+        .in('loja_id', lojaIds)
         .eq('status', 'aguardando')
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
@@ -548,81 +564,69 @@ export default async function DashboardPage() {
     qtdClientes7Dias: new Set(oport7Dias.map(a => a.cliente_nome)).size,
   }
 
-  // Ranking das lojas (dono/admin_f5 only — multi-loja query)
+  // Ranking das lojas (dono/admin_f5 only — multi-loja)
   let rankingLojas: RankingLojasItem[] = []
-  if (!isVendedora && role !== 'gerente') {
-    const { data: todosMembers } = await supabase
-      .from('membros_loja')
-      .select('loja_id, lojas(id, nome)')
-      .eq('perfil_id', user.id)
-      .eq('ativo', true)
+  if (multiLoja && lojaIds.length > 0) {
+    // Busca nomes das lojas via admin
+    const { data: lojasData } = await admin
+      .from('lojas')
+      .select('id, nome')
+      .in('id', lojaIds)
+    const lojaNomeMap = new Map<string, string>()
+    for (const l of lojasData ?? []) lojaNomeMap.set(l.id as string, l.nome as string)
 
-    if (!todosMembers || todosMembers.length <= 1) {
-      rankingLojas = [{
-        lojaId: loja_id,
-        lojaNome: loja.nome,
-        totalPotencial: dinheiroMesaInfo.totalPotencial,
-        qtdOportunidades: dinheiroMesaInfo.qtdOportunidades,
-        valorRecuperadoMes: totalRecomprasValorMes,
-        qtdRecomprasMes: qtdRecomprasMes,
-      }]
-    } else {
-      const adminClient = createAdminClient()
-      const outrasLojaIds = todosMembers
-        .filter(m => m.loja_id !== loja_id)
-        .map(m => m.loja_id as string)
+    // Recompras do mês por loja
+    const { data: recomprasPorLoja } = await admin
+      .from('recompras')
+      .select('loja_id, valor_total')
+      .in('loja_id', lojaIds)
+      .gte('criado_em', inicioMes)
 
-      const [{ data: avisosOutras }, { data: recomprasOutras }] = await Promise.all([
-        adminClient
-          .from('avisos')
-          .select('loja_id, venda_id, tipo, vendas(valor)')
-          .in('loja_id', outrasLojaIds)
-          .eq('status', 'pendente')
-          .in('tipo', ['recompra', 'oferta']),
-        adminClient
-          .from('recompras')
-          .select('loja_id, valor_total')
-          .in('loja_id', outrasLojaIds)
-          .gte('criado_em', inicioMes),
-      ])
+    // Oportunidades por loja (avisos pendentes de recompra/oferta)
+    const { data: avisosPorLoja } = await admin
+      .from('avisos')
+      .select('loja_id, venda_id, produto_id:itens_venda(produto_id)')
+      .in('loja_id', lojaIds)
+      .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
 
-      const outrasMap = new Map<string, { lojaNome: string; totalPotencial: number; qtdOportunidades: number; valorRecuperadoMes: number; qtdRecomprasMes: number; seen: Set<string> }>()
-      todosMembers.forEach(m => {
-        if (m.loja_id === loja_id) return
-        const lojaObj = m.lojas as { id: string; nome: string } | Array<{ id: string; nome: string }> | null
-        const nomeLoja = Array.isArray(lojaObj) ? lojaObj[0]?.nome : lojaObj?.nome ?? '—'
-        outrasMap.set(m.loja_id as string, { lojaNome: nomeLoja, totalPotencial: 0, qtdOportunidades: 0, valorRecuperadoMes: 0, qtdRecomprasMes: 0, seen: new Set() })
-      })
-
-      ;(avisosOutras ?? []).forEach(a => {
-        const entry = outrasMap.get(a.loja_id as string)
-        if (!entry) return
-        const vendaId = a.venda_id as string | null
-        if (vendaId) {
-          if (entry.seen.has(vendaId)) return
-          entry.seen.add(vendaId)
-        }
-        const vendaRaw = a.vendas as { valor: number } | Array<{ valor: number }> | null
-        const valorVenda = Array.isArray(vendaRaw) ? vendaRaw[0]?.valor ?? 0 : vendaRaw?.valor ?? 0
-        entry.totalPotencial += valorVenda
-        entry.qtdOportunidades++
-      })
-
-      ;(recomprasOutras ?? []).forEach(r => {
-        const entry = outrasMap.get(r.loja_id as string)
-        if (!entry) return
-        entry.valorRecuperadoMes += r.valor_total as number
-        entry.qtdRecomprasMes++
-      })
-
-      const allLojas: RankingLojasItem[] = [
-        { lojaId: loja_id, lojaNome: loja.nome, totalPotencial: dinheiroMesaInfo.totalPotencial, qtdOportunidades: dinheiroMesaInfo.qtdOportunidades, valorRecuperadoMes: totalRecomprasValorMes, qtdRecomprasMes },
-      ]
-      outrasMap.forEach(({ lojaNome, totalPotencial, qtdOportunidades, valorRecuperadoMes, qtdRecomprasMes: qtdR }, lojaId) => {
-        allLojas.push({ lojaId, lojaNome, totalPotencial, qtdOportunidades, valorRecuperadoMes, qtdRecomprasMes: qtdR })
-      })
-      rankingLojas = allLojas.sort((a, b) => b.valorRecuperadoMes - a.valorRecuperadoMes)
+    const lojaMap = new Map<string, { totalPotencial: number; qtdOportunidades: number; valorRecuperadoMes: number; qtdRecomprasMes: number; seen: Set<string> }>()
+    for (const id of lojaIds) {
+      lojaMap.set(id, { totalPotencial: 0, qtdOportunidades: 0, valorRecuperadoMes: 0, qtdRecomprasMes: 0, seen: new Set() })
     }
+
+    for (const r of recomprasPorLoja ?? []) {
+      const entry = lojaMap.get(r.loja_id as string)
+      if (!entry) continue
+      entry.valorRecuperadoMes += r.valor_total as number
+      entry.qtdRecomprasMes++
+    }
+
+    for (const a of avisosPorLoja ?? []) {
+      const entry = lojaMap.get(a.loja_id as string)
+      if (!entry) continue
+      const key = `${a.venda_id}__${(a.produto_id as unknown as { produto_id: string } | null)?.produto_id ?? ''}`
+      if (entry.seen.has(key)) continue
+      entry.seen.add(key)
+      entry.qtdOportunidades++
+    }
+
+    rankingLojas = lojaIds.map(id => ({
+      lojaId: id,
+      lojaNome: lojaNomeMap.get(id) ?? '—',
+      totalPotencial: lojaMap.get(id)?.totalPotencial ?? 0,
+      qtdOportunidades: lojaMap.get(id)?.qtdOportunidades ?? 0,
+      valorRecuperadoMes: lojaMap.get(id)?.valorRecuperadoMes ?? 0,
+      qtdRecomprasMes: lojaMap.get(id)?.qtdRecomprasMes ?? 0,
+    })).sort((a, b) => b.valorRecuperadoMes - a.valorRecuperadoMes)
+  } else if (!isVendedora && role !== 'gerente') {
+    rankingLojas = [{
+      lojaId: loja_id,
+      lojaNome: loja.nome,
+      totalPotencial: dinheiroMesaInfo.totalPotencial,
+      qtdOportunidades: dinheiroMesaInfo.qtdOportunidades,
+      valorRecuperadoMes: totalRecomprasValorMes,
+      qtdRecomprasMes: qtdRecomprasMes,
+    }]
   }
 
   function mkBucket(list: DashboardAviso[]): AvisosBucket {

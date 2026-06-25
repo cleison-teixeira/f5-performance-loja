@@ -192,6 +192,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const [produtoFiltro, setProdutoFiltro] = useState('')
   const [dataEspecifica, setDataEspecifica] = useState('')
   const [tipData, setTipData] = useState<'retorno' | 'compra'>('retorno')
+  const [vendedoraIdFiltro, setVendedoraIdFiltro] = useState('')
 
   // Sync with fresh server data after router.refresh()
   useEffect(() => {
@@ -204,7 +205,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   )
 
   const temFiltrosBusca = busca !== '' || produtoFiltro !== '' || dataEspecifica !== ''
-  const temFiltrosAtivos = temFiltrosBusca || periodo !== 'todos' || tipo !== 'todos'
+  const temFiltrosAtivos = temFiltrosBusca || periodo !== 'todos' || tipo !== 'todos' || vendedoraIdFiltro !== ''
 
   function limparFiltros() {
     setBusca('')
@@ -213,6 +214,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     setTipData('retorno')
     setPeriodo('todos')
     setTipo('todos')
+    setVendedoraIdFiltro('')
   }
 
   function oppKey(a: AvisoDetalhado) {
@@ -259,11 +261,15 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
   })()
 
+  const listaFiltradaPorResponsavel = vendedoraIdFiltro
+    ? lista.filter(a => a.vendedora_id === vendedoraIdFiltro)
+    : lista
+
   // Financial metric — unique recompra/oferta opportunities in the next 90 days (includes overdue)
   const seenOpps = new Set<string>()
   let potencialAberto = 0
   let qtdOportunidades = 0
-  for (const a of lista) {
+  for (const a of listaFiltradaPorResponsavel) {
     if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
     if (a.data_aviso > limite90) continue
     const key = `${a.venda_id}__${a.produto_id ?? ''}`
@@ -277,7 +283,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const seenMes = new Set<string>()
   let potencialMes = 0
   let qtdOportunidadesMes = 0
-  for (const a of lista) {
+  for (const a of listaFiltradaPorResponsavel) {
     if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
     if (a.data_aviso < inicioMes || a.data_aviso > fimMes) continue
     const key = `${a.venda_id}__${a.produto_id ?? ''}`
@@ -288,12 +294,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   }
 
   // Aviso counts — operational queue (all types, all time buckets)
-  const qtdAtrasados = lista.filter(a => a.data_aviso < hoje).length
-  const qtdHoje = lista.filter(a => a.data_aviso === hoje).length
-  const qtdProximos7 = lista.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length
+  const qtdAtrasados = listaFiltradaPorResponsavel.filter(a => a.data_aviso < hoje).length
+  const qtdHoje = listaFiltradaPorResponsavel.filter(a => a.data_aviso === hoje).length
+  const qtdProximos7 = listaFiltradaPorResponsavel.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length
 
   // Filtra por busca/produto/data (antes de tipo, para que contadores de tipo reflitam a busca)
-  const listaComFiltrosBusca = lista.filter(a => {
+  const listaComFiltrosBusca = listaFiltradaPorResponsavel.filter(a => {
     if (busca) {
       const q = busca.toLowerCase()
       const digits = busca.replace(/\D/g, '')
@@ -371,7 +377,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               Avisos pendentes
             </p>
             <p className="text-xl font-bold tabular-nums text-violet-800 dark:text-violet-300 leading-none">
-              {lista.length}
+              {listaFiltradaPorResponsavel.length}
             </p>
             <p className="text-[11px] text-violet-700/55 dark:text-violet-400/50 leading-tight">
               mensagens de relacionamento
@@ -459,6 +465,22 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
         )}
 
       </div>
+
+      {/* ── Filtro de responsável ── */}
+      {vendedorasLoja && vendedorasLoja.length > 1 && (
+        <div>
+          <select
+            value={vendedoraIdFiltro}
+            onChange={e => setVendedoraIdFiltro(e.target.value)}
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-64"
+          >
+            <option value="">Todos os responsáveis</option>
+            {vendedorasLoja.map(v => (
+              <option key={v.id} value={v.id}>{v.nome}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* ── Busca e filtros ── */}
       <div className="flex flex-col sm:flex-row gap-2">

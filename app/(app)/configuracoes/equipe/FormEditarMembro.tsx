@@ -136,35 +136,6 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
           </select>
         </div>
 
-        {/* Comissão padrão — só aparece quando role for vendedora */}
-        {isVendedora && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Comissão padrão (%)
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="w-32">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  placeholder="Ex: 5"
-                  value={comissao}
-                  onChange={e => setComissao(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-              <span className="text-sm text-muted-foreground">%</span>
-            </div>
-            {preview100 && (
-              <p className="text-xs text-muted-foreground">
-                R$&nbsp;100,00 → R$&nbsp;{preview100}
-              </p>
-            )}
-          </div>
-        )}
-
         {/* Ativo */}
         <div className="flex items-center gap-3">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</label>

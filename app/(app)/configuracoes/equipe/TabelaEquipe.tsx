@@ -130,11 +130,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               {m.telefone && (
                 <p className="text-xs text-muted-foreground">{formatarWhatsapp(m.telefone)}</p>
               )}
-              {m.role === 'vendedora' && (
-                <p className="text-xs text-muted-foreground">
-                  Comissão: <span className="font-medium text-foreground">{m.percentual_comissao}%</span>
-                </p>
-              )}
               {podeEditarMembro(m) && (
                 <div className="flex items-center gap-3 pt-1">
                   <button
@@ -169,7 +164,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">E-mail</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefone</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Comissão</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Função</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
               {podeEditar && <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ações</th>}
@@ -178,7 +172,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
           <tbody>
             {membros.length === 0 && (
               <tr>
-                <td colSpan={podeEditar ? 7 : 6} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={podeEditar ? 6 : 5} className="px-4 py-6 text-center text-muted-foreground">
                   Nenhum membro cadastrado.
                 </td>
               </tr>
@@ -187,7 +181,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               if (editandoId === m.membro_id) {
                 return (
                   <tr key={m.membro_id}>
-                    <td colSpan={podeEditar ? 7 : 6} className="px-4 py-3">
+                    <td colSpan={podeEditar ? 6 : 5} className="px-4 py-3">
                       <FormEditarMembro
                         membro={m}
                         loja_id={loja_id}
@@ -204,9 +198,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                   <td className="px-4 py-3 font-medium">{m.nome || '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground">{m.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{m.telefone ? formatarWhatsapp(m.telefone) : '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {m.role === 'vendedora' ? `${m.percentual_comissao}%` : '—'}
-                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
                       {roleLabel[m.role] ?? m.role}
