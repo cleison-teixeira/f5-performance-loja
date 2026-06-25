@@ -127,6 +127,7 @@ export default async function ConfigEquipePage({
         )}
       </div>
       <TabelaEquipe
+        key={loja_id}
         membros={membrosExibidos}
         loja_id={loja_id}
         podeEditar={podeEditar}
