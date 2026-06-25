@@ -35,7 +35,7 @@ export default async function AvisosPage() {
   const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
   const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
   const hoje = new Date().toISOString().split('T')[0]
-  const isVendedora = (membro.role as string) === 'vendedora'
+  const isVendedora = false
 
   // Avisos pendentes — vendedora vê apenas os próprios; dono/gerente veem toda a loja
   let avisosQuery = supabase
@@ -95,31 +95,45 @@ export default async function AvisosPage() {
   const totalRecomprasValorMes = (recomprasData ?? []).reduce((s, r) => s + ((r.valor_total as number) ?? 0), 0)
   const qtdRecomprasMes = (recomprasData ?? []).length
 
+  // Todos os membros ativos da loja (para seletor de responsável)
+  const { data: membrosAtivos } = await supabase
+    .from('membros_loja')
+    .select('perfil_id, perfis(nome)')
+    .eq('loja_id', loja.id)
+    .eq('ativo', true)
+
+  const todosMembrosIds = (membrosAtivos ?? []).map(m => m.perfil_id as string)
+
   // Percentuais de comissão + nomes das vendedoras que aparecem nos avisos
   const vendedoraIds = [...new Set((avisosRaw ?? []).map(a => a.vendedora_id as string).filter(Boolean))]
   const percentuaisPorVendedora: Record<string, number> = {}
   const vendedoraNomeMap = new Map<string, string>()
 
-  if (vendedoraIds.length > 0) {
-    const [regrasRes, perfisRes] = await Promise.all([
-      supabase
-        .from('regras_comissao')
-        .select('vendedora_id, percentual')
-        .in('vendedora_id', vendedoraIds)
-        .eq('loja_id', loja.id)
-        .eq('ativo', true),
-      supabase
-        .from('perfis')
-        .select('id, nome')
-        .in('id', vendedoraIds),
-    ])
+  // Populate nome map from all active members first
+  for (const m of membrosAtivos ?? []) {
+    const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
+    const perfil = Array.isArray(p) ? p[0] : p
+    if (perfil?.nome) vendedoraNomeMap.set(m.perfil_id as string, perfil.nome)
+  }
+
+  const allIds = [...new Set([...vendedoraIds, ...todosMembrosIds])]
+  if (allIds.length > 0) {
+    const regrasRes = await supabase
+      .from('regras_comissao')
+      .select('vendedora_id, percentual')
+      .in('vendedora_id', allIds)
+      .eq('loja_id', loja.id)
+      .eq('ativo', true)
     for (const r of regrasRes.data ?? []) {
       percentuaisPorVendedora[r.vendedora_id as string] = r.percentual as number
     }
-    for (const p of perfisRes.data ?? []) {
-      vendedoraNomeMap.set(p.id as string, p.nome as string)
-    }
   }
+
+  const vendedorasLoja = (membrosAtivos ?? []).map(m => ({
+    id: m.perfil_id as string,
+    nome: vendedoraNomeMap.get(m.perfil_id as string) ?? '—',
+    percentual: percentuaisPorVendedora[m.perfil_id as string] ?? 0,
+  }))
 
   // Normaliza os dados
   const avisos: AvisoDetalhado[] = (avisosRaw ?? []).filter(a => {
@@ -171,7 +185,7 @@ export default async function AvisosPage() {
       {/* ── Cabeçalho ── */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">
-          {isVendedora ? 'Minha Fila de Recompra' : 'Fila de Recompra'}
+          Fila de Recompra
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
         <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
@@ -185,6 +199,7 @@ export default async function AvisosPage() {
         hoje={hoje}
         catalogo={catalogo}
         percentuaisPorVendedora={percentuaisPorVendedora}
+        vendedorasLoja={vendedorasLoja}
         loja_id={loja.id}
         loja_nome={loja.nome}
         isVendedora={isVendedora}

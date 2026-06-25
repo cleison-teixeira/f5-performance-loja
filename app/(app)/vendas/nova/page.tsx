@@ -35,7 +35,6 @@ export default async function NovaVendaPage() {
 
   const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
   const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
-  const userRole = membro.role as string
 
   // Produtos ativos da loja
   const { data: produtos } = await supabase
@@ -119,7 +118,6 @@ export default async function NovaVendaPage() {
       <FormNovaVenda
         loja_id={loja.id}
         loja_nome={loja.nome}
-        userRole={userRole}
         vendedora_logada_id={user.id}
         vendedora_logada_nome={perfil?.nome ?? ''}
         vendedoras={vendedoras}

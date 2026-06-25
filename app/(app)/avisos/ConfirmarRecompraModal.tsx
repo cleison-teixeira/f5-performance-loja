@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { confirmarRecompra } from './actions'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
+import type { VendedoraLoja } from './AvisosLista'
 import { Plus, X } from 'lucide-react'
 
 interface Props {
   aviso: AvisoDetalhado
   catalogo: CatalogoProduto[]
   percentualComissao: number
+  vendedorasLoja?: VendedoraLoja[]
   loja_id: string
   onSucesso: (aviso_id: string) => void
   onFechar: () => void
@@ -42,6 +44,7 @@ export function ConfirmarRecompraModal({
   aviso,
   catalogo,
   percentualComissao,
+  vendedorasLoja,
   loja_id,
   onSucesso,
   onFechar,
@@ -83,6 +86,7 @@ export function ConfirmarRecompraModal({
   const [itens, setItens] = useState<ItemForm[]>(() => criarItensIniciais())
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [vendedoraIdSelecionada, setVendedoraIdSelecionada] = useState(aviso.vendedora_id)
 
   function atualizar(key: string, patch: Partial<ItemForm>) {
     setItens(prev => prev.map(i => i.key === key ? { ...i, ...patch } : i))
@@ -125,7 +129,7 @@ export function ConfirmarRecompraModal({
       venda_original_id: aviso.venda_id,
       loja_id,
       cliente_id: aviso.cliente_id,
-      vendedora_id: aviso.vendedora_id,
+      vendedora_id: vendedoraIdSelecionada,
       itens: itens.map(item => ({
         produto_id: item.produtoId || null,
         produto_nome: item.produtoNome.trim(),
@@ -268,6 +272,22 @@ export function ConfirmarRecompraModal({
               Adicionar produto
             </button>
           </div>
+
+          {/* Responsável pela recompra */}
+          {vendedorasLoja && vendedorasLoja.length > 1 && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Responsável pela recompra</label>
+              <select
+                value={vendedoraIdSelecionada}
+                onChange={e => setVendedoraIdSelecionada(e.target.value)}
+                className={inputClass}
+              >
+                {vendedorasLoja.map(v => (
+                  <option key={v.id} value={v.id}>{v.nome}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Resumo financeiro */}
           {valorTotal > 0 && (

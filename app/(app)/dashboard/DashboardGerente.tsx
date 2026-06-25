@@ -72,7 +72,7 @@ export function DashboardGerente({
           <p className="text-sm text-muted-foreground mt-0.5">{loja.nome} · Dinheiro na mesa, recompras em aberto e fila da equipe.</p>
         </div>
         <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 flex-none mt-1">
-          Gerente
+          Acesso Loja
         </span>
       </div>
 

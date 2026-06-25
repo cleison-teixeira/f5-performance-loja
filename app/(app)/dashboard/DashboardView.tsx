@@ -1,6 +1,7 @@
 import { DashboardDono } from './DashboardDono'
 import { DashboardGerente } from './DashboardGerente'
 import { DashboardVendedora } from './DashboardVendedora'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import type {
   DashboardAviso, FunilStep, ProdutoRadarItem, VendedoraRanking, VendedoraComPendencia,
   VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo,
@@ -51,25 +52,7 @@ interface Props {
 export function DashboardView(props: Props) {
   const { role } = props
 
-  if (role === 'vendedora') {
-    return (
-      <DashboardVendedora
-        loja={props.loja}
-        nomeVendedora={props.nomeVendedora}
-        avisosAtrasados={props.avisosAtrasados}
-        avisosHoje={props.avisosHoje}
-        listaEsperaInfo={props.listaEsperaInfo}
-        avisosEnviadosCount={props.avisosEnviadosCount}
-        topProdutosMes={props.topProdutosMes}
-        totalRecomprasValorMes={props.totalRecomprasValorMes}
-        qtdRecomprasMes={props.qtdRecomprasMes}
-        dinheiroMesaInfo={props.dinheiroMesaInfo}
-        topProdutosRecompra={props.topProdutosRecompra}
-      />
-    )
-  }
-
-  if (role === 'gerente') {
+  if (isAcessoLoja(role)) {
     return (
       <DashboardGerente
         loja={props.loja}

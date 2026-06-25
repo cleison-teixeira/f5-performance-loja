@@ -25,7 +25,6 @@ interface ProdutoCatalogo {
 interface Props {
   loja_id: string
   loja_nome: string
-  userRole: string
   vendedora_logada_id: string
   vendedora_logada_nome: string
   vendedoras: Vendedora[]
@@ -78,7 +77,6 @@ const inputClass =
 export function FormNovaVenda({
   loja_id,
   loja_nome,
-  userRole,
   vendedora_logada_id,
   vendedora_logada_nome,
   vendedoras,
@@ -88,11 +86,7 @@ export function FormNovaVenda({
   const [etapa, setEtapa] = useState<'form' | 'resumo'>('form')
   const [resumo, setResumo] = useState<ResumoData | null>(null)
 
-  const isVendedora = userRole === 'vendedora'
-
-  const [vendedoraId, setVendedoraId] = useState<string>(
-    isVendedora ? vendedora_logada_id : (vendedoras[0]?.id ?? vendedora_logada_id)
-  )
+  const [vendedoraId, setVendedoraId] = useState<string>(vendedora_logada_id)
 
   function hojeLocal() {
     const d = new Date()
@@ -162,9 +156,12 @@ export function FormNovaVenda({
     }
   }
 
-  const vendedoraSelecionada = isVendedora
-    ? { id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: vendedoras.find(v => v.id === vendedora_logada_id)?.percentual_comissao ?? 0 }
-    : vendedoras.find(v => v.id === vendedoraId)
+  const todasVendedoras = vendedoras.some(v => v.id === vendedora_logada_id)
+    ? vendedoras
+    : [{ id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: 0 }, ...vendedoras]
+
+  const vendedoraSelecionada = todasVendedoras.find(v => v.id === vendedoraId)
+    ?? { id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: 0 }
 
   const percentualComissao = vendedoraSelecionada?.percentual_comissao ?? 0
 
@@ -212,9 +209,7 @@ export function FormNovaVenda({
     setCarregando(true)
     setErro('')
 
-    const vendedoraNome = isVendedora
-      ? vendedora_logada_nome
-      : (vendedoraSelecionada?.nome ?? vendedora_logada_nome)
+    const vendedoraNome = vendedoraSelecionada?.nome ?? vendedora_logada_nome
 
     const resultado = await salvarVenda({
       loja_id,
@@ -263,7 +258,7 @@ export function FormNovaVenda({
     setDataCompra(hojeLocal())
     setItens([novoItem()])
     setErro('')
-    if (!isVendedora) setVendedoraId(vendedoras[0]?.id ?? vendedora_logada_id)
+    setVendedoraId(vendedora_logada_id)
   }
 
   if (etapa === 'resumo' && resumo) {
@@ -498,31 +493,18 @@ export function FormNovaVenda({
       {/* Bloco: Responsável */}
       <div className="rounded-xl border bg-card p-4 space-y-1.5">
         <label className="block text-sm font-medium" htmlFor="vendedora">
-          Vendedora responsável
+          Responsável pela venda
         </label>
-        {isVendedora ? (
-          <input
-            id="vendedora"
-            type="text"
-            value={vendedora_logada_nome}
-            disabled
-            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-          />
-        ) : (
-          <select
-            id="vendedora"
-            value={vendedoraId}
-            onChange={e => setVendedoraId(e.target.value)}
-            className={inputClass}
-          >
-            {vendedoras.length === 0 && (
-              <option value={vendedora_logada_id}>{vendedora_logada_nome}</option>
-            )}
-            {vendedoras.map(v => (
-              <option key={v.id} value={v.id}>{v.nome}</option>
-            ))}
-          </select>
-        )}
+        <select
+          id="vendedora"
+          value={vendedoraId}
+          onChange={e => setVendedoraId(e.target.value)}
+          className={inputClass}
+        >
+          {todasVendedoras.map(v => (
+            <option key={v.id} value={v.id}>{v.nome}</option>
+          ))}
+        </select>
       </div>
 
       {erro && (

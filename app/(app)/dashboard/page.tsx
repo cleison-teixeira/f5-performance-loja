@@ -145,8 +145,8 @@ export default async function DashboardPage() {
   const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
   const loja_id = membro.loja_id as string
   const role = membro.role as string
-  const isVendedora = role === 'vendedora'
-  const vidFilter = isVendedora ? user.id : null
+  const isVendedora = false
+  const vidFilter: string | null = null
 
   const data30 = new Date()
   data30.setDate(data30.getDate() - 30)

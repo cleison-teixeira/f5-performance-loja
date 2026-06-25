@@ -28,7 +28,7 @@ export default async function RelacionamentoPage() {
   const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
   const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
   const hoje = new Date().toISOString().split('T')[0]
-  const isVendedora = (membro.role as string) === 'vendedora'
+  const isVendedora = false
 
   let avisosQuery = supabase
     .from('avisos')

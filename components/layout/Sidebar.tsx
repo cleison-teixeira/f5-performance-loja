@@ -8,6 +8,7 @@ import {
   Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 
 const operacaoItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
@@ -44,7 +45,7 @@ interface Props {
 
 export function Sidebar({ role }: Props) {
   const pathname = usePathname()
-  const isVendedora = role === 'vendedora'
+  const isVendedora = isAcessoLoja(role)
 
   function isActive(href: string) {
     if (pathname === href) return true

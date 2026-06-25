@@ -10,6 +10,7 @@ import { ReagendarModal } from './ReagendarModal'
 import { PerderOportunidadeModal } from './PerderOportunidadeModal'
 import type { AvisoDetalhado, GrupoRecompra } from './types'
 import type { CatalogoProduto } from './page'
+import type { VendedoraLoja } from './AvisosLista'
 
 interface CardGrupoRecompraProps {
   grupo: GrupoRecompra
@@ -17,6 +18,7 @@ interface CardGrupoRecompraProps {
   onGrupoReagendado: (venda_id: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentualComissao: number
+  vendedorasLoja?: VendedoraLoja[]
   loja_id: string
   loja_nome: string
   isVendedora: boolean
@@ -82,6 +84,7 @@ export function CardGrupoRecompra({
   onGrupoReagendado,
   catalogo,
   percentualComissao,
+  vendedorasLoja,
   loja_id,
   loja_nome,
   isVendedora,
@@ -342,6 +345,7 @@ export function CardGrupoRecompra({
           aviso={primaryAviso}
           catalogo={catalogo}
           percentualComissao={percentualComissao}
+          vendedorasLoja={vendedorasLoja}
           loja_id={loja_id}
           onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
           onFechar={() => setModalRecompra(false)}

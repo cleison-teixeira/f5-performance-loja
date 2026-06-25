@@ -11,6 +11,7 @@ import { ReagendarModal } from './ReagendarModal'
 import { PerderOportunidadeModal } from './PerderOportunidadeModal'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
+import type { VendedoraLoja } from './AvisosLista'
 
 interface CardAvisoProps {
   aviso: AvisoDetalhado
@@ -18,6 +19,7 @@ interface CardAvisoProps {
   onReagendado: (oppKey: string, novaData: string) => void
   catalogo: CatalogoProduto[]
   percentualComissao: number
+  vendedorasLoja?: VendedoraLoja[]
   loja_id: string
   isVendedora: boolean
 }
@@ -79,7 +81,7 @@ function badgeTemporal(dataAviso: string): { label: string; cls: string; key: st
   }
 }
 
-export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentualComissao, loja_id, isVendedora }: CardAvisoProps) {
+export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentualComissao, vendedorasLoja, loja_id, isVendedora }: CardAvisoProps) {
   // Chave da oportunidade: item_venda_id quando disponível, fallback para venda_id
   const oppKey = aviso.item_venda_id ?? aviso.venda_id
   const [loading, setLoading] = useState(false)
@@ -394,6 +396,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
           aviso={aviso}
           catalogo={catalogo}
           percentualComissao={percentualComissao}
+          vendedorasLoja={vendedorasLoja}
           loja_id={loja_id}
           onSucesso={(id) => { setModalRecompra(false); onMarcado(id, oppKey) }}
           onFechar={() => setModalRecompra(false)}
