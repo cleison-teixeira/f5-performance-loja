@@ -1,8 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { DashboardView } from './DashboardView'
-import { isAcessoMultiloja } from '@/lib/acessos/perfil-produto'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 
 export interface DashboardAviso {
   id: string
@@ -120,20 +123,22 @@ function addDias(base: string, n: number): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: membrosRaw } = await admin
     .from('membros_loja')
     .select('loja_id, role, lojas(id, nome)')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!membrosRaw || membrosRaw.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Dashboard</h1>
@@ -142,27 +147,28 @@ export default async function DashboardPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
-  const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
-  const loja_id = membro.loja_id as string
-  const role = membro.role as string
+  const role = membrosRaw.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, membrosRaw[0].role as string)
+
   const isVendedora = false
   const vidFilter: string | null = null
 
-  // Multi-loja: buscar todos os lojaIds vinculados ao usuário
-  const admin = createAdminClient()
-  const multiLoja = isAcessoMultiloja(role)
-  let lojaIds: string[] = [loja_id]
-  if (multiLoja) {
-    const { data: todosMembros } = await admin
-      .from('membros_loja')
-      .select('loja_id')
-      .eq('perfil_id', user.id)
-      .eq('ativo', true)
-    if (todosMembros && todosMembros.length > 0) {
-      lojaIds = [...new Set(todosMembros.map(m => m.loja_id as string))]
-    }
-  }
+  // Global loja context
+  const multiLojaUser = !isAcessoLoja(role)
+  const ctx = await getContextoLoja(user.id, multiLojaUser)
+
+  // In rede mode: all lojas. In loja mode: selected loja only.
+  const multiLoja = ctx.escopo === 'rede'
+  const lojaIds = ctx.lojaIds.length > 0 ? ctx.lojaIds : [membrosRaw[0].loja_id as string]
+
+  // Display loja: selected or first
+  const lojaRaw0 = membrosRaw[0].lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
+  const lojaDefault = Array.isArray(lojaRaw0) ? lojaRaw0[0] : lojaRaw0
+  const lojaDisplay = ctx.lojas.find(l => l.id === (ctx.lojaId ?? lojaIds[0])) ?? lojaDefault
+  const loja = { id: lojaDisplay?.id ?? lojaIds[0], nome: lojaDisplay?.nome ?? '' }
+  const loja_id = loja.id
 
   const data30 = new Date()
   data30.setDate(data30.getDate() - 30)

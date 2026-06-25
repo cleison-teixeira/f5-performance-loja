@@ -1,28 +1,28 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 import { FormNovaVenda } from './FormNovaVenda'
+
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
 export default async function NovaVendaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(id, nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  const { data: perfil } = await supabase
-    .from('perfis')
-    .select('nome')
-    .eq('id', user.id)
-    .single()
-
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
@@ -33,35 +33,65 @@ export default async function NovaVendaPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
-  const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.escopo === 'rede') {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
+        <p className="text-sm text-muted-foreground">
+          Selecione uma loja no seletor acima para registrar uma compra.
+        </p>
+      </div>
+    )
+  }
+
+  if (!ctx.lojaId) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
+        <p className="text-sm text-muted-foreground">
+          Você ainda não pertence a nenhuma loja. Entre em contato com o administrador.
+        </p>
+      </div>
+    )
+  }
+
+  const { data: perfil } = await supabase
+    .from('perfis')
+    .select('nome')
+    .eq('id', user.id)
+    .single()
 
   // Produtos ativos da loja
   const { data: produtos } = await supabase
     .from('produtos')
     .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra')
-    .eq('loja_id', loja.id)
+    .eq('loja_id', ctx.lojaId)
     .eq('ativo', true)
     .order('nome')
 
-  // Todos os membros ativos da loja (Acesso Loja — qualquer membro pode ser responsável)
-  const { data: membrosVendedoras } = await createAdminClient()
+  // Todos os membros ativos da loja
+  const { data: membrosVendedoras } = await admin
     .from('membros_loja')
     .select('perfil_id, perfis(id, nome)')
-    .eq('loja_id', loja.id)
+    .eq('loja_id', ctx.lojaId)
     .eq('ativo', true)
 
   const vendedoraIds = (membrosVendedoras ?? []).map(m => m.perfil_id as string)
-
-  // Admin client para dados restritos (comissões)
-  const admin = createAdminClient()
 
   // Comissão padrão das vendedoras
   const { data: regras } = vendedoraIds.length > 0
     ? await admin
         .from('regras_comissao')
         .select('vendedora_id, percentual')
-        .eq('loja_id', loja.id)
+        .eq('loja_id', ctx.lojaId)
         .eq('ativo', true)
         .in('vendedora_id', vendedoraIds)
     : { data: [] }
@@ -70,11 +100,10 @@ export default async function NovaVendaPage() {
     (regras ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
   )
 
-  // Comissão padrão do próprio usuário (se for vendedora)
   const { data: regraLogada } = await admin
     .from('regras_comissao')
     .select('percentual')
-    .eq('loja_id', loja.id)
+    .eq('loja_id', ctx.lojaId)
     .eq('vendedora_id', user.id)
     .eq('ativo', true)
     .maybeSingle()
@@ -92,14 +121,13 @@ export default async function NovaVendaPage() {
     }
   })
 
-  // Comissões fixas por produto (admin para burlar RLS — vendedoras não veem regras mas precisam do preview)
+  // Comissões fixas por produto
   const { data: fixasData } = await admin
     .from('comissao_fixa_produto')
     .select('vendedora_id, produto_id, valor_fixo')
-    .eq('loja_id', loja.id)
+    .eq('loja_id', ctx.lojaId)
     .eq('ativo', true)
 
-  // { [vendedora_id]: { [produto_id]: valor_fixo } }
   const fixasPorVendedoraProduto: Record<string, Record<string, number>> = {}
   for (const f of fixasData ?? []) {
     const vid = f.vendedora_id as string
@@ -112,11 +140,11 @@ export default async function NovaVendaPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
-        <p className="text-sm text-muted-foreground">{loja.nome} · Cadastre uma compra recorrente para o F5 avisar a equipe na hora certa.</p>
+        <p className="text-sm text-muted-foreground">{ctx.lojaNome} · Cadastre uma compra recorrente para o F5 avisar a equipe na hora certa.</p>
       </div>
       <FormNovaVenda
-        loja_id={loja.id}
-        loja_nome={loja.nome}
+        loja_id={ctx.lojaId}
+        loja_nome={ctx.lojaNome}
         vendedora_logada_id={user.id}
         vendedora_logada_nome={perfil?.nome ?? ''}
         vendedoras={vendedoras}

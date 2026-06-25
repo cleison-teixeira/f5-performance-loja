@@ -88,6 +88,21 @@ A rastreabilidade vem do campo responsável, não necessariamente do usuário lo
 Dono deve ver consolidado das lojas vinculadas.
 Dashboard de dono/multi-loja deve somar todas as lojas permitidas, não apenas a loja ativa.
 
+## Contexto de loja
+
+Cookie `f5_loja_ctx` guarda a loja selecionada pelo dono (UUID) ou vazio para "Toda a rede".
+
+Helper `getContextoLoja(userId, multiLoja)` em `lib/loja/contexto.ts`:
+- Retorna `{ lojas, lojaId, escopo: 'rede'|'loja', lojaIds, lojaNome }`
+- Para usuários single-loja: sempre `escopo = 'loja'`
+- Para multi-loja sem cookie: `escopo = 'rede'`, `lojaIds = [todas]`
+
+Regra de telas:
+- Dashboard / Fila / Relacionamento: aceitam `escopo = 'rede'` (agrega tudo)
+- Registrar Compra / Equipe / Produtos: requerem loja específica — mostrar aviso se `escopo = 'rede'`
+
+O seletor global `SeletorLojaGlobal` fica no layout, abaixo do Header, visível apenas para dono/admin_f5 com mais de 1 loja.
+
 ## Relatórios finais
 
 Ao finalizar uma fase, responder curto:

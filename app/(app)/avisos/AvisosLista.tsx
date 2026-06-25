@@ -27,6 +27,7 @@ interface AvisosListaProps {
   mode: 'recompra' | 'relacionamento'
   totalRecomprasValorMes?: number
   qtdRecomprasMes?: number
+  mostrarLoja?: boolean
 }
 
 type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
@@ -101,12 +102,13 @@ interface SecaoProps {
   loja_nome: string
   isVendedora: boolean
   mode: 'recompra' | 'relacionamento'
+  mostrarLoja?: boolean
 }
 
 function SecaoAvisos({
   titulo, subtitulo, avisos, corCls, badgeCls, icone, valorPotencial,
   onMarcado, onReagendado, onGrupoMarcado, onGrupoReagendado,
-  catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome, isVendedora, mode,
+  catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome, isVendedora, mode, mostrarLoja,
 }: SecaoProps) {
   const grupos = mode === 'recompra' ? agruparPorVenda(avisos) : null
   const displayCount = grupos ? grupos.length : avisos.length
@@ -138,43 +140,55 @@ function SecaoAvisos({
       <div className="space-y-3">
         {grupos ? grupos.map(grupo =>
           grupo.avisos.length === 1 ? (
+            <div key={grupo.avisos[0].id}>
+              {mostrarLoja && grupo.avisos[0].loja_nome && (
+                <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
+              )}
+              <CardAviso
+                aviso={grupo.avisos[0]}
+                onMarcado={onMarcado}
+                onReagendado={onReagendado}
+                catalogo={catalogo}
+                percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
+                vendedorasLoja={vendedorasLoja}
+                loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
+                isVendedora={isVendedora}
+              />
+            </div>
+          ) : (
+            <div key={grupo.venda_id}>
+              {mostrarLoja && grupo.avisos[0].loja_nome && (
+                <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
+              )}
+              <CardGrupoRecompra
+                grupo={grupo}
+                onGrupoMarcado={onGrupoMarcado}
+                onGrupoReagendado={onGrupoReagendado}
+                catalogo={catalogo}
+                percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
+                vendedorasLoja={vendedorasLoja}
+                loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
+                loja_nome={loja_nome}
+                isVendedora={isVendedora}
+              />
+            </div>
+          )
+        ) : avisos.map(aviso => (
+          <div key={aviso.id}>
+            {mostrarLoja && aviso.loja_nome && (
+              <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
+            )}
             <CardAviso
-              key={grupo.avisos[0].id}
-              aviso={grupo.avisos[0]}
+              aviso={aviso}
               onMarcado={onMarcado}
               onReagendado={onReagendado}
               catalogo={catalogo}
-              percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
+              percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
               vendedorasLoja={vendedorasLoja}
-              loja_id={loja_id}
+              loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
               isVendedora={isVendedora}
             />
-          ) : (
-            <CardGrupoRecompra
-              key={grupo.venda_id}
-              grupo={grupo}
-              onGrupoMarcado={onGrupoMarcado}
-              onGrupoReagendado={onGrupoReagendado}
-              catalogo={catalogo}
-              percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
-              vendedorasLoja={vendedorasLoja}
-              loja_id={loja_id}
-              loja_nome={loja_nome}
-              isVendedora={isVendedora}
-            />
-          )
-        ) : avisos.map(aviso => (
-          <CardAviso
-            key={aviso.id}
-            aviso={aviso}
-            onMarcado={onMarcado}
-            onReagendado={onReagendado}
-            catalogo={catalogo}
-            percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
-            vendedorasLoja={vendedorasLoja}
-            loja_id={loja_id}
-            isVendedora={isVendedora}
-          />
+          </div>
         ))}
       </div>
     </div>
@@ -183,7 +197,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0 }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false }: AvisosListaProps) {
   const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
@@ -638,6 +652,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             loja_nome={loja_nome}
             isVendedora={isVendedora}
             mode={mode}
+            mostrarLoja={mostrarLoja}
           />
           <SecaoAvisos
             titulo="Hoje"
@@ -658,6 +673,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             loja_nome={loja_nome}
             isVendedora={isVendedora}
             mode={mode}
+            mostrarLoja={mostrarLoja}
           />
           <SecaoAvisos
             titulo="Próximos dias"
@@ -678,6 +694,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             loja_nome={loja_nome}
             isVendedora={isVendedora}
             mode={mode}
+            mostrarLoja={mostrarLoja}
           />
           {grupos.futuros.length > 0 && (
             <SecaoAvisos
@@ -756,47 +773,59 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             <div className="space-y-3">
               {agruparPorVenda(avisosFiltrados).map(grupo =>
                 grupo.avisos.length === 1 ? (
-                  <CardAviso
-                    key={grupo.avisos[0].id}
-                    aviso={grupo.avisos[0]}
-                    onMarcado={handleMarcado}
-                    onReagendado={handleReagendado}
-                    catalogo={catalogo}
-                    percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
-                    vendedorasLoja={vendedorasLoja}
-                    loja_id={loja_id}
-                    isVendedora={isVendedora}
-                  />
+                  <div key={grupo.avisos[0].id}>
+                    {mostrarLoja && grupo.avisos[0].loja_nome && (
+                      <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
+                    )}
+                    <CardAviso
+                      aviso={grupo.avisos[0]}
+                      onMarcado={handleMarcado}
+                      onReagendado={handleReagendado}
+                      catalogo={catalogo}
+                      percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
+                      vendedorasLoja={vendedorasLoja}
+                      loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
+                      isVendedora={isVendedora}
+                    />
+                  </div>
                 ) : (
-                  <CardGrupoRecompra
-                    key={grupo.venda_id}
-                    grupo={grupo}
-                    onGrupoMarcado={handleGrupoMarcado}
-                    onGrupoReagendado={handleGrupoReagendado}
-                    catalogo={catalogo}
-                    percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
-                    vendedorasLoja={vendedorasLoja}
-                    loja_id={loja_id}
-                    loja_nome={loja_nome}
-                    isVendedora={isVendedora}
-                  />
+                  <div key={grupo.venda_id}>
+                    {mostrarLoja && grupo.avisos[0].loja_nome && (
+                      <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
+                    )}
+                    <CardGrupoRecompra
+                      grupo={grupo}
+                      onGrupoMarcado={handleGrupoMarcado}
+                      onGrupoReagendado={handleGrupoReagendado}
+                      catalogo={catalogo}
+                      percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
+                      vendedorasLoja={vendedorasLoja}
+                      loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
+                      loja_nome={loja_nome}
+                      isVendedora={isVendedora}
+                    />
+                  </div>
                 )
               )}
             </div>
           ) : (
             <div className="space-y-3">
               {avisosFiltrados.map(aviso => (
-                <CardAviso
-                  key={aviso.id}
-                  aviso={aviso}
-                  onMarcado={handleMarcado}
-                  onReagendado={handleReagendado}
-                  catalogo={catalogo}
-                  percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
-                  vendedorasLoja={vendedorasLoja}
-                  loja_id={loja_id}
-                  isVendedora={isVendedora}
-                />
+                <div key={aviso.id}>
+                  {mostrarLoja && aviso.loja_nome && (
+                    <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
+                  )}
+                  <CardAviso
+                    aviso={aviso}
+                    onMarcado={handleMarcado}
+                    onReagendado={handleReagendado}
+                    catalogo={catalogo}
+                    percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
+                    vendedorasLoja={vendedorasLoja}
+                    loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
+                    isVendedora={isVendedora}
+                  />
+                </div>
               ))}
             </div>
           )}

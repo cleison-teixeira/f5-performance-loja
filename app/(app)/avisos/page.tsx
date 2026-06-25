@@ -1,6 +1,10 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { getContextoLoja } from '@/lib/loja/contexto'
 import { AvisosLista } from './AvisosLista'
 import type { AvisoDetalhado } from './types'
 
@@ -11,20 +15,22 @@ export interface CatalogoProduto {
   comissionavel_recompra: boolean
 }
 
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
 export default async function AvisosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(id, nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) {
+  if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Fila de Recompra</h1>
@@ -33,31 +39,45 @@ export default async function AvisosPage() {
     )
   }
 
-  const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
-  const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Fila de Recompra</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
+
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+  const mostrarLoja = ctx.escopo === 'rede'
   const hoje = new Date().toISOString().split('T')[0]
   const isVendedora = false
 
-  // Admin client usado para leituras loja-wide — contorna RLS que restringe vendedora
-  // aos próprios avisos. Segurança: loja_id sempre validado via membros_loja acima.
-  const admin = createAdminClient()
+  // Fallback loja_id for catalog/recompras queries in single-loja mode
+  const lojaIdFallback = ctx.lojaId ?? ctx.lojaIds[0]
 
-  // Avisos pendentes (toda a loja)
   const { data: avisosRaw } = await admin
     .from('avisos')
     .select(`
-      id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
+      id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
       itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url)),
       vendas(valor)
     `)
-    .eq('loja_id', loja.id)
+    .in('loja_id', ctx.lojaIds)
     .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
     .order('data_aviso', { ascending: true })
 
-  // Busca data_compra via query direta — o join vendas(data_compra) pode ser ambíguo
-  // quando itens_venda também tem FK para vendas no mesmo select, retornando null.
+  // data_compra via separate query — join ambiguity when itens_venda also has FK to vendas
   const vendaIds = [...new Set((avisosRaw ?? []).map(a => a.venda_id as string).filter(Boolean))]
   const dataCompraMap = new Map<string, string>()
   if (vendaIds.length > 0) {
@@ -71,11 +91,11 @@ export default async function AvisosPage() {
     }
   }
 
-  // Catálogo de produtos para o form de recompra
+  // Catálogo de produtos para form de recompra (all lojas in context)
   const { data: catalogoRaw } = await supabase
     .from('produtos')
     .select('id, nome, preco_sugerido, comissionavel_recompra')
-    .eq('loja_id', loja.id)
+    .in('loja_id', ctx.lojaIds)
     .eq('ativo', true)
     .order('nome')
 
@@ -86,31 +106,30 @@ export default async function AvisosPage() {
     comissionavel_recompra: (p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra ?? true,
   }))
 
-  // Recompras do mês corrente para card "Recuperado" (toda a loja)
+  // Recompras do mês corrente para card "Recuperado"
   const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
   const { data: recomprasData } = await admin
     .from('recompras')
     .select('valor_total')
-    .eq('loja_id', loja.id)
+    .in('loja_id', ctx.lojaIds)
     .gte('criado_em', inicioMes)
   const totalRecomprasValorMes = (recomprasData ?? []).reduce((s, r) => s + ((r.valor_total as number) ?? 0), 0)
   const qtdRecomprasMes = (recomprasData ?? []).length
 
-  // Todos os membros ativos da loja (para seletor de responsável)
+  // Todos os membros ativos (para filtro de responsável)
   const { data: membrosAtivos } = await admin
     .from('membros_loja')
     .select('perfil_id, perfis(nome)')
-    .eq('loja_id', loja.id)
+    .in('loja_id', ctx.lojaIds)
     .eq('ativo', true)
 
   const todosMembrosIds = (membrosAtivos ?? []).map(m => m.perfil_id as string)
 
-  // Percentuais de comissão + nomes das vendedoras que aparecem nos avisos
+  // Percentuais de comissão + nomes
   const vendedoraIds = [...new Set((avisosRaw ?? []).map(a => a.vendedora_id as string).filter(Boolean))]
   const percentuaisPorVendedora: Record<string, number> = {}
   const vendedoraNomeMap = new Map<string, string>()
 
-  // Populate nome map from all active members first
   for (const m of membrosAtivos ?? []) {
     const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
     const perfil = Array.isArray(p) ? p[0] : p
@@ -123,7 +142,7 @@ export default async function AvisosPage() {
       .from('regras_comissao')
       .select('vendedora_id, percentual')
       .in('vendedora_id', allIds)
-      .eq('loja_id', loja.id)
+      .in('loja_id', ctx.lojaIds)
       .eq('ativo', true)
     for (const r of regrasRes.data ?? []) {
       percentuaisPorVendedora[r.vendedora_id as string] = r.percentual as number
@@ -136,7 +155,6 @@ export default async function AvisosPage() {
     percentual: percentuaisPorVendedora[m.perfil_id as string] ?? 0,
   }))
 
-  // Normaliza os dados
   const avisos: AvisoDetalhado[] = (avisosRaw ?? []).filter(a => {
     const mp = a.mensagens_produto as unknown as { tipo: string } | null
     const tipo = mp?.tipo ?? ''
@@ -153,6 +171,7 @@ export default async function AvisosPage() {
     const produtosRaw = itemVenda?.produtos
     const produtoFoto = Array.isArray(produtosRaw) ? produtosRaw[0] : produtosRaw
     const venda = a.vendas as unknown as { valor: number } | null
+    const avisoLojaId = a.loja_id as string
 
     return {
       id: a.id as string,
@@ -177,6 +196,8 @@ export default async function AvisosPage() {
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
       atrasado: a.data_aviso < hoje,
+      loja_id: avisoLojaId,
+      loja_nome: lojaNomeMap.get(avisoLojaId) ?? '',
     }
   })
 
@@ -188,7 +209,7 @@ export default async function AvisosPage() {
         <h1 className="text-xl font-semibold tracking-tight">
           Fila de Recompra
         </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{loja.nome}</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{ctx.lojaNome}</p>
         <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
           Clientes para retornar no momento certo e recuperar dinheiro na mesa.
         </p>
@@ -201,12 +222,13 @@ export default async function AvisosPage() {
         catalogo={catalogo}
         percentuaisPorVendedora={percentuaisPorVendedora}
         vendedorasLoja={vendedorasLoja}
-        loja_id={loja.id}
-        loja_nome={loja.nome}
+        loja_id={lojaIdFallback}
+        loja_nome={ctx.lojaNome}
         isVendedora={isVendedora}
         mode="recompra"
         totalRecomprasValorMes={totalRecomprasValorMes}
         qtdRecomprasMes={qtdRecomprasMes}
+        mostrarLoja={mostrarLoja}
       />
 
     </div>
