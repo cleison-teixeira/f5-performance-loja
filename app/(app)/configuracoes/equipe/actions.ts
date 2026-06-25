@@ -11,7 +11,24 @@ export async function addMembro(dados: {
   comissao: number  // percentual, só usado se role === 'vendedora'
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado' }
+
     const admin = createAdminClient()
+
+    // Verifica se o chamador pertence à loja com role adequado
+    const { data: callerMembro } = await admin
+      .from('membros_loja')
+      .select('role')
+      .eq('loja_id', dados.loja_id)
+      .eq('perfil_id', user.id)
+      .eq('ativo', true)
+      .single()
+
+    if (!callerMembro || !['gerente', 'dono', 'admin_f5'].includes(callerMembro.role as string)) {
+      return { ok: false, erro: 'Sem permissão para adicionar membros a esta loja' }
+    }
 
     // 1. Verificar se email já existe
     const { data: listData } = await admin.auth.admin.listUsers()
