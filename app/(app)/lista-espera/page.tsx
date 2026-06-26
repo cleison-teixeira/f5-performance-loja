@@ -116,6 +116,7 @@ export default async function ListaEsperaPage() {
 
   const registros: RegistroListaEspera[] = (registrosRes.data ?? []).map(r => ({
     id: r.id as string,
+    loja_id: r.loja_id as string,
     cliente_nome: r.cliente_nome as string,
     cliente_whatsapp: r.cliente_whatsapp as string,
     produto_nome: r.produto_nome as string,
@@ -128,6 +129,7 @@ export default async function ListaEsperaPage() {
     status: r.status as string,
     observacao: r.observacao as string | null,
     criado_em: r.criado_em as string,
+    vendedora_id: r.vendedora_id as string | null,
     vendedora_nome: !isVendedora ? (nomeMap[r.vendedora_id as string] ?? '—') : undefined,
     loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
   }))
@@ -233,7 +235,13 @@ export default async function ListaEsperaPage() {
         </p>
       )}
 
-      <ListaEsperaCards registros={registros} defaultLojaNome={lojaNome} />
+      <ListaEsperaCards
+        registros={registros}
+        defaultLojaNome={lojaNome}
+        vendedoras={vendedoras}
+        produtos={produtos}
+        podeEditar={ctx.escopo === 'loja'}
+      />
     </div>
   )
 }

@@ -2,13 +2,15 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Pencil } from 'lucide-react'
 import { atualizarStatusListaEspera, type StatusListaEspera } from './actions'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
+import { ListaEsperaEditForm } from './ListaEsperaEditForm'
 
 export interface RegistroListaEspera {
   id: string
+  loja_id: string
   cliente_nome: string
   cliente_whatsapp: string
   produto_nome: string
@@ -19,6 +21,7 @@ export interface RegistroListaEspera {
   status: string
   observacao: string | null
   criado_em: string
+  vendedora_id: string | null
   vendedora_nome?: string
   loja_nome?: string
 }
@@ -93,12 +96,19 @@ function MensagemSugerida({ mensagem }: { mensagem: string }) {
 function RegistroCard({
   registro,
   defaultLojaNome,
+  vendedoras,
+  produtos,
+  podeEditar,
 }: {
   registro: RegistroListaEspera
   defaultLojaNome: string
+  vendedoras: Array<{ id: string; nome: string }>
+  produtos: Array<{ id: string; nome: string }>
+  podeEditar: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [editando, setEditando] = useState(false)
 
   function handleStatus(valor: string) {
     startTransition(async () => {
@@ -111,6 +121,20 @@ function RegistroCard({
     registro.status === 'avisado'
       ? gerarMensagem(registro, defaultLojaNome)
       : null
+
+  if (editando) {
+    return (
+      <div className="rounded-xl border bg-card p-4">
+        <ListaEsperaEditForm
+          registro={registro}
+          vendedoras={vendedoras}
+          produtos={produtos}
+          onClose={() => setEditando(false)}
+          onSaved={() => setEditando(false)}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-3">
@@ -186,6 +210,15 @@ function RegistroCard({
         {isPending && (
           <span className="text-xs text-muted-foreground">Salvando…</span>
         )}
+        {podeEditar && (
+          <button
+            onClick={() => setEditando(true)}
+            className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Pencil className="h-3 w-3" />
+            Editar
+          </button>
+        )}
       </div>
     </div>
   )
@@ -194,15 +227,23 @@ function RegistroCard({
 interface Props {
   registros: RegistroListaEspera[]
   defaultLojaNome?: string
+  vendedoras?: Array<{ id: string; nome: string }>
+  produtos?: Array<{ id: string; nome: string }>
+  podeEditar?: boolean
 }
 
-export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
+export function ListaEsperaCards({
+  registros,
+  defaultLojaNome = '',
+  vendedoras = [],
+  produtos = [],
+  podeEditar = false,
+}: Props) {
   const [produtoFiltro, setProdutoFiltro] = useState('')
 
   const grupos = useMemo<GrupoProduto[]>(() => {
     const map = new Map<string, GrupoProduto>()
     for (const r of registros) {
-      // Group by produto_id when available, fallback to normalized name for legacy records
       const key = r.produto_id ?? `nome:${normalizarNome(r.produto_nome)}`
       const entry = map.get(key) ?? {
         key,
@@ -351,7 +392,14 @@ export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
         ) : (
           <div className="space-y-3 pt-1">
             {filtrados.map(r => (
-              <RegistroCard key={r.id} registro={r} defaultLojaNome={defaultLojaNome} />
+              <RegistroCard
+                key={r.id}
+                registro={r}
+                defaultLojaNome={defaultLojaNome}
+                vendedoras={vendedoras}
+                produtos={produtos}
+                podeEditar={podeEditar}
+              />
             ))}
           </div>
         )}
