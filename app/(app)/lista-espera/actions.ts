@@ -169,21 +169,44 @@ export async function editarListaEspera(
     return { ok: false, error: 'Não foi possível criar ou vincular o produto. Tente novamente.' }
   }
 
+  let vendaId: string | null = null
+  if (input.status === 'convertido') {
+    vendaId = await processarConversaoVenda(
+      input.id,
+      input.status,
+      input.vendedora_id,
+      input.cliente_nome,
+      input.cliente_whatsapp,
+      input.produto_nome,
+      produtoId,
+      input.valor_potencial,
+      input.quantidade
+    )
+    if (!vendaId) {
+      return { ok: false, error: 'Não foi possível converter em venda.' }
+    }
+  }
+
+  const updatePayload: any = {
+    cliente_id: clienteId,
+    cliente_nome: input.cliente_nome.trim(),
+    cliente_whatsapp: whatsappDigits,
+    produto_nome: input.produto_nome.trim(),
+    produto_id: produtoId,
+    valor_potencial: input.valor_potencial ?? null,
+    quantidade: input.quantidade,
+    observacao: input.observacao?.trim() || null,
+    vendedora_id: input.vendedora_id,
+    status: input.status,
+    atualizado_em: new Date().toISOString(),
+  }
+  if (vendaId) {
+    updatePayload.venda_id = vendaId
+  }
+
   const { error } = await supabase
     .from('lista_espera')
-    .update({
-      cliente_id: clienteId,
-      cliente_nome: input.cliente_nome.trim(),
-      cliente_whatsapp: whatsappDigits,
-      produto_nome: input.produto_nome.trim(),
-      produto_id: produtoId,
-      valor_potencial: input.valor_potencial ?? null,
-      quantidade: input.quantidade,
-      observacao: input.observacao?.trim() || null,
-      vendedora_id: input.vendedora_id,
-      status: input.status,
-      atualizado_em: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', input.id)
     .eq('loja_id', input.loja_id)
 
@@ -191,14 +214,155 @@ export async function editarListaEspera(
   return { ok: true }
 }
 
+async function processarConversaoVenda(
+  itemId: string,
+  status: StatusListaEspera,
+  vendedoraIdInput?: string,
+  clienteNomeInput?: string,
+  clienteWhatsappInput?: string,
+  produtoNomeInput?: string,
+  produtoIdInput?: string,
+  valorPotencialInput?: number | null,
+  quantidadeInput?: number
+): Promise<string | null> {
+  if (status !== 'convertido') return null
+
+  const supabase = await createClient()
+  const admin = createAdminClient()
+
+  const { data: item } = await supabase
+    .from('lista_espera')
+    .select('id, loja_id, cliente_id, cliente_nome, cliente_whatsapp, produto_id, produto_nome, valor_potencial, quantidade, vendedora_id, venda_id')
+    .eq('id', itemId)
+    .maybeSingle()
+
+  if (!item) return null
+  if (item.venda_id) return item.venda_id
+
+  const loja_id = item.loja_id
+  const vendedora_id = vendedoraIdInput ?? item.vendedora_id
+  const cliente_nome = (clienteNomeInput ?? item.cliente_nome ?? 'Cliente').trim()
+  const cliente_whatsapp = (clienteWhatsappInput ?? item.cliente_whatsapp ?? '').replace(/\D/g, '')
+  const produto_nome = (produtoNomeInput ?? item.produto_nome ?? 'Produto').trim()
+  const valor_potencial = valorPotencialInput !== undefined ? valorPotencialInput : item.valor_potencial
+  const quantidade = quantidadeInput !== undefined ? quantidadeInput : (item.quantidade ?? 1)
+
+  let finalClienteId = item.cliente_id
+  const { data: clienteData } = await admin
+    .from('clientes')
+    .upsert(
+      { loja_id, whatsapp: cliente_whatsapp, nome: cliente_nome },
+      { onConflict: 'loja_id,whatsapp' }
+    )
+    .select('id')
+    .single()
+  if (clienteData) {
+    finalClienteId = clienteData.id
+  }
+
+  let finalProdutoId = produtoIdInput ?? item.produto_id
+  if (!finalProdutoId) {
+    try {
+      const info = await resolverOuCriarProduto(produto_nome, loja_id, {
+        recorrente: false,
+        comissionavel_recompra: false,
+      })
+      finalProdutoId = info.id
+    } catch {
+      // ignore
+    }
+  }
+
+  const valPot = valor_potencial ? Number(valor_potencial) : 0
+  const valorTotal = valPot * quantidade
+
+  const { data: vendaData } = await admin
+    .from('vendas')
+    .insert({
+      loja_id,
+      cliente_id: finalClienteId,
+      vendedora_id,
+      valor: valorTotal,
+      data_compra: new Date().toISOString().split('T')[0],
+      origem: 'lista_espera',
+    })
+    .select('id')
+    .single()
+
+  if (!vendaData) return null
+  const newVendaId = vendaData.id
+
+  await admin.from('itens_venda').insert({
+    venda_id: newVendaId,
+    produto_id: finalProdutoId,
+    produto_nome: produto_nome,
+    recorrente: false,
+    comissionavel: false,
+    quantidade,
+    valor_unitario: valPot,
+    subtotal: valorTotal,
+  })
+
+  const { gravarComissaoVenda } = await import('@/lib/comissoes/gravar')
+  await gravarComissaoVenda({
+    loja_id,
+    venda_id: newVendaId,
+    vendedora_id,
+    data_venda: new Date().toISOString().split('T')[0],
+    itens: [{
+      produto_id: finalProdutoId,
+      produto_nome,
+      subtotal: valorTotal,
+      comissionavel: false,
+    }],
+  })
+
+  return newVendaId
+}
+
 export async function atualizarStatusListaEspera(
   id: string,
   status: StatusListaEspera
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Não autorizado.' }
+
+  const { data: item } = await supabase
+    .from('lista_espera')
+    .select('loja_id, vendedora_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (!item) return { ok: false, error: 'Item não encontrado.' }
+
+  const { data: membro } = await supabase
+    .from('membros_loja')
+    .select('role')
+    .eq('loja_id', item.loja_id)
+    .eq('perfil_id', user.id)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (!membro) return { ok: false, error: 'Você não pertence a esta loja.' }
+
+  let vendaId: string | null = null
+  if (status === 'convertido') {
+    vendaId = await processarConversaoVenda(id, status)
+    if (!vendaId) {
+      return { ok: false, error: 'Não foi possível converter em venda.' }
+    }
+  }
+
+  const updatePayload: any = {
+    status,
+    atualizado_em: new Date().toISOString(),
+  }
+  if (vendaId) {
+    updatePayload.venda_id = vendaId
+  }
+
   const { error } = await supabase
     .from('lista_espera')
-    .update({ status, atualizado_em: new Date().toISOString() })
+    .update(updatePayload)
     .eq('id', id)
   if (error) return { ok: false, error: error.message }
   return { ok: true }

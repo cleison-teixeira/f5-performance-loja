@@ -11,6 +11,7 @@ const ORIGEM_LABELS: Record<string, string> = {
   venda_manual: 'Venda',
   recompra: 'Recompra',
   oferta: 'Oferta',
+  lista_espera: 'Lista de espera',
 }
 
 function BadgeOrigem({ origem }: { origem: string }) {
@@ -22,6 +23,8 @@ function BadgeOrigem({ origem }: { origem: string }) {
         ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
         : origem === 'oferta'
         ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+        : origem === 'lista_espera'
+        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
         : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
     )}>
       {label}
