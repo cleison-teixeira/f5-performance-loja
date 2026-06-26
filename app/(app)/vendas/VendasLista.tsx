@@ -61,6 +61,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
   const [busca, setBusca] = useState('')
   const [soRecorrente, setSoRecorrente] = useState(false)
   const [produtoNome, setProdutoNome] = useState('')
+  const [dataEspecifica, setDataEspecifica] = useState('')
   const [drawerAberto, setDrawerAberto] = useState(false)
 
   const produtosUnicos = useMemo(() => {
@@ -71,7 +72,9 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
 
   const filtradas = useMemo(() => {
     return vendas.filter(v => {
-      if (periodo !== 'tudo') {
+      if (dataEspecifica) {
+        if (v.data_compra !== dataEspecifica) return false
+      } else if (periodo !== 'tudo') {
         const corte = diasAtras(Number(periodo))
         if (new Date(v.data_compra + 'T00:00:00') < corte) return false
       }
@@ -87,10 +90,10 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
       if (produtoNome && !v.itens.some(i => i.produto_nome === produtoNome)) return false
       return true
     })
-  }, [vendas, periodo, vendedoraId, busca, soRecorrente, produtoNome])
+  }, [vendas, periodo, dataEspecifica, vendedoraId, busca, soRecorrente, produtoNome])
 
   const totalValor = filtradas.reduce((s, v) => s + v.valor_total, 0)
-  const temFiltrosAtivos = !!(vendedoraId || busca.trim() || soRecorrente || produtoNome)
+  const temFiltrosAtivos = !!(vendedoraId || busca.trim() || soRecorrente || produtoNome || dataEspecifica)
 
   return (
     <div className="space-y-4">
@@ -100,10 +103,10 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
           {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
               key={p}
-              onClick={() => setPeriodo(p)}
+              onClick={() => { setPeriodo(p); setDataEspecifica('') }}
               className={cn(
                 'px-3 py-1.5 transition-colors',
-                periodo === p
+                periodo === p && !dataEspecifica
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-background hover:bg-accent text-foreground'
               )}
@@ -114,11 +117,22 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
         </div>
 
         <input
+          type="date"
+          value={dataEspecifica}
+          onChange={e => setDataEspecifica(e.target.value)}
+          title="Filtrar por data específica"
+          className={cn(
+            'rounded-md border px-3 py-1.5 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            dataEspecifica ? 'border-primary text-foreground' : 'border-input text-muted-foreground'
+          )}
+        />
+
+        <input
           type="text"
-          placeholder="Buscar cliente..."
+          placeholder="Buscar cliente ou telefone…"
           value={busca}
           onChange={e => setBusca(e.target.value)}
-          className="rounded-md border border-input px-3 py-1.5 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-48"
+          className="rounded-md border border-input px-3 py-1.5 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-52"
         />
 
         {!isVendedora && vendedoras.length > 0 && (
@@ -161,7 +175,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
 
         {temFiltrosAtivos && (
           <button
-            onClick={() => { setVendedoraId(''); setBusca(''); setSoRecorrente(false); setProdutoNome('') }}
+            onClick={() => { setVendedoraId(''); setBusca(''); setSoRecorrente(false); setProdutoNome(''); setDataEspecifica('') }}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
           >
             Limpar filtros
@@ -175,10 +189,10 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
           {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
               key={p}
-              onClick={() => setPeriodo(p)}
+              onClick={() => { setPeriodo(p); setDataEspecifica('') }}
               className={cn(
                 'px-3 py-1.5 transition-colors',
-                periodo === p
+                periodo === p && !dataEspecifica
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-background hover:bg-accent'
               )}
@@ -313,15 +327,30 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
             <div className="p-4 pb-10 space-y-5">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
-                  Buscar cliente
+                  Buscar cliente ou telefone
                 </label>
                 <input
                   type="text"
-                  placeholder="Nome do cliente..."
+                  placeholder="Nome ou WhatsApp…"
                   value={busca}
                   onChange={e => setBusca(e.target.value)}
                   className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
+                  Data específica
+                </label>
+                <input
+                  type="date"
+                  value={dataEspecifica}
+                  onChange={e => setDataEspecifica(e.target.value)}
+                  className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                {dataEspecifica && (
+                  <p className="text-xs text-muted-foreground mt-1">Período ignorado ao filtrar por data específica.</p>
+                )}
               </div>
 
               {produtosUnicos.length > 0 && (
@@ -381,7 +410,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
 
               {temFiltrosAtivos && (
                 <button
-                  onClick={() => { setVendedoraId(''); setBusca(''); setSoRecorrente(false); setProdutoNome('') }}
+                  onClick={() => { setVendedoraId(''); setBusca(''); setSoRecorrente(false); setProdutoNome(''); setDataEspecifica('') }}
                   className="w-full rounded-md border border-input px-3 py-2 text-sm hover:bg-accent transition-colors"
                 >
                   Limpar filtros
