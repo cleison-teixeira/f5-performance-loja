@@ -44,7 +44,8 @@ export function gerarAvisos(
 
   return mensagens.map(msg => {
     const dataAviso = new Date(base)
-    dataAviso.setDate(base.getDate() + msg.dias_apos_venda)
+    const diasOffset = msg.tipo === 'agradecimento' ? 0 : msg.dias_apos_venda
+    dataAviso.setDate(base.getDate() + diasOffset)
     const y = dataAviso.getFullYear()
     const m = String(dataAviso.getMonth() + 1).padStart(2, '0')
     const d = String(dataAviso.getDate()).padStart(2, '0')

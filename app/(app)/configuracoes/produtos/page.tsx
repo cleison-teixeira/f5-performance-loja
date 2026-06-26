@@ -25,6 +25,11 @@ export interface ProdutoItem {
   recorrente: boolean
   comissionavel_recompra: boolean
   qtd_mensagens: 1 | 2 | 3 | 4
+  nicho?: string | null
+  parceiro?: string | null
+  categoria?: string | null
+  galeria_urls?: string[] | null
+  variantes?: string[] | null
   mensagens: MensagemSlot[]
 }
 
@@ -85,7 +90,7 @@ export default async function ConfigProdutosPage() {
 
   const { data: produtosRaw } = await supabase
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, ativo, recorrente, comissionavel_recompra, qtd_mensagens, mensagens_produto(id, ordem, tipo, texto, dias_apos_venda)')
+    .select('id, nome, preco_sugerido, foto_url, ativo, recorrente, comissionavel_recompra, qtd_mensagens, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(id, ordem, tipo, texto, dias_apos_venda)')
     .eq('loja_id', loja_id)
     .order('nome')
 
@@ -118,6 +123,11 @@ export default async function ConfigProdutosPage() {
       recorrente: ((p as unknown as { recorrente: boolean }).recorrente) ?? true,
       comissionavel_recompra: ((p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra) ?? true,
       qtd_mensagens: ((p as unknown as { qtd_mensagens: number }).qtd_mensagens ?? 3) as 1 | 2 | 3 | 4,
+      nicho: (p as any).nicho,
+      parceiro: (p as any).parceiro,
+      categoria: (p as any).categoria,
+      galeria_urls: (p as any).galeria_urls,
+      variantes: (p as any).variantes,
       mensagens,
     }
   })

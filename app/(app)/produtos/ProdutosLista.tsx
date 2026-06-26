@@ -13,6 +13,11 @@ export type ProdutoCard = {
   qtd_mensagens: number | null
   loja_id: string
   lojaNome: string | null
+  nicho?: string | null
+  parceiro?: string | null
+  categoria?: string | null
+  galeria_urls?: string[] | null
+  variantes?: string[] | null
   mensagens_produto: Array<{ tipo: string; dias_apos_venda: number }>
 }
 
@@ -120,12 +125,32 @@ export function ProdutosLista({ lista, podeEditar }: Props) {
                       <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400">
                         Ativo
                       </span>
+                      {p.categoria && (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                          {p.categoria}
+                        </span>
+                      )}
+                      {p.parceiro && (
+                        <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-400">
+                          {p.parceiro}
+                        </span>
+                      )}
+                      {p.nicho && (
+                        <span className="inline-flex items-center rounded-full bg-cyan-100 dark:bg-cyan-900/30 px-2 py-0.5 text-xs font-medium text-cyan-700 dark:text-cyan-400">
+                          {p.nicho}
+                        </span>
+                      )}
                       {p.lojaNome && (
                         <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                           {p.lojaNome}
                         </span>
                       )}
                     </div>
+                    {p.variantes && p.variantes.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Apresentações: <span className="font-medium text-foreground">{p.variantes.join(', ')}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 

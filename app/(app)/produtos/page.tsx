@@ -60,7 +60,7 @@ export default async function ProdutosPage() {
 
   const { data: produtosRaw } = await admin
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, loja_id, mensagens_produto(tipo, dias_apos_venda)')
+    .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, loja_id, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(tipo, dias_apos_venda)')
     .in('loja_id', ctx.lojaIds)
     .eq('ativo', true)
     .order('nome')
@@ -73,6 +73,11 @@ export default async function ProdutosPage() {
     recorrente: boolean
     qtd_mensagens: number | null
     loja_id: string
+    nicho: string | null
+    parceiro: string | null
+    categoria: string | null
+    galeria_urls: string[] | null
+    variantes: string[] | null
     mensagens_produto: Array<{ tipo: string; dias_apos_venda: number }>
   }
 

@@ -12,6 +12,11 @@ export async function salvarProduto(dados: {
   recorrente: boolean
   comissionavel_recompra: boolean
   qtd_mensagens: 1 | 2 | 3 | 4
+  nicho?: string | null
+  parceiro?: string | null
+  categoria?: string | null
+  galeria_urls?: string[] | null
+  variantes?: string[] | null
 }): Promise<{ ok: boolean; produto_id?: string; erro?: string }> {
   try {
     const supabase = await createClient()
@@ -29,6 +34,11 @@ export async function salvarProduto(dados: {
           recorrente: dados.recorrente,
           comissionavel_recompra: dados.comissionavel_recompra,
           qtd_mensagens: dados.qtd_mensagens,
+          nicho: dados.nicho || null,
+          parceiro: dados.parceiro || null,
+          categoria: dados.categoria || null,
+          galeria_urls: dados.galeria_urls || [],
+          variantes: dados.variantes || [],
         })
         .eq('id', dados.produto_id)
       if (error) return { ok: false, erro: error.message }
@@ -45,6 +55,11 @@ export async function salvarProduto(dados: {
           recorrente: dados.recorrente,
           comissionavel_recompra: dados.comissionavel_recompra,
           qtd_mensagens: dados.qtd_mensagens,
+          nicho: dados.nicho || null,
+          parceiro: dados.parceiro || null,
+          categoria: dados.categoria || null,
+          galeria_urls: dados.galeria_urls || [],
+          variantes: dados.variantes || [],
         })
         .select('id')
         .single()

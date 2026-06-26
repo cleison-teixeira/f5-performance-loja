@@ -48,6 +48,11 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
   const [recorrente, setRecorrente] = useState(produto?.recorrente ?? true)
   const [comissionavelRecompra, setComissionavelRecompra] = useState(produto?.comissionavel_recompra ?? true)
   const [qtdMensagens, setQtdMensagens] = useState<1 | 2 | 3 | 4>(produto?.qtd_mensagens ?? 3)
+  const [nicho, setNicho] = useState(produto?.nicho ?? '')
+  const [parceiro, setParceiro] = useState(produto?.parceiro ?? '')
+  const [categoria, setCategoria] = useState(produto?.categoria ?? '')
+  const [galeriaRaw, setGaleriaRaw] = useState(produto?.galeria_urls?.join(', ') ?? '')
+  const [variantesRaw, setVariantesRaw] = useState(produto?.variantes?.join(', ') ?? '')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -67,6 +72,11 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
       recorrente,
       comissionavel_recompra: comissionavelRecompra,
       qtd_mensagens: qtdMensagens,
+      nicho: nicho.trim() || null,
+      parceiro: parceiro.trim() || null,
+      categoria: categoria.trim() || null,
+      galeria_urls: galeriaRaw.split(',').map(s => s.trim()).filter(Boolean),
+      variantes: variantesRaw.split(',').map(s => s.trim()).filter(Boolean),
     })
     setSalvando(false)
     if (res.ok) onSucesso()
@@ -106,11 +116,67 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
         />
       </div>
 
-      <UploadFotoProduto
+       <UploadFotoProduto
         lojaId={loja_id}
         fotoAtual={fotoUrl}
         onFotoAlterada={setFotoUrl}
       />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Nicho</label>
+          <input
+            type="text"
+            value={nicho}
+            onChange={e => setNicho(e.target.value)}
+            className={inputClass}
+            placeholder="Ex: Suplementos"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Parceiro</label>
+          <input
+            type="text"
+            value={parceiro}
+            onChange={e => setParceiro(e.target.value)}
+            className={inputClass}
+            placeholder="Ex: PiuVita"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Categoria</label>
+        <input
+          type="text"
+          value={categoria}
+          onChange={e => setCategoria(e.target.value)}
+          className={inputClass}
+          placeholder="Ex: Saúde e Bem-estar"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Variantes / Apresentações</label>
+        <input
+          type="text"
+          value={variantesRaw}
+          onChange={e => setVariantesRaw(e.target.value)}
+          className={inputClass}
+          placeholder="Sabores ou tamanhos separados por vírgula"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Galeria de fotos (URLs separadas por vírgula)</label>
+        <input
+          type="text"
+          value={galeriaRaw}
+          onChange={e => setGaleriaRaw(e.target.value)}
+          className={inputClass}
+          placeholder="https://... , https://..."
+        />
+      </div>
 
       {/* Modelo de contato */}
       <div className="space-y-1.5">
@@ -443,6 +509,30 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
                           {produto.ativo ? 'Ativo' : 'Inativo'}
                         </span>
                       </div>
+                      
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {produto.categoria && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            {produto.categoria}
+                          </span>
+                        )}
+                        {produto.parceiro && (
+                          <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-400">
+                            {produto.parceiro}
+                          </span>
+                        )}
+                        {produto.nicho && (
+                          <span className="inline-flex items-center rounded-full bg-cyan-100 dark:bg-cyan-900/30 px-2 py-0.5 text-xs font-medium text-cyan-700 dark:text-cyan-400">
+                            {produto.nicho}
+                          </span>
+                        )}
+                      </div>
+
+                      {produto.variantes && produto.variantes.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Apresentações: <span className="font-medium text-foreground">{produto.variantes.join(', ')}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
