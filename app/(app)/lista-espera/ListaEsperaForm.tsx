@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, X, Loader2, CheckCircle } from 'lucide-react'
 import { criarListaEspera, buscarClienteListaEspera } from './actions'
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
+import { normalizarNome } from '@/lib/normalizar-nome'
 
 interface Categoria {
   id: string
@@ -27,15 +28,28 @@ interface Props {
   defaultVendedoraId: string
   vendedoras: Vendedora[]
   categorias: Categoria[]
-  produtosExistentes: string[]
   produtos: Produto[]
 }
 
 const inputClass =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
-function normalizar(s: string): string {
-  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+function encontrarSimilarCatalogo(query: string, produtos: Produto[]): Produto | null {
+  const normQ = normalizarNome(query)
+  if (normQ.length < 3) return null
+  const tokensQ = normQ.split(' ').filter(t => t.length > 2)
+  if (tokensQ.length === 0) return null
+
+  for (const p of produtos) {
+    const normP = normalizarNome(p.nome)
+    if (normP === normQ) return null // exact match handled elsewhere
+    const tokensP = normP.split(' ')
+    const overlap = tokensQ.filter(t =>
+      tokensP.some(tp => tp === t || tp.startsWith(t) || t.startsWith(tp))
+    ).length
+    if (overlap >= Math.max(1, Math.ceil(tokensQ.length * 0.6))) return p
+  }
+  return null
 }
 
 export function ListaEsperaForm({
@@ -44,7 +58,6 @@ export function ListaEsperaForm({
   defaultVendedoraId,
   vendedoras,
   categorias,
-  produtosExistentes,
   produtos,
 }: Props) {
   const router = useRouter()
@@ -53,8 +66,10 @@ export function ListaEsperaForm({
   const [isBuscando, startBuscaTransition] = useTransition()
   const [sucesso, setSucesso] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [sugestao, setSugestao] = useState<string | null>(null)
-  const [produtoId, setProdutoId] = useState<string | null>(null)
+
+  // produto states
+  const [produtoExiste, setProdutoExiste] = useState<boolean | null>(null) // null = campo vazio
+  const [sugestaoCatalogo, setSugestaoCatalogo] = useState<Produto | null>(null)
 
   const estadoInicial = {
     cliente_nome: '',
@@ -83,44 +98,40 @@ export function ListaEsperaForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.cliente_whatsapp])
 
-  // All names for datalist: catalog products first, then previous entries not in catalog
-  const todosProdutos = [
-    ...produtos.map(p => p.nome),
-    ...produtosExistentes,
-  ]
-
   function set(field: keyof typeof form, value: string) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
   function handleProdutoChange(valor: string) {
     set('produto_nome', valor)
-    const norm = normalizar(valor)
-    // Check if matches a catalog product
-    const catalogoMatch = produtos.find(p => normalizar(p.nome) === norm)
-    setProdutoId(catalogoMatch?.id ?? null)
-    // Suggestion from previous entries (only when not already a catalog match)
-    if (norm.length < 3) { setSugestao(null); return }
-    const similar = !catalogoMatch
-      ? produtosExistentes.find(p => normalizar(p) === norm && p.trim() !== valor.trim())
-      : null
-    setSugestao(similar ?? null)
+    const norm = normalizarNome(valor)
+    if (norm.length < 2) {
+      setProdutoExiste(null)
+      setSugestaoCatalogo(null)
+      return
+    }
+    const exactMatch = produtos.find(p => normalizarNome(p.nome) === norm)
+    if (exactMatch) {
+      setProdutoExiste(true)
+      setSugestaoCatalogo(null)
+      return
+    }
+    setProdutoExiste(false)
+    setSugestaoCatalogo(encontrarSimilarCatalogo(valor, produtos))
   }
 
-  function usarSugestao(nome: string) {
-    set('produto_nome', nome)
-    const norm = normalizar(nome)
-    const catalogoMatch = produtos.find(p => normalizar(p.nome) === norm)
-    setProdutoId(catalogoMatch?.id ?? null)
-    setSugestao(null)
+  function usarSugestao(p: Produto) {
+    set('produto_nome', p.nome)
+    setProdutoExiste(true)
+    setSugestaoCatalogo(null)
   }
 
   function fechar() {
     setForm(estadoInicial)
     setErro(null)
     setSucesso(false)
-    setSugestao(null)
-    setProdutoId(null)
+    setProdutoExiste(null)
+    setSugestaoCatalogo(null)
     setAberto(false)
   }
 
@@ -149,7 +160,6 @@ export function ListaEsperaForm({
         cliente_nome: form.cliente_nome,
         cliente_whatsapp: whatsappDigits,
         produto_nome: form.produto_nome,
-        produto_id: produtoId,
         categoria_id: form.categoria_id || undefined,
         valor_potencial: isNaN(valor as number) ? null : valor,
         quantidade: qtd,
@@ -238,26 +248,31 @@ export function ListaEsperaForm({
             value={form.produto_nome}
             onChange={e => handleProdutoChange(e.target.value)}
           />
-          {todosProdutos.length > 0 && (
+          {produtos.length > 0 && (
             <datalist id="lista-espera-produtos">
-              {todosProdutos.map(p => (
-                <option key={p} value={p} />
+              {produtos.map(p => (
+                <option key={p.id} value={p.nome} />
               ))}
             </datalist>
           )}
-          {sugestao && (
+          {sugestaoCatalogo && (
             <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 flex items-center justify-between gap-2">
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Produto similar: <strong>{sugestao}</strong>
+                Produto similar no catálogo: <strong>{sugestaoCatalogo.nome}</strong>
               </p>
               <button
                 type="button"
-                onClick={() => usarSugestao(sugestao)}
+                onClick={() => usarSugestao(sugestaoCatalogo)}
                 className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400 underline hover:no-underline"
               >
                 Usar este
               </button>
             </div>
+          )}
+          {produtoExiste === false && !sugestaoCatalogo && form.produto_nome.trim().length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Novo produto será criado na loja ao adicionar à lista.
+            </p>
           )}
         </div>
 

@@ -68,7 +68,7 @@ export default async function ListaEsperaPage() {
   const [registrosRes, categoriasRes, vendedorasRes, produtosRes] = await Promise.all([
     admin
       .from('lista_espera')
-      .select('id, cliente_nome, cliente_whatsapp, produto_nome, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
+      .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
       .in('loja_id', ctx.lojaIds)
       .order('criado_em', { ascending: false }),
     ctx.escopo === 'loja'
@@ -119,6 +119,7 @@ export default async function ListaEsperaPage() {
     cliente_nome: r.cliente_nome as string,
     cliente_whatsapp: r.cliente_whatsapp as string,
     produto_nome: r.produto_nome as string,
+    produto_id: r.produto_id as string | null,
     categoria_nome:
       (r.categoria_id ? categoriaMap[r.categoria_id as string] : null) ??
       (r.categoria_nome as string | null),
@@ -150,12 +151,6 @@ export default async function ListaEsperaPage() {
   const produtos = ctx.escopo === 'loja'
     ? (produtosRes.data ?? []).map(p => ({ id: p.id as string, nome: p.nome as string }))
     : []
-
-  // Produtos existentes para autocomplete (distinct, ordenado) — exclui nomes já no catálogo
-  const nomesCatalogo = new Set(produtos.map(p => p.nome.trim().toLowerCase()))
-  const produtosExistentes = [...new Set(
-    registros.map(r => r.produto_nome).filter(Boolean)
-  )].filter(n => !nomesCatalogo.has(n.trim().toLowerCase())).sort()
 
   // Métricas separadas por status
   const total = registros.length
@@ -230,7 +225,6 @@ export default async function ListaEsperaPage() {
           defaultVendedoraId={defaultVendedoraId}
           vendedoras={vendedoras}
           categorias={categorias}
-          produtosExistentes={produtosExistentes}
           produtos={produtos}
         />
       ) : (

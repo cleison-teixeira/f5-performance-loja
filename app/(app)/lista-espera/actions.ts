@@ -1,6 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizarNome } from '@/lib/normalizar-nome'
 
 export type StatusListaEspera =
   | 'aguardando'
@@ -25,12 +27,41 @@ export async function buscarClienteListaEspera(
   return { id: data.id as string, nome: data.nome as string }
 }
 
+async function resolverProdutoId(produtoNome: string, lojaId: string): Promise<string> {
+  const admin = createAdminClient()
+  const norm = normalizarNome(produtoNome)
+
+  const { data: produtosLoja } = await admin
+    .from('produtos')
+    .select('id, nome')
+    .eq('loja_id', lojaId)
+    .eq('ativo', true)
+
+  const existente = (produtosLoja ?? []).find(
+    p => normalizarNome(p.nome as string) === norm
+  )
+  if (existente) return existente.id as string
+
+  const { data: novo, error } = await admin
+    .from('produtos')
+    .insert({
+      loja_id: lojaId,
+      nome: produtoNome.trim(),
+      recorrente: false,
+      comissionavel_recompra: false,
+    })
+    .select('id')
+    .single()
+
+  if (error || !novo) throw new Error('Falha ao criar produto: ' + (error?.message ?? ''))
+  return novo.id as string
+}
+
 export interface CriarListaEsperaInput {
   loja_id: string
   cliente_nome: string
   cliente_whatsapp: string
   produto_nome: string
-  produto_id?: string | null
   categoria_id?: string
   valor_potencial?: number | null
   quantidade: number
@@ -42,9 +73,20 @@ export async function criarListaEspera(
   input: CriarListaEsperaInput
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Não autorizado.' }
+
+  const { data: membro } = await supabase
+    .from('membros_loja')
+    .select('role')
+    .eq('loja_id', input.loja_id)
+    .eq('perfil_id', user.id)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (!membro) return { ok: false, error: 'Você não pertence a esta loja.' }
+
   const whatsappDigits = input.cliente_whatsapp.replace(/\D/g, '')
 
-  // Upsert client to get cliente_id
   let clienteId: string | null = null
   const { data: clienteData } = await supabase
     .from('clientes')
@@ -56,13 +98,20 @@ export async function criarListaEspera(
     .single()
   clienteId = clienteData?.id ?? null
 
+  let produtoId: string | null = null
+  try {
+    produtoId = await resolverProdutoId(input.produto_nome, input.loja_id)
+  } catch {
+    // Non-fatal: item saved without produto_id, can be reconciled later
+  }
+
   const { error } = await supabase.from('lista_espera').insert({
     loja_id: input.loja_id,
     cliente_id: clienteId,
     cliente_nome: input.cliente_nome.trim(),
     cliente_whatsapp: whatsappDigits,
     produto_nome: input.produto_nome.trim(),
-    produto_id: input.produto_id ?? null,
+    produto_id: produtoId,
     categoria_id: input.categoria_id || null,
     valor_potencial: input.valor_potencial ?? null,
     quantidade: input.quantidade,

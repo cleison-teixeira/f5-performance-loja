@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Copy, Check } from 'lucide-react'
 import { atualizarStatusListaEspera, type StatusListaEspera } from './actions'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
+import { normalizarNome } from '@/lib/normalizar-nome'
 
 export interface RegistroListaEspera {
   id: string
   cliente_nome: string
   cliente_whatsapp: string
   produto_nome: string
+  produto_id: string | null
   categoria_nome: string | null
   valor_potencial: number | null
   quantidade: number
@@ -23,12 +25,18 @@ export interface RegistroListaEspera {
 
 type GrupoProduto = {
   key: string
+  produto_id: string | null
   produto_nome: string
-  qtd: number
+  qtdClientes: number
+  qtdTotal: number
   qtdAguardando: number
-  valorPotencial: number
+  qtdAvisados: number
+  valorPotencialAberto: number
+  convertidoValor: number
   lojas: string[]
 }
+
+const ABERTO = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
 
 function fmtData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', {
@@ -38,10 +46,6 @@ function fmtData(iso: string) {
 
 function fmtValor(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function normalizarNome(nome: string) {
-  return nome.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
 function gerarMensagem(registro: RegistroListaEspera, defaultLojaNome: string): string {
@@ -198,29 +202,40 @@ export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
   const grupos = useMemo<GrupoProduto[]>(() => {
     const map = new Map<string, GrupoProduto>()
     for (const r of registros) {
-      const key = normalizarNome(r.produto_nome)
+      // Group by produto_id when available, fallback to normalized name for legacy records
+      const key = r.produto_id ?? `nome:${normalizarNome(r.produto_nome)}`
       const entry = map.get(key) ?? {
         key,
+        produto_id: r.produto_id,
         produto_nome: r.produto_nome,
-        qtd: 0,
+        qtdClientes: 0,
+        qtdTotal: 0,
         qtdAguardando: 0,
-        valorPotencial: 0,
+        qtdAvisados: 0,
+        valorPotencialAberto: 0,
+        convertidoValor: 0,
         lojas: [],
       }
-      entry.qtd++
+      entry.qtdClientes++
+      entry.qtdTotal += r.quantidade
       if (r.status === 'aguardando') entry.qtdAguardando++
-      entry.valorPotencial += r.valor_potencial ?? 0
+      if (r.status === 'avisado') entry.qtdAvisados++
+      if (ABERTO.has(r.status)) entry.valorPotencialAberto += r.valor_potencial ?? 0
+      if (r.status === 'convertido') entry.convertidoValor += r.valor_potencial ?? 0
       if (r.loja_nome && !entry.lojas.includes(r.loja_nome)) entry.lojas.push(r.loja_nome)
       map.set(key, entry)
     }
     return Array.from(map.values()).sort(
-      (a, b) => b.qtdAguardando - a.qtdAguardando || b.qtd - a.qtd
+      (a, b) => b.qtdAguardando - a.qtdAguardando || b.qtdClientes - a.qtdClientes
     )
   }, [registros])
 
   const filtrados = useMemo(() => {
     if (!produtoFiltro) return registros
-    return registros.filter(r => normalizarNome(r.produto_nome) === produtoFiltro)
+    return registros.filter(r => {
+      const key = r.produto_id ?? `nome:${normalizarNome(r.produto_nome)}`
+      return key === produtoFiltro
+    })
   }, [registros, produtoFiltro])
 
   if (registros.length === 0) {
@@ -228,7 +243,7 @@ export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
       <div className="rounded-xl border bg-card p-8 text-center space-y-2">
         <p className="text-sm font-medium">Nenhuma oportunidade em espera ainda.</p>
         <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
-          Quando um cliente pedir algo que nao tem na loja, cadastre aqui para nao perder a venda.
+          Quando um cliente pedir algo que não tem na loja, cadastre aqui para não perder a venda.
         </p>
       </div>
     )
@@ -265,10 +280,20 @@ export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                  <span>{g.qtd} cliente{g.qtd !== 1 ? 's' : ''}</span>
-                  {g.valorPotencial > 0 && (
+                  <span>{g.qtdClientes} cliente{g.qtdClientes !== 1 ? 's' : ''}</span>
+                  {g.valorPotencialAberto > 0 && (
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      {fmtValor(g.valorPotencial)}
+                      {fmtValor(g.valorPotencialAberto)} em aberto
+                    </span>
+                  )}
+                  {g.qtdAvisados > 0 && (
+                    <span className="text-purple-600 dark:text-purple-400">
+                      {g.qtdAvisados} avisado{g.qtdAvisados !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {g.convertidoValor > 0 && (
+                    <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                      convertido {fmtValor(g.convertidoValor)}
                     </span>
                   )}
                   {g.lojas.map(l => (
@@ -304,7 +329,7 @@ export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
                   : 'border border-input bg-transparent text-foreground hover:bg-accent'
               }`}
             >
-              {g.produto_nome} ({g.qtd})
+              {g.produto_nome} ({g.qtdClientes})
             </button>
           ))}
         </div>
