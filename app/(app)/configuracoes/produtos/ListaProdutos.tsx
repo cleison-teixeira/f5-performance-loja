@@ -488,8 +488,8 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
               ) : (
                 <>
                   <div className="flex items-start gap-3">
-                    {produto.foto_url ? (
-                      <img src={produto.foto_url} alt={produto.nome} className="w-12 h-12 rounded-md object-cover shrink-0 border" />
+                    {produto.foto_url || (produto.galeria_urls && produto.galeria_urls[0]) ? (
+                      <img src={produto.foto_url || produto.galeria_urls?.[0]} alt={produto.nome} className="w-12 h-12 rounded-md object-cover shrink-0 border" />
                     ) : (
                       <div className="w-12 h-12 rounded-md bg-muted shrink-0 flex items-center justify-center text-muted-foreground font-medium text-sm">
                         {produto.nome.charAt(0).toUpperCase()}

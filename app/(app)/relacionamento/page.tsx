@@ -62,7 +62,7 @@ export default async function RelacionamentoPage() {
       id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
       clientes(nome, whatsapp),
       mensagens_produto(tipo),
-      itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url)),
+      itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
       vendas(valor)
     `)
     .in('loja_id', ctx.lojaIds)
@@ -99,7 +99,7 @@ export default async function RelacionamentoPage() {
       produto_nome: string
       produto_id: string | null
       subtotal: number | null
-      produtos: { foto_url: string | null } | Array<{ foto_url: string | null }> | null
+      produtos: { foto_url: string | null; galeria_urls: string[] | null } | Array<{ foto_url: string | null; galeria_urls: string[] | null }> | null
     } | null
     const produtosRaw = itemVenda?.produtos
     const produtoFoto = Array.isArray(produtosRaw) ? produtosRaw[0] : produtosRaw
@@ -117,7 +117,7 @@ export default async function RelacionamentoPage() {
       cliente_id: a.cliente_id as string,
       produto_nome: itemVenda?.produto_nome ?? 'Produto',
       produto_id: itemVenda?.produto_id ?? null,
-      produto_foto_url: produtoFoto?.foto_url ?? null,
+      produto_foto_url: produtoFoto?.foto_url || produtoFoto?.galeria_urls?.[0] || null,
       tipo: (mensagem?.tipo ?? 'agradecimento') as AvisoDetalhado['tipo'],
       valor_venda: venda?.valor ?? 0,
       valor_produto: itemVenda?.subtotal ?? 0,

@@ -89,10 +89,10 @@ export function ProdutosLista({ lista, podeEditar }: Props) {
             return (
               <div key={p.id} className="rounded-xl border bg-card p-4 space-y-2.5">
                 <div className="flex items-start gap-3">
-                  {p.foto_url ? (
+                  {p.foto_url || (p.galeria_urls && p.galeria_urls[0]) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={p.foto_url}
+                      src={p.foto_url || p.galeria_urls?.[0]}
                       alt={p.nome}
                       className="w-10 h-10 rounded-lg object-cover shrink-0 border"
                     />
