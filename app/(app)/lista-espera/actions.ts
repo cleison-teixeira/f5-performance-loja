@@ -223,7 +223,8 @@ async function processarConversaoVenda(
   produtoNomeInput?: string,
   produtoIdInput?: string,
   valorPotencialInput?: number | null,
-  quantidadeInput?: number
+  quantidadeInput?: number,
+  responsavelVendaId?: string
 ): Promise<string | null> {
   if (status !== 'convertido') return null
 
@@ -240,7 +241,25 @@ async function processarConversaoVenda(
   if (item.venda_id) return item.venda_id
 
   const loja_id = item.loja_id
-  const vendedora_id = vendedoraIdInput ?? item.vendedora_id
+
+  // Choose responsible:
+  // 1. Use responsavelVendaId if provided and active in the store
+  // 2. Fallback to vendedoraIdInput (if set in edit form)
+  // 3. Fallback to item.vendedora_id (default seller)
+  let vendedora_id = vendedoraIdInput ?? item.vendedora_id
+  if (responsavelVendaId) {
+    const { data: membroAtivo } = await admin
+      .from('membros_loja')
+      .select('id')
+      .eq('loja_id', loja_id)
+      .eq('perfil_id', responsavelVendaId)
+      .eq('ativo', true)
+      .maybeSingle()
+    if (membroAtivo) {
+      vendedora_id = responsavelVendaId
+    }
+  }
+
   const cliente_nome = (clienteNomeInput ?? item.cliente_nome ?? 'Cliente').trim()
   const cliente_whatsapp = (clienteWhatsappInput ?? item.cliente_whatsapp ?? '').replace(/\D/g, '')
   const produto_nome = (produtoNomeInput ?? item.produto_nome ?? 'Produto').trim()
@@ -320,9 +339,38 @@ async function processarConversaoVenda(
   return newVendaId
 }
 
+export async function buscarMembrosAtivosLoja(lojaId: string): Promise<Array<{ id: string; nome: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const admin = createAdminClient()
+  const { data: membroLogado } = await admin
+    .from('membros_loja')
+    .select('id')
+    .eq('loja_id', lojaId)
+    .eq('perfil_id', user.id)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (!membroLogado) return []
+
+  const { data: membros } = await admin
+    .from('membros_loja')
+    .select('perfil_id, perfis(id, nome)')
+    .eq('loja_id', lojaId)
+    .eq('ativo', true)
+
+  return (membros ?? []).map(m => {
+    const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
+    const perfil = Array.isArray(p) ? p[0] : p
+    return { id: m.perfil_id as string, nome: perfil?.nome ?? 'Sem nome' }
+  })
+}
+
 export async function atualizarStatusListaEspera(
   id: string,
-  status: StatusListaEspera
+  status: StatusListaEspera,
+  responsavelVendaId?: string
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -346,7 +394,7 @@ export async function atualizarStatusListaEspera(
 
   let vendaId: string | null = null
   if (status === 'convertido') {
-    vendaId = await processarConversaoVenda(id, status)
+    vendaId = await processarConversaoVenda(id, status, undefined, undefined, undefined, undefined, undefined, undefined, undefined, responsavelVendaId)
     if (!vendaId) {
       return { ok: false, error: 'Não foi possível converter em venda.' }
     }

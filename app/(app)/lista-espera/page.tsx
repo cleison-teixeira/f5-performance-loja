@@ -103,15 +103,13 @@ export default async function ListaEsperaPage() {
   }
 
   const nomeMap: Record<string, string> = {}
-  if (!isVendedora) {
-    const ids = [...new Set((registrosRes.data ?? []).map(r => r.vendedora_id as string).filter(Boolean))]
-    if (ids.length > 0) {
-      const { data: perfisData } = await admin
-        .from('perfis')
-        .select('id, nome')
-        .in('id', ids)
-      for (const p of perfisData ?? []) nomeMap[p.id as string] = p.nome as string
-    }
+  const ids = [...new Set((registrosRes.data ?? []).map(r => r.vendedora_id as string).filter(Boolean))]
+  if (ids.length > 0) {
+    const { data: perfisData } = await admin
+      .from('perfis')
+      .select('id, nome')
+      .in('id', ids)
+    for (const p of perfisData ?? []) nomeMap[p.id as string] = p.nome as string
   }
 
   const registros: RegistroListaEspera[] = (registrosRes.data ?? []).map(r => ({
@@ -130,7 +128,7 @@ export default async function ListaEsperaPage() {
     observacao: r.observacao as string | null,
     criado_em: r.criado_em as string,
     vendedora_id: r.vendedora_id as string | null,
-    vendedora_nome: !isVendedora ? (nomeMap[r.vendedora_id as string] ?? '—') : undefined,
+    vendedora_nome: nomeMap[r.vendedora_id as string] ?? '—',
     loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
   }))
 

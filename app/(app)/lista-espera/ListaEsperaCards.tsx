@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, Check, Pencil, Send } from 'lucide-react'
-import { atualizarStatusListaEspera, type StatusListaEspera } from './actions'
+import { atualizarStatusListaEspera, buscarMembrosAtivosLoja, type StatusListaEspera } from './actions'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
@@ -204,10 +204,43 @@ function RegistroCard({
   const [isPending, startTransition] = useTransition()
   const [editando, setEditando] = useState(false)
 
-  function handleStatus(valor: string) {
+  const [membros, setMembros] = useState<Array<{ id: string; nome: string }>>([])
+  const [responsavelId, setResponsavelId] = useState<string>(registro.vendedora_id || '')
+  const [statusTemp, setStatusTemp] = useState<string>(registro.status)
+
+  useEffect(() => {
+    if (statusTemp === 'convertido' && registro.status !== 'convertido' && membros.length === 0) {
+      buscarMembrosAtivosLoja(registro.loja_id).then(res => {
+        setMembros(res)
+        if (res.length > 0 && !res.some(m => m.id === responsavelId)) {
+          setResponsavelId(res[0].id)
+        }
+      }).catch(() => {})
+    }
+  }, [statusTemp, registro.status, registro.loja_id, membros.length, responsavelId])
+
+  function handleStatusChange(valor: string) {
+    setStatusTemp(valor)
+    if (valor !== 'convertido') {
+      startTransition(async () => {
+        const res = await atualizarStatusListaEspera(registro.id, valor as StatusListaEspera)
+        if (res.ok) {
+          router.refresh()
+        } else {
+          alert(res.error || 'Erro ao atualizar status')
+        }
+      })
+    }
+  }
+
+  function handleSalvarConversao() {
     startTransition(async () => {
-      await atualizarStatusListaEspera(registro.id, valor as StatusListaEspera)
-      router.refresh()
+      const res = await atualizarStatusListaEspera(registro.id, 'convertido', responsavelId)
+      if (res.ok) {
+        router.refresh()
+      } else {
+        alert(res.error || 'Erro ao converter')
+      }
     })
   }
 
@@ -286,6 +319,38 @@ function RegistroCard({
         </p>
       )}
 
+      {registro.status === 'convertido' && (
+        <div className="text-xs bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-2 mt-1">
+          <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-wider">Responsável pela venda convertida</p>
+          <p className="font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5">{registro.vendedora_nome || '—'}</p>
+        </div>
+      )}
+
+      {statusTemp === 'convertido' && registro.status !== 'convertido' && (
+        <div className="border-t pt-3 mt-3 space-y-2">
+          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wide">
+            Responsável pela venda convertida
+          </label>
+          <select
+            className="w-full rounded-lg border bg-background px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={responsavelId}
+            onChange={e => setResponsavelId(e.target.value)}
+            disabled={isPending}
+          >
+            {membros.map(m => (
+              <option key={m.id} value={m.id}>{m.nome}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleSalvarConversao}
+            disabled={isPending || membros.length === 0}
+            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
+          >
+            {isPending ? 'Convertendo…' : 'Confirmar Conversão em Venda'}
+          </button>
+        </div>
+      )}
+
       {mensagem && (
         <MensagemSugerida
           mensagem={mensagem}
@@ -299,8 +364,8 @@ function RegistroCard({
         <span className="text-xs text-muted-foreground shrink-0">Status:</span>
         <select
           className={selectClass}
-          value={registro.status}
-          onChange={e => handleStatus(e.target.value)}
+          value={statusTemp}
+          onChange={e => handleStatusChange(e.target.value)}
           disabled={isPending}
         >
           {Object.entries(STATUS_LABELS).map(([val, label]) => (
