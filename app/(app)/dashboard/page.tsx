@@ -202,7 +202,7 @@ export default async function DashboardPage() {
   }
   const hojeDia = agora.getDate()
 
-  const qClient = multiLoja ? admin : supabase
+  const qClient = admin
 
   const [vendasRes, avisosRes, recomprasRes, enviadosRes, produtosRes, membrosRes, perfilRes, metasRes, comissaoVendaRes, listaEsperaRes] = await Promise.all([
     (() => {
@@ -386,8 +386,8 @@ export default async function DashboardPage() {
   const totalVendasValor = vendas.reduce((s, v) => s + v.valor, 0)
   const totalRecomprasValor = recompras.reduce((s, r) => s + r.valor_total, 0)
   const totalComissoes = comissoesCanon.reduce((s, c) => s + c.valor_comissao, 0)
-  const avisosAtrasados = avisos.filter(a => a.atrasado)
-  const avisosHojeList = avisos.filter(a => a.data_aviso === hoje && !a.atrasado)
+  const avisosAtrasados = avisos.filter(a => a.atrasado && (a.tipo === 'recompra' || a.tipo === 'oferta'))
+  const avisosHojeList = avisos.filter(a => a.data_aviso === hoje && !a.atrasado && (a.tipo === 'recompra' || a.tipo === 'oferta'))
   const avisosEnviadosCount = enviadosRes.count ?? 0
   const seenPrevisao = new Set<string>()
   const previsaoEmAberto = avisos
@@ -649,12 +649,13 @@ export default async function DashboardPage() {
   function mkBucket(list: DashboardAviso[]): AvisosBucket {
     return { qtd: list.length, valor: list.reduce((s, a) => s + a.valor_venda, 0) }
   }
+  const isFilaType = (a: DashboardAviso) => a.tipo === 'recompra' || a.tipo === 'oferta'
   const avisosPrazo: AvisosPrazoInfo = {
-    atrasados: mkBucket(avisos.filter(a => a.data_aviso < hoje)),
-    hoje: mkBucket(avisos.filter(a => a.data_aviso === hoje)),
-    amanha: mkBucket(avisos.filter(a => a.data_aviso === amanhaStr)),
-    em2a3: mkBucket(avisos.filter(a => a.data_aviso >= em2Str && a.data_aviso <= em3Str)),
-    em4a7: mkBucket(avisos.filter(a => a.data_aviso >= em4Str && a.data_aviso <= em7DiasStr)),
+    atrasados: mkBucket(avisos.filter(a => isFilaType(a) && a.data_aviso < hoje)),
+    hoje: mkBucket(avisos.filter(a => isFilaType(a) && a.data_aviso === hoje)),
+    amanha: mkBucket(avisos.filter(a => isFilaType(a) && a.data_aviso === amanhaStr)),
+    em2a3: mkBucket(avisos.filter(a => isFilaType(a) && a.data_aviso >= em2Str && a.data_aviso <= em3Str)),
+    em4a7: mkBucket(avisos.filter(a => isFilaType(a) && a.data_aviso >= em4Str && a.data_aviso <= em7DiasStr)),
   }
 
   const produtoMesMap = new Map<string, { total: number; foto_url: string | null }>()
