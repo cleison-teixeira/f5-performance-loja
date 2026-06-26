@@ -106,7 +106,7 @@ const piuvitaItems: PartnerItem[] = [
   {
     id: 'pv-antiox',
     partner: 'PiùVita',
-    title: 'Como vender Piùfort Antiox',
+    title: 'Como vender Piufort Antiox',
     description: 'Benefícios, perfil do cliente ideal, argumentos com expert e abordagem de recompra para o Piùfort Antiox.',
     category: 'Produto',
     categoryColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -116,7 +116,7 @@ const piuvitaItems: PartnerItem[] = [
   {
     id: 'pv-slim',
     partner: 'PiùVita',
-    title: 'Como vender Piùfort Slim',
+    title: 'Como vender Piufort Slim',
     description: 'Sazonalidade, perfil do cliente e como posicionar o Piùfort Slim como aliado do dia a dia.',
     category: 'Produto',
     categoryColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -126,7 +126,7 @@ const piuvitaItems: PartnerItem[] = [
   {
     id: 'pv-woman',
     partner: 'PiùVita',
-    title: 'Como vender Piùfort Woman',
+    title: 'Como vender Piufort Woman',
     description: 'Foco feminino, benefícios, objeções comuns e como falar sobre o Piùfort Woman com naturalidade.',
     category: 'Produto',
     categoryColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -136,7 +136,7 @@ const piuvitaItems: PartnerItem[] = [
   {
     id: 'pv-imune',
     partner: 'PiùVita',
-    title: 'Como vender Piùfort Imune',
+    title: 'Como vender Piufort Imune',
     description: 'Sazonalidade, upsell e como conectar o Piùfort Imune ao ciclo de recompra da loja.',
     category: 'Produto',
     categoryColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -144,14 +144,24 @@ const piuvitaItems: PartnerItem[] = [
     duration: '8 min',
   },
   {
-    id: 'pv-expert',
+    id: 'pv-argumentos',
     partner: 'PiùVita',
-    title: 'Argumentos de venda com expert PiùVita',
+    title: 'Argumentos de venda PiuVita',
     description: 'Especialistas da PiùVita apresentam os principais diferenciais e como usar o portfólio para fidelizar clientes.',
     category: 'Expert',
     categoryColor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     status: 'soon',
     duration: '15 min',
+  },
+  {
+    id: 'pv-objecoes',
+    partner: 'PiùVita',
+    title: 'Objeções comuns PiuVita',
+    description: 'Aprenda a contornar as principais objeções de preço, qualidade e benefícios dos suplementos PiuVita.',
+    category: 'Expert',
+    categoryColor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    status: 'soon',
+    duration: '12 min',
   },
 ]
 
