@@ -98,11 +98,11 @@ export async function criarListaEspera(
     .single()
   clienteId = clienteData?.id ?? null
 
-  let produtoId: string | null = null
+  let produtoId: string
   try {
     produtoId = await resolverProdutoId(input.produto_nome, input.loja_id)
   } catch {
-    // Non-fatal: item saved without produto_id, can be reconciled later
+    return { ok: false, error: 'Não foi possível criar ou vincular o produto. Tente novamente.' }
   }
 
   const { error } = await supabase.from('lista_espera').insert({
