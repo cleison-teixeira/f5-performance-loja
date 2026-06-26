@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { Search } from 'lucide-react'
 import { salvarProduto, salvarMensagens, desativarProduto } from './actions'
 import { UploadFotoProduto } from '@/components/ui/upload-foto-produto'
 import { ORDENS_POR_MODELO, MODELO_OPTIONS } from '@/lib/mensagens/modelos'
@@ -332,6 +333,13 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
   const [mensagensAbertaId, setMensagensAbertaId] = useState<string | null>(null)
   const [desativando, setDesativando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
+
+  const produtosFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    if (!q) return produtos
+    return produtos.filter(p => p.nome.toLowerCase().includes(q))
+  }, [produtos, busca])
 
   async function handleDesativar(produto_id: string) {
     setDesativando(produto_id)
@@ -351,6 +359,19 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
 
   return (
     <div className="space-y-4 pb-8">
+      {produtos.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="search"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar produto…"
+            className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      )}
+
       {podeEditar && !mostrarFormNovo && (
         <button
           onClick={() => { setMostrarFormNovo(true); setEditandoId(null) }}
@@ -374,8 +395,14 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
         <p className="text-sm text-muted-foreground">Nenhum produto cadastrado ainda.</p>
       )}
 
+      {produtos.length > 0 && produtosFiltrados.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nenhum produto encontrado para <strong>&ldquo;{busca}&rdquo;</strong>.
+        </p>
+      )}
+
       <div className="space-y-3">
-        {produtos.map(produto => {
+        {produtosFiltrados.map(produto => {
           const ordensAtivas = ORDENS_POR_MODELO[produto.qtd_mensagens]
           const salvasAtivas = produto.mensagens.filter(m => ordensAtivas.includes(m.ordem) && m.id !== null)
           const totalAtivo = ordensAtivas.length
