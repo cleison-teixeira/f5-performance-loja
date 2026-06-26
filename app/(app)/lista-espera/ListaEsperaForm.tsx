@@ -187,13 +187,18 @@ export function ListaEsperaForm({
 
   if (!aberto) {
     return (
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors w-full"
-      >
-        <Plus className="h-4 w-4" />
-        Adicionar à lista
-      </button>
+      <div className="space-y-1.5">
+        <button
+          onClick={() => setAberto(true)}
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors w-full"
+        >
+          <Plus className="h-4 w-4" />
+          Novo pedido na lista
+        </button>
+        <p className="text-xs text-muted-foreground text-center px-1">
+          Registre produtos que o cliente pediu e a loja precisa repor, encomendar ou avisar quando chegar.
+        </p>
+      </div>
     )
   }
 

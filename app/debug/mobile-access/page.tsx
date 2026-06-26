@@ -123,7 +123,7 @@ export default function DebugMobileAccessPage() {
             nomeVendedora="Ana Beatriz Costa"
             avisosAtrasados={avisosAtrasados}
             avisosHoje={avisosHoje}
-            listaEsperaInfo={{ qtdAguardando: 2, valorPotencial: 350, qtdClientes: 2 }}
+            listaEsperaInfo={{ qtdAguardando: 2, potencialEmAberto: 350, qtdAvisados: 1, convertidoValor: 0, qtdClientes: 2 }}
             avisosEnviadosCount={12}
             topProdutosMes={[]}
             totalRecomprasValorMes={0}

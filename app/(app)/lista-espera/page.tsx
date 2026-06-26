@@ -210,7 +210,7 @@ export default async function ListaEsperaPage() {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Oportunidade</p>
             <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">
-              {fmt(potencialEmAberto)} em potencial aguardando reposicao
+              {fmt(potencialEmAberto)} em potencial aguardando reposição
             </p>
             <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
               {qtdAguardando} item{qtdAguardando !== 1 ? 's' : ''} aguardando · {qtdClientes} cliente{qtdClientes !== 1 ? 's' : ''} interessado{qtdClientes !== 1 ? 's' : ''}
@@ -231,7 +231,7 @@ export default async function ListaEsperaPage() {
         />
       ) : (
         <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2 leading-relaxed">
-          Selecione uma loja no seletor <strong>Visao</strong> acima para adicionar itens a lista de espera.
+          Selecione uma loja no seletor <strong>Visão</strong> acima para adicionar itens à lista de espera.
         </p>
       )}
 

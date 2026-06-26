@@ -178,10 +178,10 @@ export function DashboardDono({
         </div>
       </div>
 
-      {/* ══ 4. LISTA DE ESPERA (card robusto) ══ */}
-      {listaEsperaInfo.qtdAguardando > 0 && (
+      {/* ══ 4. LISTA DE ESPERA ══ */}
+      {(listaEsperaInfo.potencialEmAberto > 0 || listaEsperaInfo.qtdAguardando > 0) && (
         <div className="rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4 mb-3">
+          <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm">
                 <Package className="h-5 w-5 text-white" />
@@ -190,8 +190,8 @@ export function DashboardDono({
                 <p className="text-xs font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-widest">
                   Lista de espera
                 </p>
-                <p className="text-2xl font-bold text-amber-800 dark:text-amber-200 mt-0.5 tabular-nums">
-                  {fmtVal(listaEsperaInfo.valorPotencial)}
+                <p className="text-sm text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+                  Demanda aguardando reposição
                 </p>
               </div>
             </div>
@@ -202,13 +202,28 @@ export function DashboardDono({
               Ver lista <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <p className="text-sm text-amber-700/80 dark:text-amber-300/80">
-            em demanda aguardando reposição
-          </p>
-          <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
-            {listaEsperaInfo.qtdAguardando} item{listaEsperaInfo.qtdAguardando !== 1 ? 's' : ''}{' '}
-            · {listaEsperaInfo.qtdClientes} cliente{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''} interessado{listaEsperaInfo.qtdClientes !== 1 ? 's' : ''}
-          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-amber-100/60 dark:bg-amber-900/20 p-3 text-center">
+              <p className="text-xl font-bold tabular-nums text-amber-700 dark:text-amber-300">{listaEsperaInfo.qtdAguardando}</p>
+              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Aguardando</p>
+            </div>
+            <div className="rounded-xl bg-amber-100/60 dark:bg-amber-900/20 p-3 text-center">
+              <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400 leading-tight">
+                {listaEsperaInfo.potencialEmAberto > 0 ? fmtVal(listaEsperaInfo.potencialEmAberto) : '—'}
+              </p>
+              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Potencial em aberto</p>
+            </div>
+            <div className="rounded-xl bg-amber-100/60 dark:bg-amber-900/20 p-3 text-center">
+              <p className="text-xl font-bold tabular-nums text-purple-700 dark:text-purple-400">{listaEsperaInfo.qtdAvisados}</p>
+              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Clientes avisados</p>
+            </div>
+            <div className="rounded-xl bg-amber-100/60 dark:bg-amber-900/20 p-3 text-center">
+              <p className="text-sm font-bold tabular-nums text-emerald-800 dark:text-emerald-300 leading-tight">
+                {listaEsperaInfo.convertidoValor > 0 ? fmtVal(listaEsperaInfo.convertidoValor) : '—'}
+              </p>
+              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Convertido</p>
+            </div>
+          </div>
         </div>
       )}
 

@@ -90,7 +90,9 @@ export interface ProdutoTopMes {
 
 export interface ListaEsperaInfo {
   qtdAguardando: number
-  valorPotencial: number
+  potencialEmAberto: number
+  qtdAvisados: number
+  convertidoValor: number
   qtdClientes: number
 }
 
@@ -291,9 +293,8 @@ export default async function DashboardPage() {
     (() => {
       let q = qClient
         .from('lista_espera')
-        .select('id, valor_potencial, cliente_nome')
+        .select('id, valor_potencial, cliente_nome, status')
         .in('loja_id', lojaIds)
-        .eq('status', 'aguardando')
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q
     })(),
@@ -685,11 +686,14 @@ export default async function DashboardPage() {
   const diasRestantes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate() - agora.getDate()
   const mesLabel = agora.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
-  const listaEsperaItens = (listaEsperaRes.data ?? []) as Array<{ valor_potencial: number | null; cliente_nome: string }>
+  const listaEsperaItens = (listaEsperaRes.data ?? []) as Array<{ valor_potencial: number | null; cliente_nome: string; status: string }>
+  const ABERTO_LE = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
   const listaEsperaInfo: ListaEsperaInfo = {
-    qtdAguardando: listaEsperaItens.length,
-    valorPotencial: listaEsperaItens.reduce((s, i) => s + (i.valor_potencial ?? 0), 0),
-    qtdClientes: new Set(listaEsperaItens.map(i => i.cliente_nome)).size,
+    qtdAguardando: listaEsperaItens.filter(i => i.status === 'aguardando').length,
+    potencialEmAberto: listaEsperaItens.filter(i => ABERTO_LE.has(i.status)).reduce((s, i) => s + (i.valor_potencial ?? 0), 0),
+    qtdAvisados: listaEsperaItens.filter(i => i.status === 'avisado').length,
+    convertidoValor: listaEsperaItens.filter(i => i.status === 'convertido').reduce((s, i) => s + (i.valor_potencial ?? 0), 0),
+    qtdClientes: new Set(listaEsperaItens.filter(i => i.status === 'aguardando').map(i => i.cliente_nome)).size,
   }
 
   return (
