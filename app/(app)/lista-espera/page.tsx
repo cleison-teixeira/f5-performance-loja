@@ -32,7 +32,7 @@ export default async function ListaEsperaPage() {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Lista de Espera</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+        <p className="text-sm text-muted-foreground">Voce ainda nao pertence a nenhuma loja.</p>
       </div>
     )
   }
@@ -49,7 +49,7 @@ export default async function ListaEsperaPage() {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Lista de Espera</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+        <p className="text-sm text-muted-foreground">Voce ainda nao pertence a nenhuma loja.</p>
       </div>
     )
   }
@@ -63,6 +63,7 @@ export default async function ListaEsperaPage() {
     : `${ctx.lojaNome} · Demanda real para comprar melhor`
 
   const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
+  const lojaNome = ctx.lojaNome ?? ''
 
   const [registrosRes, categoriasRes, vendedorasRes] = await Promise.all([
     admin
@@ -138,10 +139,24 @@ export default async function ListaEsperaPage() {
     ? (categoriasRes.data ?? []).map(c => ({ id: c.id as string, nome: c.nome as string }))
     : []
 
+  // Produtos existentes para autocomplete (distinct, ordenado)
+  const produtosExistentes = [...new Set(
+    registros.map(r => r.produto_nome).filter(Boolean)
+  )].sort()
+
+  // Métricas separadas por status
   const total = registros.length
-  const aguardando = registros.filter(r => r.status === 'aguardando').length
-  const valorPotencial = registros.reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
-  const qtdClientes = new Set(registros.filter(r => r.status === 'aguardando').map(r => r.cliente_nome)).size
+  const qtdAguardando = registros.filter(r => r.status === 'aguardando').length
+  const qtdAvisados = registros.filter(r => r.status === 'avisado').length
+  const potencialEmAberto = registros
+    .filter(r => r.status === 'aguardando')
+    .reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
+  const convertidoValor = registros
+    .filter(r => r.status === 'convertido')
+    .reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
+  const qtdClientes = new Set(
+    registros.filter(r => r.status === 'aguardando').map(r => r.cliente_nome)
+  ).size
 
   return (
     <div className="space-y-4">
@@ -150,26 +165,34 @@ export default async function ListaEsperaPage() {
         <p className="text-sm text-muted-foreground">{subtitulo}</p>
       </div>
 
+      {/* ── 4 cards de métricas ── */}
       {total > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-xl border bg-card p-3 text-center">
-            <p className="text-2xl font-bold tabular-nums">{total}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{qtdAguardando}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Aguardando</p>
           </div>
           <div className="rounded-xl border bg-card p-3 text-center">
-            <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{aguardando}</p>
-            <p className="text-xs text-muted-foreground">Aguardando</p>
-          </div>
-          <div className="rounded-xl border bg-card p-3 text-center">
-            <p className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {valorPotencial > 0 ? fmt(valorPotencial) : '—'}
+            <p className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400 leading-tight">
+              {potencialEmAberto > 0 ? fmt(potencialEmAberto) : '—'}
             </p>
-            <p className="text-xs text-muted-foreground">Potencial</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Potencial em aberto</p>
+          </div>
+          <div className="rounded-xl border bg-card p-3 text-center">
+            <p className="text-2xl font-bold tabular-nums text-purple-600 dark:text-purple-400">{qtdAvisados}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Clientes avisados</p>
+          </div>
+          <div className="rounded-xl border bg-card p-3 text-center">
+            <p className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-300 leading-tight">
+              {convertidoValor > 0 ? fmt(convertidoValor) : '—'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Convertido em venda</p>
           </div>
         </div>
       )}
 
-      {aguardando > 0 && valorPotencial > 0 && (
+      {/* ── Banner de oportunidade ── */}
+      {qtdAguardando > 0 && potencialEmAberto > 0 && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 flex items-start gap-3">
           <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm mt-0.5">
             <Package className="h-4 w-4 text-white" />
@@ -177,15 +200,16 @@ export default async function ListaEsperaPage() {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Oportunidade</p>
             <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">
-              {fmt(valorPotencial)} em potencial aguardando reposição
+              {fmt(potencialEmAberto)} em potencial aguardando reposicao
             </p>
             <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
-              {aguardando} item{aguardando !== 1 ? 's' : ''} aguardando · {qtdClientes} cliente{qtdClientes !== 1 ? 's' : ''} interessado{qtdClientes !== 1 ? 's' : ''}
+              {qtdAguardando} item{qtdAguardando !== 1 ? 's' : ''} aguardando · {qtdClientes} cliente{qtdClientes !== 1 ? 's' : ''} interessado{qtdClientes !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
       )}
 
+      {/* ── Formulario ── */}
       {ctx.escopo === 'loja' ? (
         <ListaEsperaForm
           loja_id={loja_id}
@@ -193,14 +217,15 @@ export default async function ListaEsperaPage() {
           defaultVendedoraId={defaultVendedoraId}
           vendedoras={vendedoras}
           categorias={categorias}
+          produtosExistentes={produtosExistentes}
         />
       ) : (
         <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2 leading-relaxed">
-          Selecione uma loja no seletor <strong>Visão</strong> acima para adicionar itens à lista de espera.
+          Selecione uma loja no seletor <strong>Visao</strong> acima para adicionar itens a lista de espera.
         </p>
       )}
 
-      <ListaEsperaCards registros={registros} />
+      <ListaEsperaCards registros={registros} defaultLojaNome={lojaNome} />
     </div>
   )
 }

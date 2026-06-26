@@ -22,10 +22,15 @@ interface Props {
   defaultVendedoraId: string
   vendedoras: Vendedora[]
   categorias: Categoria[]
+  produtosExistentes: string[]
 }
 
 const inputClass =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+
+function normalizar(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
 
 export function ListaEsperaForm({
   loja_id,
@@ -33,12 +38,14 @@ export function ListaEsperaForm({
   defaultVendedoraId,
   vendedoras,
   categorias,
+  produtosExistentes,
 }: Props) {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [sucesso, setSucesso] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [sugestao, setSugestao] = useState<string | null>(null)
 
   const estadoInicial = {
     cliente_nome: '',
@@ -57,10 +64,26 @@ export function ListaEsperaForm({
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  function handleProdutoChange(valor: string) {
+    set('produto_nome', valor)
+    const norm = normalizar(valor)
+    if (norm.length < 3) { setSugestao(null); return }
+    const similar = produtosExistentes.find(
+      p => normalizar(p) === norm && p.trim() !== valor.trim()
+    )
+    setSugestao(similar ?? null)
+  }
+
+  function usarSugestao(nome: string) {
+    set('produto_nome', nome)
+    setSugestao(null)
+  }
+
   function fechar() {
     setForm(estadoInicial)
     setErro(null)
     setSucesso(false)
+    setSugestao(null)
     setAberto(false)
   }
 
@@ -74,7 +97,7 @@ export function ListaEsperaForm({
     }
     const whatsappDigits = normalizarWhatsapp(form.cliente_whatsapp)
     if (whatsappDigits.length < 10 || whatsappDigits.length > 11) {
-      setErro('WhatsApp inválido. Use o formato (XX) XXXXX-XXXX.')
+      setErro('WhatsApp invalido. Use o formato (XX) XXXXX-XXXX.')
       return
     }
 
@@ -121,7 +144,7 @@ export function ListaEsperaForm({
         className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors w-full"
       >
         <Plus className="h-4 w-4" />
-        Adicionar à lista
+        Adicionar a lista
       </button>
     )
   }
@@ -171,10 +194,32 @@ export function ListaEsperaForm({
           </label>
           <input
             className={inputClass}
+            list="lista-espera-produtos"
             placeholder="Nome do produto que o cliente pediu"
             value={form.produto_nome}
-            onChange={e => set('produto_nome', e.target.value)}
+            onChange={e => handleProdutoChange(e.target.value)}
           />
+          {produtosExistentes.length > 0 && (
+            <datalist id="lista-espera-produtos">
+              {produtosExistentes.map(p => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+          )}
+          {sugestao && (
+            <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Produto similar: <strong>{sugestao}</strong>
+              </p>
+              <button
+                type="button"
+                onClick={() => usarSugestao(sugestao)}
+                className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400 underline hover:no-underline"
+              >
+                Usar este
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -195,7 +240,7 @@ export function ListaEsperaForm({
               </select>
             ) : (
               <p className="text-xs text-muted-foreground py-2">
-                Nenhuma categoria cadastrada. O responsável pela loja pode criar em Configurações.
+                Nenhuma categoria cadastrada.
               </p>
             )}
           </div>
@@ -228,7 +273,7 @@ export function ListaEsperaForm({
           {!isVendedora && vendedoras.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">
-                Vendedora responsável
+                Vendedora responsavel
               </label>
               <select
                 className={inputClass}
@@ -245,12 +290,12 @@ export function ListaEsperaForm({
 
         <div>
           <label className="text-xs font-medium text-muted-foreground block mb-1">
-            Observação
+            Observacao
           </label>
           <textarea
             className={inputClass}
             rows={2}
-            placeholder="Informações adicionais sobre o pedido"
+            placeholder="Informacoes adicionais sobre o pedido"
             value={form.observacao}
             onChange={e => set('observacao', e.target.value)}
           />
@@ -266,7 +311,7 @@ export function ListaEsperaForm({
           className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors"
         >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          Adicionar à lista
+          Adicionar a lista
         </button>
       </form>
     </div>

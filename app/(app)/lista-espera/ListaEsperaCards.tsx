@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Copy, Check } from 'lucide-react'
 import { atualizarStatusListaEspera, type StatusListaEspera } from './actions'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 
@@ -39,14 +40,59 @@ function fmtValor(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function normalizarNome(nome: string) {
+  return nome.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+function gerarMensagem(registro: RegistroListaEspera, defaultLojaNome: string): string {
+  const vendedora = (registro.vendedora_nome && registro.vendedora_nome !== '—')
+    ? registro.vendedora_nome
+    : 'nossa equipe'
+  const loja = registro.loja_nome || defaultLojaNome
+  return `Oi ${registro.cliente_nome}, tudo bem? Aqui e ${vendedora} da ${loja}. O produto que voce tinha pedido chegou: ${registro.produto_nome}. Consegui separar para voce. Quer que eu deixe reservado ate o fim do dia?`
+}
+
 const selectClass =
   'rounded-md border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-function normalizarNome(nome: string) {
-  return nome.trim().toLowerCase()
+function MensagemSugerida({ mensagem }: { mensagem: string }) {
+  const [copiado, setCopiado] = useState(false)
+
+  function copiar() {
+    navigator.clipboard.writeText(mensagem).then(() => {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    })
+  }
+
+  return (
+    <div className="border-t pt-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-purple-700 dark:text-purple-400">
+          Mensagem sugerida para WhatsApp
+        </p>
+        <button
+          onClick={copiar}
+          className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          {copiado ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+          {copiado ? 'Copiado' : 'Copiar'}
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2 leading-relaxed italic">
+        &ldquo;{mensagem}&rdquo;
+      </p>
+    </div>
+  )
 }
 
-function RegistroCard({ registro }: { registro: RegistroListaEspera }) {
+function RegistroCard({
+  registro,
+  defaultLojaNome,
+}: {
+  registro: RegistroListaEspera
+  defaultLojaNome: string
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -56,6 +102,11 @@ function RegistroCard({ registro }: { registro: RegistroListaEspera }) {
       router.refresh()
     })
   }
+
+  const mensagemAvisado =
+    registro.status === 'avisado'
+      ? gerarMensagem(registro, defaultLojaNome)
+      : null
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-3">
@@ -114,6 +165,8 @@ function RegistroCard({ registro }: { registro: RegistroListaEspera }) {
         </p>
       )}
 
+      {mensagemAvisado && <MensagemSugerida mensagem={mensagemAvisado} />}
+
       <div className="flex items-center gap-2 border-t pt-2">
         <span className="text-xs text-muted-foreground shrink-0">Status:</span>
         <select
@@ -136,9 +189,10 @@ function RegistroCard({ registro }: { registro: RegistroListaEspera }) {
 
 interface Props {
   registros: RegistroListaEspera[]
+  defaultLojaNome?: string
 }
 
-export function ListaEsperaCards({ registros }: Props) {
+export function ListaEsperaCards({ registros, defaultLojaNome = '' }: Props) {
   const [produtoFiltro, setProdutoFiltro] = useState('')
 
   const grupos = useMemo<GrupoProduto[]>(() => {
@@ -174,7 +228,7 @@ export function ListaEsperaCards({ registros }: Props) {
       <div className="rounded-xl border bg-card p-8 text-center space-y-2">
         <p className="text-sm font-medium">Nenhuma oportunidade em espera ainda.</p>
         <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
-          Quando um cliente pedir algo que não tem na loja, cadastre aqui para não perder a venda.
+          Quando um cliente pedir algo que nao tem na loja, cadastre aqui para nao perder a venda.
         </p>
       </div>
     )
@@ -256,18 +310,27 @@ export function ListaEsperaCards({ registros }: Props) {
         </div>
       )}
 
-      {/* ── Cards de clientes ── */}
-      {filtrados.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">
-          Nenhum item para este produto.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {filtrados.map(r => (
-            <RegistroCard key={r.id} registro={r} />
-          ))}
-        </div>
-      )}
+      {/* ── Clientes esperando ── */}
+      <div className="space-y-1">
+        {grupos.length > 1 && (
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            {produtoFiltro
+              ? `Clientes esperando · ${filtrados.length}`
+              : `Todos os itens · ${filtrados.length}`}
+          </p>
+        )}
+        {filtrados.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            Nenhum item para este produto.
+          </p>
+        ) : (
+          <div className="space-y-3 pt-1">
+            {filtrados.map(r => (
+              <RegistroCard key={r.id} registro={r} defaultLojaNome={defaultLojaNome} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 export const STATUS_LABELS: Record<string, string> = {
   aguardando: 'Aguardando',
-  encontrado_outra_loja: 'Encontrado em outra loja',
+  encontrado_outra_loja: 'Encomendado em esteira',
   avisado: 'Cliente avisado',
   convertido: 'Convertido em venda',
   perdido: 'Perdido',
