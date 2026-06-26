@@ -65,7 +65,7 @@ export default async function ListaEsperaPage() {
   const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
   const lojaNome = ctx.lojaNome ?? ''
 
-  const [registrosRes, categoriasRes, vendedorasRes] = await Promise.all([
+  const [registrosRes, categoriasRes, vendedorasRes, produtosRes] = await Promise.all([
     admin
       .from('lista_espera')
       .select('id, cliente_nome, cliente_whatsapp, produto_nome, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
@@ -87,6 +87,14 @@ export default async function ListaEsperaPage() {
           .eq('role', 'vendedora')
           .eq('ativo', true)
       : Promise.resolve({ data: [] as Array<{ perfil_id: unknown; perfis: unknown }> }),
+    ctx.escopo === 'loja'
+      ? admin
+          .from('produtos')
+          .select('id, nome')
+          .eq('loja_id', loja_id)
+          .eq('ativo', true)
+          .order('nome')
+      : Promise.resolve({ data: [] as Array<{ id: unknown; nome: unknown }> }),
   ])
 
   const categoriaMap: Record<string, string> = {}
@@ -139,17 +147,22 @@ export default async function ListaEsperaPage() {
     ? (categoriasRes.data ?? []).map(c => ({ id: c.id as string, nome: c.nome as string }))
     : []
 
-  // Produtos existentes para autocomplete (distinct, ordenado)
+  const produtos = ctx.escopo === 'loja'
+    ? (produtosRes.data ?? []).map(p => ({ id: p.id as string, nome: p.nome as string }))
+    : []
+
+  // Produtos existentes para autocomplete (distinct, ordenado) — exclui nomes já no catálogo
+  const nomesCatalogo = new Set(produtos.map(p => p.nome.trim().toLowerCase()))
   const produtosExistentes = [...new Set(
     registros.map(r => r.produto_nome).filter(Boolean)
-  )].sort()
+  )].filter(n => !nomesCatalogo.has(n.trim().toLowerCase())).sort()
 
   // Métricas separadas por status
   const total = registros.length
   const qtdAguardando = registros.filter(r => r.status === 'aguardando').length
   const qtdAvisados = registros.filter(r => r.status === 'avisado').length
   const potencialEmAberto = registros
-    .filter(r => r.status === 'aguardando')
+    .filter(r => r.status === 'aguardando' || r.status === 'encontrado_outra_loja' || r.status === 'avisado')
     .reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
   const convertidoValor = registros
     .filter(r => r.status === 'convertido')
@@ -218,6 +231,7 @@ export default async function ListaEsperaPage() {
           vendedoras={vendedoras}
           categorias={categorias}
           produtosExistentes={produtosExistentes}
+          produtos={produtos}
         />
       ) : (
         <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2 leading-relaxed">

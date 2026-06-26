@@ -49,7 +49,7 @@ function gerarMensagem(registro: RegistroListaEspera, defaultLojaNome: string): 
     ? registro.vendedora_nome
     : 'nossa equipe'
   const loja = registro.loja_nome || defaultLojaNome
-  return `Oi ${registro.cliente_nome}, tudo bem? Aqui e ${vendedora} da ${loja}. O produto que voce tinha pedido chegou: ${registro.produto_nome}. Consegui separar para voce. Quer que eu deixe reservado ate o fim do dia?`
+  return `Oi ${registro.cliente_nome}, tudo bem? Aqui é ${vendedora} da ${loja}. O produto que você tinha pedido chegou: ${registro.produto_nome}. Consegui separar para você. Quer que eu deixe reservado até o fim do dia?`
 }
 
 const selectClass =
