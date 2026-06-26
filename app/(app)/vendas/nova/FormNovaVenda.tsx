@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { buscarCliente, salvarVenda } from './actions'
 import { ResumoVenda } from './ResumoVenda'
+import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { CheckCircle, Loader2, UserPlus, Plus, X } from 'lucide-react'
 
@@ -127,23 +128,26 @@ export function FormNovaVenda({
     setItens(prev => prev.map(item => item.key === key ? { ...item, ...patch } : item))
   }
 
-  function handleProdutoChange(key: string, value: string) {
-    if (value === '' || value === '__novo__') {
-      // __novo__ → recorrente: false por padrão (granel/item livre é pontual)
-      // Vendedora pode ligar o toggle se for um produto real de recompra
-      atualizarItem(key, { produtoId: value, produtoNome: '', precoBRL: '', recorrente: false, comissionavel: true })
-      return
-    }
-    const prod = produtos.find(p => p.id === value)
-    if (prod) {
-      atualizarItem(key, {
-        produtoId: value,
-        produtoNome: prod.nome,
-        precoBRL: prod.preco_sugerido != null ? prod.preco_sugerido.toFixed(2).replace('.', ',') : '',
-        recorrente: prod.recorrente,
-        comissionavel: prod.comissionavel_recompra,
-      })
-    }
+  function handleProdutoSelect(key: string, resultado: ProdutoSelecionadoResult) {
+    setItens(prev => prev.map(item => {
+      if (item.key !== key) return item
+      if (!resultado.nome.trim()) {
+        return { ...item, produtoId: '', produtoNome: '', precoBRL: '' }
+      }
+      if (resultado.id) {
+        return {
+          ...item,
+          produtoId: resultado.id,
+          produtoNome: resultado.nome,
+          precoBRL: resultado.preco_sugerido != null
+            ? resultado.preco_sugerido.toFixed(2).replace('.', ',')
+            : item.precoBRL,
+          recorrente: resultado.recorrente ?? item.recorrente,
+          comissionavel: resultado.comissionavel_recompra ?? item.comissionavel,
+        }
+      }
+      return { ...item, produtoId: '', produtoNome: resultado.nome }
+    }))
   }
 
   function handlePrecoBlur(key: string, raw: string) {
@@ -173,7 +177,7 @@ export function FormNovaVenda({
     if (!item.recorrente || !item.comissionavel) continue
     const preco = parseBRL(item.precoBRL)
     if (isNaN(preco) || preco <= 0) continue
-    const produtoFixo = item.produtoId && item.produtoId !== '__novo__' ? fixasVendedora[item.produtoId] : undefined
+    const produtoFixo = item.produtoId ? fixasVendedora[item.produtoId] : undefined
     if (produtoFixo != null) {
       previsaoFixa += produtoFixo
     } else {
@@ -208,7 +212,7 @@ export function FormNovaVenda({
       cliente_whatsapp: digits,
       data_compra: dataCompra,
       itens: itens.map(item => ({
-        produto_id: item.produtoId === '' || item.produtoId === '__novo__' ? null : item.produtoId,
+        produto_id: item.produtoId === '' ? null : item.produtoId,
         produto_nome: item.produtoNome.trim(),
         recorrente: item.recorrente,
         comissionavel_recompra: item.comissionavel,
@@ -366,27 +370,13 @@ export function FormNovaVenda({
                 </div>
               )}
 
-              <select
-                value={item.produtoId}
-                onChange={e => handleProdutoChange(item.key, e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Selecione um produto…</option>
-                <option value="__novo__">＋ Novo produto…</option>
-                {produtos.map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}</option>
-                ))}
-              </select>
-
-              {item.produtoId === '__novo__' && (
-                <input
-                  type="text"
-                  placeholder="Nome do produto"
-                  value={item.produtoNome}
-                  onChange={e => atualizarItem(item.key, { produtoNome: e.target.value })}
-                  className={inputClass}
-                />
-              )}
+              <ProdutoSearchInput
+                produtos={produtos}
+                nome={item.produtoNome}
+                produtoId={item.produtoId}
+                onSelect={resultado => handleProdutoSelect(item.key, resultado)}
+                inputClass={inputClass}
+              />
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -444,10 +434,6 @@ export function FormNovaVenda({
           <Plus className="h-4 w-4" />
           Adicionar produto
         </button>
-
-        <p className="text-xs text-muted-foreground">
-          Para granel ou item pontual, use um produto novo com valor final aberto.
-        </p>
 
         {valorTotal > 0 && (
           <div className="rounded-md bg-muted/60 px-4 py-2.5 space-y-1">

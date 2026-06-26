@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { normalizarNome } from '@/lib/normalizar-nome'
+import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
 
 export type StatusListaEspera =
   | 'aguardando'
@@ -28,33 +28,11 @@ export async function buscarClienteListaEspera(
 }
 
 async function resolverProdutoId(produtoNome: string, lojaId: string): Promise<string> {
-  const admin = createAdminClient()
-  const norm = normalizarNome(produtoNome)
-
-  const { data: produtosLoja } = await admin
-    .from('produtos')
-    .select('id, nome')
-    .eq('loja_id', lojaId)
-    .eq('ativo', true)
-
-  const existente = (produtosLoja ?? []).find(
-    p => normalizarNome(p.nome as string) === norm
-  )
-  if (existente) return existente.id as string
-
-  const { data: novo, error } = await admin
-    .from('produtos')
-    .insert({
-      loja_id: lojaId,
-      nome: produtoNome.trim(),
-      recorrente: false,
-      comissionavel_recompra: false,
-    })
-    .select('id')
-    .single()
-
-  if (error || !novo) throw new Error('Falha ao criar produto: ' + (error?.message ?? ''))
-  return novo.id as string
+  const { id } = await resolverOuCriarProduto(produtoNome, lojaId, {
+    recorrente: false,
+    comissionavel_recompra: false,
+  })
+  return id
 }
 
 export interface CriarListaEsperaInput {

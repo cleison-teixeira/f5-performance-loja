@@ -6,6 +6,7 @@ import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
 import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
 import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
+import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
 
 export async function buscarCliente(
   whatsapp: string,
@@ -63,7 +64,7 @@ type ResultadoVenda =
   | { ok: false; erro: string }
 
 interface ItemProcessado {
-  produto_id: string | null  // null = item livre/granel (não-recorrente, sem catálogo)
+  produto_id: string | null
   produto_nome: string
   produto_qtd_mensagens: 1 | 2 | 3 | 4
   recorrente: boolean
@@ -127,32 +128,21 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       let produto_qtd_mensagens: 1 | 2 | 3 | 4 = 3
 
       if (!item.produto_id) {
-        if (item.recorrente) {
-          // Novo produto recorrente → cria no catálogo + mensagens de recompra
-          const { data: produtoData, error: produtoError } = await supabase
-            .from('produtos')
-            .insert({ loja_id: dados.loja_id, nome: item.produto_nome, ativo: true })
-            .select('id, nome')
-            .single()
-
-          if (produtoError || !produtoData) {
-            return { ok: false, erro: 'Erro ao criar produto: ' + (produtoError?.message ?? 'desconhecido') }
-          }
-
-          produto_id = produtoData.id as string
-          produto_nome = produtoData.nome as string
-          produto_qtd_mensagens = 3
-
-          await supabase.from('mensagens_produto').insert(
-            TEMPLATES_PADRAO.map(t => ({ produto_id: produto_id!, ...t }))
+        // Produto digitado — resolve por nome normalizado (dedup) ou cria novo
+        try {
+          const info = await resolverOuCriarProduto(
+            item.produto_nome,
+            dados.loja_id,
+            { recorrente: item.recorrente, comissionavel_recompra: item.comissionavel_recompra }
           )
-        } else {
-          // Item livre/granel/pontual → sem criação no catálogo, sem avisos de recompra
-          produto_id = null
-          produto_nome = item.produto_nome
-          produto_qtd_mensagens = 3
+          produto_id = info.id
+          produto_nome = info.nome
+          produto_qtd_mensagens = info.qtd_mensagens as 1 | 2 | 3 | 4
+        } catch {
+          return { ok: false, erro: 'Não foi possível criar ou vincular o produto. Tente novamente.' }
         }
       } else {
+        // Produto existente selecionado do catálogo
         const { data: produtoData, error: produtoError } = await supabase
           .from('produtos')
           .select('id, nome, qtd_mensagens')
