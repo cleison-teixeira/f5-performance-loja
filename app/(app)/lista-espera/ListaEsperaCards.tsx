@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Pencil } from 'lucide-react'
+import { Copy, Check, Pencil, Send } from 'lucide-react'
 import { atualizarStatusListaEspera, type StatusListaEspera } from './actions'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
+import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { ListaEsperaEditForm } from './ListaEsperaEditForm'
 
 export interface RegistroListaEspera {
@@ -40,6 +41,7 @@ type GrupoProduto = {
 }
 
 const ABERTO = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
+const COM_MENSAGEM = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
 
 function fmtData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', {
@@ -62,33 +64,125 @@ function gerarMensagem(registro: RegistroListaEspera, defaultLojaNome: string): 
 const selectClass =
   'rounded-md border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-function MensagemSugerida({ mensagem }: { mensagem: string }) {
+function MensagemSugerida({
+  mensagem,
+  whatsapp,
+  itemId,
+  status,
+}: {
+  mensagem: string
+  whatsapp: string
+  itemId: string
+  status: string
+}) {
+  const router = useRouter()
   const [copiado, setCopiado] = useState(false)
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState(mensagem)
+  const [textoAtual, setTextoAtual] = useState(mensagem)
+  const [isPending, startTransition] = useTransition()
 
-  function copiar() {
-    navigator.clipboard.writeText(mensagem).then(() => {
+  const linkWhatsApp = gerarLinkWhatsApp(whatsapp, textoAtual)
+
+  function handleCopiar() {
+    navigator.clipboard.writeText(textoAtual).then(() => {
       setCopiado(true)
       setTimeout(() => setCopiado(false), 2000)
-    })
+    }).catch(() => {})
+  }
+
+  function handleAbrirEdicao() {
+    setRascunho(textoAtual)
+    setEditando(true)
+  }
+
+  function handleSalvarEdicao() {
+    setTextoAtual(rascunho)
+    setEditando(false)
+  }
+
+  function handleEnviar() {
+    window.open(linkWhatsApp, '_blank')
+    if (status !== 'avisado') {
+      startTransition(async () => {
+        await atualizarStatusListaEspera(itemId, 'avisado')
+        router.refresh()
+      })
+    }
   }
 
   return (
     <div className="border-t pt-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-purple-700 dark:text-purple-400">
-          Mensagem sugerida para WhatsApp
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+          Mensagem sugerida
         </p>
-        <button
-          onClick={copiar}
-          className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        >
-          {copiado ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-          {copiado ? 'Copiado' : 'Copiar'}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopiar}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            {copiado ? (
+              <>
+                <Check className="h-3 w-3 text-emerald-500" />
+                <span className="text-emerald-600 dark:text-emerald-400">Copiado</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                <span>Copiar</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleAbrirEdicao}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Pencil className="h-3 w-3" />
+            <span>Editar</span>
+          </button>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2 leading-relaxed italic">
-        &ldquo;{mensagem}&rdquo;
-      </p>
+
+      {editando ? (
+        <div className="space-y-2">
+          <textarea
+            className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            rows={5}
+            value={rascunho}
+            onChange={e => setRascunho(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              className="flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSalvarEdicao}
+              className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Salvar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg bg-muted/50 px-3 py-3">
+          <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{textoAtual}</p>
+        </div>
+      )}
+
+      <button
+        onClick={handleEnviar}
+        disabled={isPending}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-60"
+      >
+        <Send className="h-4 w-4 flex-none" />
+        {isPending ? 'Salvando…' : 'Enviar no WhatsApp'}
+      </button>
     </div>
   )
 }
@@ -117,10 +211,9 @@ function RegistroCard({
     })
   }
 
-  const mensagemAvisado =
-    registro.status === 'avisado'
-      ? gerarMensagem(registro, defaultLojaNome)
-      : null
+  const mensagem = COM_MENSAGEM.has(registro.status)
+    ? gerarMensagem(registro, defaultLojaNome)
+    : null
 
   if (editando) {
     return (
@@ -193,7 +286,14 @@ function RegistroCard({
         </p>
       )}
 
-      {mensagemAvisado && <MensagemSugerida mensagem={mensagemAvisado} />}
+      {mensagem && (
+        <MensagemSugerida
+          mensagem={mensagem}
+          whatsapp={registro.cliente_whatsapp}
+          itemId={registro.id}
+          status={registro.status}
+        />
+      )}
 
       <div className="flex items-center gap-2 border-t pt-2">
         <span className="text-xs text-muted-foreground shrink-0">Status:</span>
