@@ -362,6 +362,38 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       }
 
       const ordensAtivas = obterOrdensPorModelo(itemProcessado.modelo_fluxo, itemProcessado.produto_qtd_mensagens)
+      const ordensExistentes = (mensagensData ?? []).map(m => m.ordem as number)
+      const ordensFaltantes = ordensAtivas.filter(o => !ordensExistentes.includes(o))
+
+      if (ordensFaltantes.length > 0) {
+        const DEFAULT_TEMPLATES_MAP: Record<number, any> = {
+          1: TEMPLATES_PADRAO[0],
+          2: TEMPLATES_PADRAO[1],
+          3: TEMPLATES_PADRAO[2],
+          4: TEMPLATE_OFERTA,
+          5: TEMPLATE_FOLLOW_UP,
+        }
+        const novosTemplates = ordensFaltantes.map(ordem => {
+          const padrao = DEFAULT_TEMPLATES_MAP[ordem]
+          return {
+            produto_id,
+            ordem: padrao.ordem,
+            tipo: padrao.tipo,
+            dias_apos_venda: padrao.dias_apos_venda,
+            texto: padrao.texto,
+            estilo: 'clean',
+            tipo_incentivo: 'nenhum'
+          }
+        })
+        await supabase.from('mensagens_produto').insert(novosTemplates)
+        const res = await supabase
+          .from('mensagens_produto')
+          .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
+          .eq('produto_id', produto_id)
+          .order('ordem')
+        mensagensData = res.data
+      }
+
       const mensagens = (mensagensData ?? [])
         .filter(m => ordensAtivas.includes(m.ordem as number))
         .map(m => ({

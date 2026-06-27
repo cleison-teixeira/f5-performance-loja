@@ -236,7 +236,7 @@ export function FormNovaVenda({
         quantidade: item.quantidade,
         preco_unitario: parseBRL(item.precoBRL),
         ciclo_recompra_dias: item.recorrente ? item.ciclo_recompra_dias : null,
-        qtd_mensagens: item.recorrente ? (item.qtd_mensagens as 1 | 2 | 3 | 4 | 5) : null,
+        modelo_fluxo: item.recorrente ? item.modelo_fluxo : null,
       })),
       vendedora_id: vendedoraId,
       vendedora_nome: vendedoraNome,
