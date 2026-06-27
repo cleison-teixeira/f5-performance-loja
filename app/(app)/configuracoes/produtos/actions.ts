@@ -17,9 +17,20 @@ export async function salvarProduto(dados: {
   categoria?: string | null
   galeria_urls?: string[] | null
   variantes?: string[] | null
+  ciclo?: number | null
 }): Promise<{ ok: boolean; produto_id?: string; erro?: string }> {
   try {
     const supabase = await createClient()
+
+    // Server-side validation for cycle
+    if (dados.recorrente) {
+      if (dados.ciclo === null || dados.ciclo === undefined || isNaN(dados.ciclo)) {
+        return { ok: false, erro: 'Ciclo de recompra é obrigatório para produtos recorrentes' }
+      }
+      if (!Number.isInteger(dados.ciclo) || dados.ciclo <= 0) {
+        return { ok: false, erro: 'Ciclo de recompra deve ser um número inteiro maior que zero' }
+      }
+    }
 
     let produtoId: string
 
@@ -71,6 +82,34 @@ export async function salvarProduto(dados: {
       await supabase.from('mensagens_produto').insert(
         TEMPLATES_PADRAO.map(t => ({ produto_id: produtoId, ...t }))
       )
+    }
+
+    // Update/sync the recompra cycle
+    if (dados.ciclo !== null && dados.ciclo !== undefined) {
+      const { data: existingMsg } = await supabase
+        .from('mensagens_produto')
+        .select('id')
+        .eq('produto_id', produtoId)
+        .eq('tipo', 'recompra')
+        .maybeSingle()
+
+      if (existingMsg) {
+        await supabase
+          .from('mensagens_produto')
+          .update({ dias_apos_venda: dados.ciclo })
+          .eq('id', existingMsg.id)
+      } else {
+        const templateRecompra = TEMPLATES_PADRAO.find(t => t.tipo === 'recompra') || { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente_nome}, aqui e {vendedora_nome} da {loja_nome}. Seu {produto_nome} deve estar no final. Quer garantir o proximo?' }
+        await supabase
+          .from('mensagens_produto')
+          .insert({
+            produto_id: produtoId,
+            ordem: templateRecompra.ordem,
+            tipo: 'recompra',
+            texto: templateRecompra.texto,
+            dias_apos_venda: dados.ciclo
+          })
+      }
     }
 
     // Garantir slot Oferta quando modelo de 4 mensagens está ativo

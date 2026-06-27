@@ -53,6 +53,11 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
   const [categoria, setCategoria] = useState(produto?.categoria ?? '')
   const [galeriaRaw, setGaleriaRaw] = useState(produto?.galeria_urls?.join(', ') ?? '')
   const [variantesRaw, setVariantesRaw] = useState(produto?.variantes?.join(', ') ?? '')
+  
+  // Extract initial ciclo from product messages (type = 'recompra')
+  const msgRecompra = produto?.mensagens?.find(m => m.tipo === 'recompra')
+  const [ciclo, setCiclo] = useState<number>(msgRecompra?.dias_apos_venda ?? 30)
+
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -77,6 +82,7 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
       categoria: categoria.trim() || null,
       galeria_urls: galeriaRaw.split(',').map(s => s.trim()).filter(Boolean),
       variantes: variantesRaw.split(',').map(s => s.trim()).filter(Boolean),
+      ciclo: recorrente ? ciclo : null,
     })
     setSalvando(false)
     if (res.ok) onSucesso()
@@ -251,6 +257,57 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
           <span className="text-sm">{comissionavelRecompra ? 'Comissionável na recompra' : 'Não comissionável'}</span>
           <p className="text-xs text-muted-foreground">{comissionavelRecompra ? 'Entra na base de comissão' : 'Não entra na base de comissão'}</p>
         </div>
+      </div>
+
+      {/* Ciclo de Recompra Sugerido */}
+      <div className="space-y-2 border-t pt-4">
+        <label className="text-sm font-medium flex flex-col gap-0.5">
+          <span>Ciclo de Recompra Sugerido (dias)</span>
+          <span className="text-xs text-muted-foreground font-normal">Define em quantos dias após a venda o sistema deve gerar o aviso de recompra.</span>
+        </label>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          {[30, 45, 60, 90].map(dias => (
+            <button
+              key={dias}
+              type="button"
+              disabled={!recorrente}
+              onClick={() => setCiclo(dias)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all ${
+                !recorrente
+                  ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed opacity-50'
+                  : ciclo === dias
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-input hover:bg-accent'
+              }`}
+            >
+              {dias} dias
+            </button>
+          ))}
+          
+          <input
+            type="number"
+            min="1"
+            disabled={!recorrente}
+            value={ciclo === 0 ? '' : ciclo}
+            onChange={e => {
+              const val = parseInt(e.target.value, 10);
+              setCiclo(isNaN(val) ? 0 : val);
+            }}
+            className={`w-24 px-3 py-1.5 text-sm rounded-md border focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none transition-colors ${
+              !recorrente
+                ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed opacity-50'
+                : 'border-input bg-background'
+            }`}
+            placeholder="Dias"
+          />
+        </div>
+
+        {!recorrente && (
+          <p className="text-xs text-amber-600 font-medium">
+            Este ciclo só gera avisos quando o produto está marcado como recorrente.
+          </p>
+        )}
       </div>
 
       {erro && <p className="text-sm text-destructive">{erro}</p>}
