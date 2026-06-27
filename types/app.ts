@@ -2,7 +2,7 @@ export type Role = 'admin_f5' | 'dono' | 'gerente' | 'vendedora'
 
 export type AvisoStatus = 'pendente' | 'enviado' | 'ignorado'
 
-export type MensagemTipo = 'agradecimento' | 'relacionamento' | 'recompra' | 'oferta'
+export type MensagemTipo = 'agradecimento' | 'relacionamento' | 'recompra' | 'oferta' | 'follow_up'
 
 export type Plano = 'trial' | 'basico' | 'pro'
 
@@ -62,7 +62,7 @@ export interface MensagemProduto {
   id: string
   produto_id: string
   tipo: MensagemTipo
-  ordem: 1 | 2 | 3 | 4
+  ordem: 1 | 2 | 3 | 4 | 5
   texto: string
   dias_apos_venda: number
 }

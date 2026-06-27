@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
-import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
+import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
 import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
@@ -31,6 +31,7 @@ export interface ItemVendaDados {
   comissionavel_recompra: boolean
   quantidade: number
   preco_unitario: number
+  ciclo_recompra_dias?: number | null
 }
 
 interface DadosVenda {
@@ -66,11 +67,14 @@ type ResultadoVenda =
 interface ItemProcessado {
   produto_id: string | null
   produto_nome: string
-  produto_qtd_mensagens: 1 | 2 | 3 | 4
+  produto_qtd_mensagens: 1 | 2 | 3 | 4 | 5
   recorrente: boolean
   comissionavel_recompra: boolean
   quantidade: number
   preco_unitario: number
+  ciclo_recompra_dias?: number | null
+  categoria?: string | null
+  parceiro?: string | null
 }
 
 export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
@@ -125,7 +129,9 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     for (const item of dados.itens) {
       let produto_id: string | null
       let produto_nome: string
-      let produto_qtd_mensagens: 1 | 2 | 3 | 4 = 3
+      let produto_qtd_mensagens: 1 | 2 | 3 | 4 | 5 = 3
+      let categoria: string | null = null
+      let parceiro: string | null = null
 
       if (!item.produto_id) {
         // Produto digitado — resolve por nome normalizado (dedup) ou cria novo
@@ -137,7 +143,19 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
           )
           produto_id = info.id
           produto_nome = info.nome
-          produto_qtd_mensagens = info.qtd_mensagens as 1 | 2 | 3 | 4
+          produto_qtd_mensagens = (info.qtd_mensagens || 3) as 1 | 2 | 3 | 4 | 5
+          
+          if (produto_id) {
+            const { data: pData } = await admin
+              .from('produtos')
+              .select('categoria, parceiro')
+              .eq('id', produto_id)
+              .single()
+            if (pData) {
+              categoria = pData.categoria
+              parceiro = pData.parceiro
+            }
+          }
         } catch {
           return { ok: false, erro: 'Não foi possível criar ou vincular o produto. Tente novamente.' }
         }
@@ -145,7 +163,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         // Produto existente selecionado do catálogo
         const { data: produtoData, error: produtoError } = await supabase
           .from('produtos')
-          .select('id, nome, qtd_mensagens')
+          .select('id, nome, qtd_mensagens, categoria, parceiro')
           .eq('id', item.produto_id)
           .single()
 
@@ -155,7 +173,9 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
 
         produto_id = produtoData.id as string
         produto_nome = produtoData.nome as string
-        produto_qtd_mensagens = ((produtoData as unknown as { qtd_mensagens: number }).qtd_mensagens ?? 3) as 1 | 2 | 3 | 4
+        produto_qtd_mensagens = ((produtoData as unknown as { qtd_mensagens: number }).qtd_mensagens ?? 3) as 1 | 2 | 3 | 4 | 5
+        categoria = produtoData.categoria
+        parceiro = produtoData.parceiro
       }
 
       itensProcessados.push({
@@ -166,6 +186,9 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         comissionavel_recompra: item.comissionavel_recompra,
         quantidade: item.quantidade,
         preco_unitario: item.preco_unitario,
+        ciclo_recompra_dias: item.ciclo_recompra_dias || null,
+        categoria,
+        parceiro,
       })
     }
 
@@ -250,9 +273,10 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
           quantidade: item.quantidade,
           valor_unitario: item.preco_unitario,
           subtotal: item.quantidade * item.preco_unitario,
+          ciclo_recompra_dias: item.ciclo_recompra_dias,
         }))
       )
-      .select('id, recorrente, produto_id')
+      .select('id, recorrente, produto_id, ciclo_recompra_dias')
 
     if (itensError || !itensVendaData) {
       return { ok: false, erro: 'Erro ao registrar itens: ' + (itensError?.message ?? 'desconhecido') }
@@ -291,17 +315,22 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
 
       let { data: mensagensData } = await supabase
         .from('mensagens_produto')
-        .select('id, ordem, tipo, texto, dias_apos_venda')
+        .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
         .eq('produto_id', produto_id)
         .order('ordem')
 
       if (!mensagensData || mensagensData.length === 0) {
+        const todosPadroes = [
+          ...TEMPLATES_PADRAO,
+          TEMPLATE_OFERTA,
+          TEMPLATE_FOLLOW_UP
+        ]
         await supabase.from('mensagens_produto').insert(
-          TEMPLATES_PADRAO.map(t => ({ produto_id, ...t }))
+          todosPadroes.map(t => ({ produto_id, ...t }))
         )
         const res = await supabase
           .from('mensagens_produto')
-          .select('id, ordem, tipo, texto, dias_apos_venda')
+          .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
           .eq('produto_id', produto_id)
           .order('ordem')
         mensagensData = res.data
@@ -310,7 +339,19 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       const ordensAtivas = ORDENS_POR_MODELO[itemProcessado.produto_qtd_mensagens]
       const mensagens = (mensagensData ?? [])
         .filter(m => ordensAtivas.includes(m.ordem as number))
-        .map(m => ({ id: m.id as string, tipo: (m as unknown as { tipo: string }).tipo ?? 'agradecimento', texto: m.texto as string, dias_apos_venda: m.dias_apos_venda as number }))
+        .map(m => ({
+          id: m.id as string,
+          tipo: (m as unknown as { tipo: string }).tipo ?? 'agradecimento',
+          texto: m.texto as string,
+          dias_apos_venda: m.dias_apos_venda as number,
+          estilo: m.estilo,
+          tipo_incentivo: m.tipo_incentivo,
+          cupom_codigo: m.cupom_codigo,
+          desconto_percentual: m.desconto_percentual != null ? Number(m.desconto_percentual) : null,
+          desconto_valor: m.desconto_valor != null ? Number(m.desconto_valor) : null,
+          beneficio_texto: m.beneficio_texto,
+          validade_oferta: m.validade_oferta
+        }))
 
       for (const m of mensagens) { mensagemTipo[m.id] = m.tipo }
 
@@ -324,7 +365,9 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         produto_nome: itemProcessado.produto_nome,
         vendedora_nome: dados.vendedora_nome,
         loja_nome: dados.loja_nome,
-      }, dados.data_compra).map(a => ({ ...a, previsao_comissao }))
+        categoria: itemProcessado.categoria,
+        parceiro: itemProcessado.parceiro,
+      }, dados.data_compra, itemProcessado.ciclo_recompra_dias).map(a => ({ ...a, previsao_comissao }))
 
       todosAvisos.push(...avisos)
     }

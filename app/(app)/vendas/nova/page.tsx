@@ -69,13 +69,26 @@ export default async function NovaVendaPage() {
     .eq('id', user.id)
     .single()
 
-  // Produtos ativos da loja
+  // Produtos ativos da loja (incluindo as mensagens para obter o ciclo de recompra padrão)
   const { data: produtos } = await supabase
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra')
+    .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, mensagens:mensagens_produto(tipo, dias_apos_venda)')
     .eq('loja_id', ctx.lojaId)
     .eq('ativo', true)
     .order('nome')
+
+  const produtosMapeados = (produtos ?? []).map(p => {
+    const recompraMsg = (p.mensagens as any)?.find((m: any) => m.tipo === 'recompra')
+    return {
+      id: p.id,
+      nome: p.nome,
+      preco_sugerido: p.preco_sugerido,
+      foto_url: p.foto_url,
+      recorrente: p.recorrente,
+      comissionavel_recompra: p.comissionavel_recompra,
+      ciclo_padrao: recompraMsg?.dias_apos_venda ?? 30
+    }
+  })
 
   // Todos os membros ativos da loja
   const { data: membrosVendedoras } = await admin
@@ -148,7 +161,7 @@ export default async function NovaVendaPage() {
         vendedora_logada_id={user.id}
         vendedora_logada_nome={perfil?.nome ?? ''}
         vendedoras={vendedoras}
-        produtos={produtos ?? []}
+        produtos={produtosMapeados}
         fixasPorVendedoraProduto={fixasPorVendedoraProduto}
       />
     </div>

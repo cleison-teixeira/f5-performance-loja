@@ -1,6 +1,6 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
-import { TEMPLATES_PADRAO, TEMPLATE_OFERTA } from '@/lib/mensagens/templates_padrao'
+import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
 
 export async function salvarProduto(dados: {
   loja_id: string
@@ -11,7 +11,7 @@ export async function salvarProduto(dados: {
   ativo: boolean
   recorrente: boolean
   comissionavel_recompra: boolean
-  qtd_mensagens: 1 | 2 | 3 | 4
+  qtd_mensagens: 1 | 2 | 3 | 4 | 5
   nicho?: string | null
   parceiro?: string | null
   categoria?: string | null
@@ -112,12 +112,20 @@ export async function salvarProduto(dados: {
       }
     }
 
-    // Garantir slot Oferta quando modelo de 4 mensagens está ativo
-    if (dados.qtd_mensagens === 4) {
+    // Garantir slots conforme modelo ativo
+    if (dados.qtd_mensagens >= 4) {
       await supabase
         .from('mensagens_produto')
         .upsert(
           { produto_id: produtoId, ...TEMPLATE_OFERTA },
+          { onConflict: 'produto_id,ordem', ignoreDuplicates: true }
+        )
+    }
+    if (dados.qtd_mensagens === 5) {
+      await supabase
+        .from('mensagens_produto')
+        .upsert(
+          { produto_id: produtoId, ...TEMPLATE_FOLLOW_UP },
           { onConflict: 'produto_id,ordem', ignoreDuplicates: true }
         )
     }
@@ -131,10 +139,17 @@ export async function salvarProduto(dados: {
 export async function salvarMensagens(dados: {
   produto_id: string
   mensagens: Array<{
-    ordem: 1 | 2 | 3 | 4
-    tipo: 'agradecimento' | 'relacionamento' | 'recompra' | 'oferta'
+    ordem: 1 | 2 | 3 | 4 | 5
+    tipo: 'agradecimento' | 'relacionamento' | 'recompra' | 'oferta' | 'follow_up'
     texto: string
     dias_apos_venda: number
+    estilo?: string | null
+    tipo_incentivo?: string | null
+    cupom_codigo?: string | null
+    desconto_percentual?: number | null
+    desconto_valor?: number | null
+    beneficio_texto?: string | null
+    validade_oferta?: string | null
   }>
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -152,6 +167,13 @@ export async function salvarMensagens(dados: {
           tipo: m.tipo,
           texto: m.texto.trim(),
           dias_apos_venda: m.dias_apos_venda,
+          estilo: m.estilo || 'clean',
+          tipo_incentivo: m.tipo_incentivo || 'nenhum',
+          cupom_codigo: m.cupom_codigo || null,
+          desconto_percentual: m.desconto_percentual ?? null,
+          desconto_valor: m.desconto_valor ?? null,
+          beneficio_texto: m.beneficio_texto || null,
+          validade_oferta: m.validade_oferta || null,
         })),
         { onConflict: 'produto_id,ordem' }
       )

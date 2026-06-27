@@ -20,6 +20,7 @@ interface ProdutoCatalogo {
   foto_url?: string | null
   recorrente: boolean
   comissionavel_recompra: boolean
+  ciclo_padrao?: number | null
 }
 
 interface Props {
@@ -40,6 +41,7 @@ interface ItemFormState {
   precoBRL: string
   recorrente: boolean
   comissionavel: boolean
+  ciclo_recompra_dias: number
 }
 
 type ResumoData = {
@@ -66,7 +68,7 @@ function parseBRL(raw: string): number {
 }
 
 function novoItem(): ItemFormState {
-  return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true }
+  return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30 }
 }
 
 const inputClass =
@@ -144,6 +146,7 @@ export function FormNovaVenda({
             : item.precoBRL,
           recorrente: resultado.recorrente ?? item.recorrente,
           comissionavel: resultado.comissionavel_recompra ?? item.comissionavel,
+          ciclo_recompra_dias: resultado.ciclo_padrao ?? item.ciclo_recompra_dias,
         }
       }
       return { ...item, produtoId: '', produtoNome: resultado.nome }
@@ -218,6 +221,7 @@ export function FormNovaVenda({
         comissionavel_recompra: item.comissionavel,
         quantidade: item.quantidade,
         preco_unitario: parseBRL(item.precoBRL),
+        ciclo_recompra_dias: item.recorrente ? item.ciclo_recompra_dias : null,
       })),
       vendedora_id: vendedoraId,
       vendedora_nome: vendedoraNome,
@@ -402,6 +406,51 @@ export function FormNovaVenda({
                   />
                 </div>
               </div>
+
+              {item.recorrente && (
+                <div className="space-y-2 border-t pt-2 mt-1">
+                  <label className="text-xs font-medium block">Ciclo desta compra (dias)</label>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[30, 45, 60, 90].map(dias => (
+                      <button
+                        key={dias}
+                        type="button"
+                        onClick={() => atualizarItem(item.key, { ciclo_recompra_dias: dias })}
+                        className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
+                          item.ciclo_recompra_dias === dias
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-input bg-background hover:bg-accent'
+                        }`}
+                      >
+                        {dias} dias
+                      </button>
+                    ))}
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.ciclo_recompra_dias || ''}
+                      onChange={e => {
+                        const val = parseInt(e.target.value, 10)
+                        atualizarItem(item.key, { ciclo_recompra_dias: isNaN(val) ? 1 : val })
+                      }}
+                      className="w-16 px-2 py-1 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Outro"
+                    />
+                  </div>
+                  {item.ciclo_recompra_dias > 0 && (
+                    <div className="rounded bg-muted/40 p-2 text-xs space-y-1 mt-1 border border-input/30">
+                      <p className="font-semibold text-muted-foreground">Sequência que será criada:</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                        <li>Agradecimento: hoje (D0)</li>
+                        <li>Relacionamento: em {Math.max(0, Math.floor(item.ciclo_recompra_dias / 2))} dias</li>
+                        <li>Recompra: em {Math.max(Math.max(0, Math.floor(item.ciclo_recompra_dias / 2)), item.ciclo_recompra_dias - 5)} dias</li>
+                        <li>Oferta: em {Math.max(Math.max(Math.max(0, Math.floor(item.ciclo_recompra_dias / 2)), item.ciclo_recompra_dias - 5), item.ciclo_recompra_dias - 1)} dias</li>
+                        <li>Follow-up: em {Math.max(Math.max(Math.max(Math.max(0, Math.floor(item.ciclo_recompra_dias / 2)), item.ciclo_recompra_dias - 5), item.ciclo_recompra_dias - 1) + 1, item.ciclo_recompra_dias + 2)} dias</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

@@ -10,10 +10,17 @@ import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
 
 export interface MensagemSlot {
   id: string | null
-  ordem: 1 | 2 | 3 | 4
-  tipo: 'agradecimento' | 'relacionamento' | 'recompra' | 'oferta'
+  ordem: 1 | 2 | 3 | 4 | 5
+  tipo: 'agradecimento' | 'relacionamento' | 'recompra' | 'oferta' | 'follow_up'
   texto: string
   dias_apos_venda: number
+  estilo?: string | null
+  tipo_incentivo?: string | null
+  cupom_codigo?: string | null
+  desconto_percentual?: number | null
+  desconto_valor?: number | null
+  beneficio_texto?: string | null
+  validade_oferta?: string | null
 }
 
 export interface ProdutoItem {
@@ -24,7 +31,7 @@ export interface ProdutoItem {
   ativo: boolean
   recorrente: boolean
   comissionavel_recompra: boolean
-  qtd_mensagens: 1 | 2 | 3 | 4
+  qtd_mensagens: 1 | 2 | 3 | 4 | 5
   nicho?: string | null
   parceiro?: string | null
   categoria?: string | null
@@ -90,28 +97,112 @@ export default async function ConfigProdutosPage() {
 
   const { data: produtosRaw } = await supabase
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, ativo, recorrente, comissionavel_recompra, qtd_mensagens, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(id, ordem, tipo, texto, dias_apos_venda)')
+    .select('id, nome, preco_sugerido, foto_url, ativo, recorrente, comissionavel_recompra, qtd_mensagens, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta)')
     .eq('loja_id', loja_id)
     .order('nome')
 
   const produtos: ProdutoItem[] = (produtosRaw ?? []).map(p => {
     const mensagensDB = (p.mensagens_produto as unknown as Array<{
-      id: string; ordem: number; tipo: string; texto: string; dias_apos_venda: number
+      id: string; ordem: number; tipo: string; texto: string; dias_apos_venda: number; estilo?: string; tipo_incentivo?: string; cupom_codigo?: string; desconto_percentual?: number; desconto_valor?: number; beneficio_texto?: string; validade_oferta?: string
     }>) ?? []
 
     const mensagens: MensagemSlot[] = [
       ...TEMPLATES_PADRAO.map(slot => {
         const existente = mensagensDB.find(m => m.ordem === slot.ordem)
         return existente
-          ? { id: existente.id, ordem: slot.ordem, tipo: slot.tipo, texto: existente.texto, dias_apos_venda: existente.dias_apos_venda }
-          : { id: null, ordem: slot.ordem, tipo: slot.tipo, texto: slot.texto, dias_apos_venda: slot.dias_apos_venda }
+          ? {
+              id: existente.id,
+              ordem: slot.ordem,
+              tipo: slot.tipo,
+              texto: existente.texto,
+              dias_apos_venda: existente.dias_apos_venda,
+              estilo: existente.estilo,
+              tipo_incentivo: existente.tipo_incentivo,
+              cupom_codigo: existente.cupom_codigo,
+              desconto_percentual: existente.desconto_percentual,
+              desconto_valor: existente.desconto_valor,
+              beneficio_texto: existente.beneficio_texto,
+              validade_oferta: existente.validade_oferta
+            }
+          : {
+              id: null,
+              ordem: slot.ordem,
+              tipo: slot.tipo,
+              texto: slot.texto,
+              dias_apos_venda: slot.dias_apos_venda,
+              estilo: 'clean',
+              tipo_incentivo: 'nenhum',
+              cupom_codigo: '',
+              desconto_percentual: null,
+              desconto_valor: null,
+              beneficio_texto: '',
+              validade_oferta: ''
+            }
       }),
       (() => {
         const existente = mensagensDB.find(m => m.ordem === 4)
         return existente
-          ? { id: existente.id, ordem: 4 as const, tipo: 'oferta' as const, texto: existente.texto, dias_apos_venda: existente.dias_apos_venda }
-          : { id: null, ordem: 4 as const, tipo: 'oferta' as const, texto: '', dias_apos_venda: 45 }
+          ? {
+              id: existente.id,
+              ordem: 4 as const,
+              tipo: 'oferta' as const,
+              texto: existente.texto,
+              dias_apos_venda: existente.dias_apos_venda,
+              estilo: existente.estilo,
+              tipo_incentivo: existente.tipo_incentivo,
+              cupom_codigo: existente.cupom_codigo,
+              desconto_percentual: existente.desconto_percentual,
+              desconto_valor: existente.desconto_valor,
+              beneficio_texto: existente.beneficio_texto,
+              validade_oferta: existente.validade_oferta
+            }
+          : {
+              id: null,
+              ordem: 4 as const,
+              tipo: 'oferta' as const,
+              texto: '',
+              dias_apos_venda: 45,
+              estilo: 'clean',
+              tipo_incentivo: 'nenhum',
+              cupom_codigo: '',
+              desconto_percentual: null,
+              desconto_valor: null,
+              beneficio_texto: '',
+              validade_oferta: ''
+            }
       })(),
+      (() => {
+        const existente = mensagensDB.find(m => m.ordem === 5)
+        return existente
+          ? {
+              id: existente.id,
+              ordem: 5 as const,
+              tipo: 'follow_up' as const,
+              texto: existente.texto,
+              dias_apos_venda: existente.dias_apos_venda,
+              estilo: existente.estilo,
+              tipo_incentivo: existente.tipo_incentivo,
+              cupom_codigo: existente.cupom_codigo,
+              desconto_percentual: existente.desconto_percentual,
+              desconto_valor: existente.desconto_valor,
+              beneficio_texto: existente.beneficio_texto,
+              validade_oferta: existente.validade_oferta
+            }
+          : {
+              id: null,
+              ordem: 5 as const,
+              tipo: 'follow_up' as const,
+              texto: '',
+              dias_apos_venda: 32,
+              estilo: 'clean',
+              tipo_incentivo: 'nenhum',
+              cupom_codigo: '',
+              desconto_percentual: null,
+              desconto_valor: null,
+              beneficio_texto: '',
+              validade_oferta: ''
+            }
+      })()
     ]
 
     return {
@@ -122,7 +213,7 @@ export default async function ConfigProdutosPage() {
       ativo: p.ativo as boolean,
       recorrente: ((p as unknown as { recorrente: boolean }).recorrente) ?? true,
       comissionavel_recompra: ((p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra) ?? true,
-      qtd_mensagens: ((p as unknown as { qtd_mensagens: number }).qtd_mensagens ?? 3) as 1 | 2 | 3 | 4,
+      qtd_mensagens: ((p as unknown as { qtd_mensagens: number }).qtd_mensagens ?? 3) as 1 | 2 | 3 | 4 | 5,
       nicho: (p as any).nicho,
       parceiro: (p as any).parceiro,
       categoria: (p as any).categoria,

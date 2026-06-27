@@ -37,6 +37,7 @@ const TIPOS_RECOMPRA: { value: TipoFiltro; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'recompra', label: 'Recompra' },
   { value: 'oferta', label: 'Oferta' },
+  { value: 'follow_up', label: 'Follow-up' },
 ]
 
 const TIPOS_RELACIONAMENTO: { value: TipoFiltro; label: string }[] = [
@@ -279,12 +280,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     ? lista.filter(a => a.vendedora_id === vendedoraIdFiltro)
     : lista
 
-  // Financial metric — unique recompra/oferta opportunities in the next 90 days (includes overdue)
+  // Financial metric — unique recompra/oferta/follow_up opportunities in the next 90 days (includes overdue)
   const seenOpps = new Set<string>()
   let potencialAberto = 0
   let qtdOportunidades = 0
   for (const a of listaFiltradaPorResponsavel) {
-    if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
+    if (a.tipo !== 'recompra' && a.tipo !== 'oferta' && a.tipo !== 'follow_up') continue
     if (a.data_aviso > limite90) continue
     const key = `${a.venda_id}__${a.produto_id ?? ''}`
     if (seenOpps.has(key)) continue
@@ -298,7 +299,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   let potencialMes = 0
   let qtdOportunidadesMes = 0
   for (const a of listaFiltradaPorResponsavel) {
-    if (a.tipo !== 'recompra' && a.tipo !== 'oferta') continue
+    if (a.tipo !== 'recompra' && a.tipo !== 'oferta' && a.tipo !== 'follow_up') continue
     if (a.data_aviso < inicioMes || a.data_aviso > fimMes) continue
     const key = `${a.venda_id}__${a.produto_id ?? ''}`
     if (seenMes.has(key)) continue

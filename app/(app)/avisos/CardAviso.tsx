@@ -29,6 +29,7 @@ const TIPO_BADGE: Record<AvisoDetalhado['tipo'], string> = {
   relacionamento: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800/40',
   recompra:       'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40',
   oferta:         'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800/40',
+  follow_up:      'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/40',
 }
 
 const TIPO_LABEL: Record<AvisoDetalhado['tipo'], string> = {
@@ -36,6 +37,7 @@ const TIPO_LABEL: Record<AvisoDetalhado['tipo'], string> = {
   relacionamento: 'Relacionamento',
   recompra: 'Recompra',
   oferta: 'Oferta',
+  follow_up: 'Follow-up',
 }
 
 function fmt(v: number) {
@@ -142,7 +144,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
 
   const linkWhatsApp = gerarLinkWhatsApp(aviso.cliente_whatsapp, textoAtual)
   const temporal = badgeTemporal(aviso.data_aviso)
-  const isValorPotencial = aviso.tipo === 'recompra' || aviso.tipo === 'oferta'
+  const isValorPotencial = aviso.tipo === 'recompra' || aviso.tipo === 'oferta' || aviso.tipo === 'follow_up'
 
   const cardCls = temporal.key === 'atrasado'
     ? 'border-rose-200/80 dark:border-rose-800/40 bg-rose-50/20 dark:bg-rose-950/5'
