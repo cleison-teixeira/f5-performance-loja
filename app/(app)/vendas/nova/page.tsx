@@ -72,7 +72,7 @@ export default async function NovaVendaPage() {
   // Produtos ativos da loja (incluindo as mensagens para obter o ciclo de recompra padrão)
   const { data: produtos } = await supabase
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, mensagens:mensagens_produto(tipo, dias_apos_venda)')
+    .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens, mensagens:mensagens_produto(tipo, dias_apos_venda)')
     .eq('loja_id', ctx.lojaId)
     .eq('ativo', true)
     .order('nome')
@@ -86,6 +86,7 @@ export default async function NovaVendaPage() {
       foto_url: p.foto_url,
       recorrente: p.recorrente,
       comissionavel_recompra: p.comissionavel_recompra,
+      qtd_mensagens: (p as any).qtd_mensagens ?? 3,
       ciclo_padrao: recompraMsg?.dias_apos_venda ?? 30
     }
   })

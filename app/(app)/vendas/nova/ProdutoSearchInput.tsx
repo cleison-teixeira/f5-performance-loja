@@ -11,6 +11,7 @@ export interface ProdutoCatalogoOpt {
   recorrente: boolean
   comissionavel_recompra: boolean
   ciclo_padrao?: number | null
+  qtd_mensagens?: number | null
 }
 
 export interface ProdutoSelecionadoResult {
@@ -20,6 +21,7 @@ export interface ProdutoSelecionadoResult {
   recorrente?: boolean
   comissionavel_recompra?: boolean
   ciclo_padrao?: number | null
+  qtd_mensagens?: number | null
 }
 
 interface Props {
@@ -71,6 +73,7 @@ export function ProdutoSearchInput({ produtos, nome, produtoId, onSelect, inputC
       recorrente: p.recorrente,
       comissionavel_recompra: p.comissionavel_recompra,
       ciclo_padrao: p.ciclo_padrao,
+      qtd_mensagens: p.qtd_mensagens,
     })
   }
 
@@ -89,6 +92,7 @@ export function ProdutoSearchInput({ produtos, nome, produtoId, onSelect, inputC
         recorrente: exactMatch.recorrente,
         comissionavel_recompra: exactMatch.comissionavel_recompra,
         ciclo_padrao: exactMatch.ciclo_padrao,
+        qtd_mensagens: exactMatch.qtd_mensagens,
       })
     } else {
       onSelect({ id: null, nome: val })

@@ -21,6 +21,7 @@ interface ProdutoCatalogo {
   recorrente: boolean
   comissionavel_recompra: boolean
   ciclo_padrao?: number | null
+  qtd_mensagens?: number | null
 }
 
 interface Props {
@@ -42,6 +43,8 @@ interface ItemFormState {
   recorrente: boolean
   comissionavel: boolean
   ciclo_recompra_dias: number
+  qtd_mensagens: number
+  modelo_fluxo?: string
 }
 
 type ResumoData = {
@@ -68,7 +71,7 @@ function parseBRL(raw: string): number {
 }
 
 function novoItem(): ItemFormState {
-  return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30 }
+  return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30, qtd_mensagens: 3, modelo_fluxo: 'modelo_3_agrad_rel_rec' }
 }
 
 const inputClass =
@@ -130,6 +133,14 @@ export function FormNovaVenda({
     setItens(prev => prev.map(item => item.key === key ? { ...item, ...patch } : item))
   }
 
+  function obterDefaultModeloFluxo(qtd: number): string {
+    if (qtd === 1 || qtd === 2) return 'modelo_2_agrad_rec'
+    if (qtd === 3) return 'modelo_3_agrad_rel_rec'
+    if (qtd === 4) return 'modelo_4_completo'
+    if (qtd === 5) return 'modelo_5_follow_up'
+    return 'modelo_3_agrad_rel_rec'
+  }
+
   function handleProdutoSelect(key: string, resultado: ProdutoSelecionadoResult) {
     setItens(prev => prev.map(item => {
       if (item.key !== key) return item
@@ -137,6 +148,7 @@ export function FormNovaVenda({
         return { ...item, produtoId: '', produtoNome: '', precoBRL: '' }
       }
       if (resultado.id) {
+        const defaultQtd = resultado.qtd_mensagens ?? 3
         return {
           ...item,
           produtoId: resultado.id,
@@ -147,6 +159,8 @@ export function FormNovaVenda({
           recorrente: resultado.recorrente ?? item.recorrente,
           comissionavel: resultado.comissionavel_recompra ?? item.comissionavel,
           ciclo_recompra_dias: resultado.ciclo_padrao ?? item.ciclo_recompra_dias,
+          qtd_mensagens: defaultQtd,
+          modelo_fluxo: obterDefaultModeloFluxo(defaultQtd),
         }
       }
       return { ...item, produtoId: '', produtoNome: resultado.nome }
@@ -222,6 +236,7 @@ export function FormNovaVenda({
         quantidade: item.quantidade,
         preco_unitario: parseBRL(item.precoBRL),
         ciclo_recompra_dias: item.recorrente ? item.ciclo_recompra_dias : null,
+        qtd_mensagens: item.recorrente ? (item.qtd_mensagens as 1 | 2 | 3 | 4 | 5) : null,
       })),
       vendedora_id: vendedoraId,
       vendedora_nome: vendedoraNome,
@@ -408,44 +423,91 @@ export function FormNovaVenda({
               </div>
 
               {item.recorrente && (
-                <div className="space-y-2 border-t pt-2 mt-1">
-                  <label className="text-xs font-medium block">Ciclo desta compra (dias)</label>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {[30, 45, 60, 90].map(dias => (
-                      <button
-                        key={dias}
-                        type="button"
-                        onClick={() => atualizarItem(item.key, { ciclo_recompra_dias: dias })}
-                        className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
-                          item.ciclo_recompra_dias === dias
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-input bg-background hover:bg-accent'
-                        }`}
-                      >
-                        {dias} dias
-                      </button>
-                    ))}
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.ciclo_recompra_dias || ''}
-                      onChange={e => {
-                        const val = parseInt(e.target.value, 10)
-                        atualizarItem(item.key, { ciclo_recompra_dias: isNaN(val) ? 1 : val })
-                      }}
-                      className="w-16 px-2 py-1 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Outro"
-                    />
+                <div className="space-y-3 border-t pt-2.5 mt-1.5">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium block">Ciclo desta compra (dias)</label>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {[30, 45, 60, 90].map(dias => (
+                        <button
+                          key={dias}
+                          type="button"
+                          onClick={() => atualizarItem(item.key, { ciclo_recompra_dias: dias })}
+                          className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
+                            item.ciclo_recompra_dias === dias
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-input bg-background hover:bg-accent'
+                          }`}
+                        >
+                          {dias} dias
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.ciclo_recompra_dias || ''}
+                        onChange={e => {
+                          const val = parseInt(e.target.value, 10)
+                          atualizarItem(item.key, { ciclo_recompra_dias: isNaN(val) ? 1 : val })
+                        }}
+                        className="w-16 px-2 py-1 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="Outro"
+                      />
+                    </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium block">Modelo de contato desta compra</label>
+                    <select
+                      value={item.modelo_fluxo || 'modelo_3_agrad_rel_rec'}
+                      onChange={e => atualizarItem(item.key, { modelo_fluxo: e.target.value })}
+                      className="w-full text-xs rounded border border-input p-2 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="modelo_2_agrad_rec">Agradecimento + Recompra</option>
+                      <option value="modelo_3_agrad_rec_oferta">Agradecimento + Recompra + Oferta</option>
+                      <option value="modelo_3_agrad_rel_rec">Agradecimento + Relacionamento + Recompra</option>
+                      <option value="modelo_4_completo">Agradecimento + Relacionamento + Recompra + Oferta</option>
+                      <option value="modelo_5_follow_up">Agradecimento + Relacionamento + Recompra + Oferta + Follow-up</option>
+                    </select>
+                  </div>
+
                   {item.ciclo_recompra_dias > 0 && (
-                    <div className="rounded bg-muted/40 p-2 text-xs space-y-1 mt-1 border border-input/30">
+                    <div className="rounded bg-muted/40 p-2.5 text-xs space-y-1.5 mt-1 border border-input/30">
                       <p className="font-semibold text-muted-foreground">Sequência que será criada:</p>
                       <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
-                        <li>Agradecimento: hoje (D0)</li>
-                        <li>Relacionamento: em {Math.max(0, Math.floor(item.ciclo_recompra_dias / 2))} dias</li>
-                        <li>Recompra: em {Math.max(Math.max(0, Math.floor(item.ciclo_recompra_dias / 2)), item.ciclo_recompra_dias - 5)} dias</li>
-                        <li>Oferta: em {Math.max(Math.max(Math.max(0, Math.floor(item.ciclo_recompra_dias / 2)), item.ciclo_recompra_dias - 5), item.ciclo_recompra_dias - 1)} dias</li>
-                        <li>Follow-up: em {Math.max(Math.max(Math.max(Math.max(0, Math.floor(item.ciclo_recompra_dias / 2)), item.ciclo_recompra_dias - 5), item.ciclo_recompra_dias - 1) + 1, item.ciclo_recompra_dias + 2)} dias</li>
+                        {(() => {
+                          const cic = item.ciclo_recompra_dias
+                          const mod = item.modelo_fluxo || 'modelo_3_agrad_rel_rec'
+                          const rel = Math.max(0, Math.floor(cic / 2))
+                          const rec = Math.max(rel, cic - 5)
+                          const of = Math.max(rec, cic - 1)
+                          const fw = Math.max(of + 1, cic + 2)
+
+                          const renderSteps = []
+                          if (mod === 'modelo_2_agrad_rec') {
+                            renderSteps.push(<li>Agradecimento: hoje (D0)</li>)
+                            renderSteps.push(<li>Recompra: em {rec} dias</li>)
+                          } else if (mod === 'modelo_3_agrad_rec_oferta') {
+                            renderSteps.push(<li>Agradecimento: hoje (D0)</li>)
+                            renderSteps.push(<li>Recompra: em {rec} dias</li>)
+                            renderSteps.push(<li>Oferta: em {of} dias</li>)
+                          } else if (mod === 'modelo_3_agrad_rel_rec') {
+                            renderSteps.push(<li>Agradecimento: hoje (D0)</li>)
+                            renderSteps.push(<li>Relacionamento: em {rel} dias</li>)
+                            renderSteps.push(<li>Recompra: em {rec} dias</li>)
+                          } else if (mod === 'modelo_4_completo') {
+                            renderSteps.push(<li>Agradecimento: hoje (D0)</li>)
+                            renderSteps.push(<li>Relacionamento: em {rel} dias</li>)
+                            renderSteps.push(<li>Recompra: em {rec} dias</li>)
+                            renderSteps.push(<li>Oferta: em {of} dias</li>)
+                          } else if (mod === 'modelo_5_follow_up') {
+                            renderSteps.push(<li>Agradecimento: hoje (D0)</li>)
+                            renderSteps.push(<li>Relacionamento: em {rel} dias</li>)
+                            renderSteps.push(<li>Recompra: em {rec} dias</li>)
+                            renderSteps.push(<li>Oferta: em {of} dias</li>)
+                            renderSteps.push(<li>Follow-up: em {fw} dias</li>)
+                          }
+                          return renderSteps
+                        })()}
                       </ul>
                     </div>
                   )}

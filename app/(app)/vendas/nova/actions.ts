@@ -32,6 +32,7 @@ export interface ItemVendaDados {
   quantidade: number
   preco_unitario: number
   ciclo_recompra_dias?: number | null
+  modelo_fluxo?: string | null
 }
 
 interface DadosVenda {
@@ -73,8 +74,31 @@ interface ItemProcessado {
   quantidade: number
   preco_unitario: number
   ciclo_recompra_dias?: number | null
+  modelo_fluxo?: string | null
   categoria?: string | null
   parceiro?: string | null
+}
+
+const CONFIG_MODELOS: Record<string, number[]> = {
+  'modelo_2_agrad_rec': [1, 3],
+  'modelo_3_agrad_rec_oferta': [1, 3, 4],
+  'modelo_3_agrad_rel_rec': [1, 2, 3],
+  'modelo_4_completo': [1, 2, 3, 4],
+  'modelo_5_follow_up': [1, 2, 3, 4, 5],
+}
+
+function obterOrdensPorModelo(modelo: string | null | undefined, fallbackQtd: number): number[] {
+  if (modelo && CONFIG_MODELOS[modelo]) {
+    return CONFIG_MODELOS[modelo]
+  }
+  switch (fallbackQtd) {
+    case 1: return [3]
+    case 2: return [1, 3]
+    case 3: return [1, 2, 3]
+    case 4: return [1, 2, 3, 4]
+    case 5: return [1, 2, 3, 4, 5]
+    default: return [1, 2, 3]
+  }
 }
 
 export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
@@ -181,12 +205,13 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       itensProcessados.push({
         produto_id,
         produto_nome,
-        produto_qtd_mensagens,
+        produto_qtd_mensagens: produto_qtd_mensagens,
         recorrente: item.recorrente,
         comissionavel_recompra: item.comissionavel_recompra,
         quantidade: item.quantidade,
         preco_unitario: item.preco_unitario,
         ciclo_recompra_dias: item.ciclo_recompra_dias || null,
+        modelo_fluxo: item.modelo_fluxo || null,
         categoria,
         parceiro,
       })
@@ -336,7 +361,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         mensagensData = res.data
       }
 
-      const ordensAtivas = ORDENS_POR_MODELO[itemProcessado.produto_qtd_mensagens]
+      const ordensAtivas = obterOrdensPorModelo(itemProcessado.modelo_fluxo, itemProcessado.produto_qtd_mensagens)
       const mensagens = (mensagensData ?? [])
         .filter(m => ordensAtivas.includes(m.ordem as number))
         .map(m => ({
