@@ -30,5 +30,5 @@ export const TEMPLATE_FOLLOW_UP = {
   ordem: 5 as const,
   tipo: 'follow_up' as const,
   dias_apos_venda: 32,
-  texto: 'Oi {{cliente}}, passando só para confirmar se você ainda quer que eu separe o {{produto}}. Posso deixar reservado para você até o fim do dia?',
+  texto: 'Oi {cliente}, passando só para confirmar se você ainda quer que eu separe o {produto}. Posso deixar reservado para você até o fim do dia?',
 }
