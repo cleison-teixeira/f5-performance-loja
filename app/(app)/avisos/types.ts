@@ -27,9 +27,18 @@ export interface AvisoDetalhado {
   loja_nome?: string
 }
 
+export interface ItemVendaGrupo {
+  id: string
+  produto_nome: string
+  produto_id: string | null
+  produto_foto_url: string | null
+  valor_produto: number
+}
+
 export interface GrupoRecompra {
   venda_id: string
   avisos: AvisoDetalhado[]
+  itens_venda: ItemVendaGrupo[]
   cliente_nome: string
   cliente_whatsapp: string
   cliente_id: string

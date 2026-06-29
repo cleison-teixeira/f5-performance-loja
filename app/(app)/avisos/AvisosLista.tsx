@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { AlertCircle, Bell, Calendar, TrendingUp, RefreshCw, Search, X } from 'lucide-react'
 import { CardAviso } from './CardAviso'
 import { CardGrupoRecompra } from './CardGrupoRecompra'
-import type { AvisoDetalhado, GrupoRecompra } from './types'
+import type { AvisoDetalhado, GrupoRecompra, ItemVendaGrupo } from './types'
 import type { CatalogoProduto } from './page'
 import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 
@@ -30,6 +30,7 @@ interface AvisosListaProps {
   qtdRecomprasMes?: number
   mostrarLoja?: boolean
   taxaConversao?: TaxaConversaoRecompra
+  itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
 }
 
 type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
@@ -48,7 +49,10 @@ const TIPOS_RELACIONAMENTO: { value: TipoFiltro; label: string }[] = [
   { value: 'relacionamento', label: 'Relacionamento' },
 ]
 
-function agruparPorVenda(avisos: AvisoDetalhado[]): GrupoRecompra[] {
+function agruparPorVenda(
+  avisos: AvisoDetalhado[],
+  itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
+): GrupoRecompra[] {
   const mapa = new Map<string, AvisoDetalhado[]>()
   for (const a of avisos) {
     if (!mapa.has(a.venda_id)) mapa.set(a.venda_id, [])
@@ -57,9 +61,14 @@ function agruparPorVenda(avisos: AvisoDetalhado[]): GrupoRecompra[] {
   return Array.from(mapa.values()).map(grupo => {
     const sorted = [...grupo].sort((a, b) => a.data_aviso.localeCompare(b.data_aviso))
     const primary = sorted[0]
+    const itens = itensVendaPorVenda?.[primary.venda_id] ?? []
+    const valor_total = itens.length > 0
+      ? itens.reduce((s, i) => s + i.valor_produto, 0)
+      : grupo.reduce((s, a) => s + a.valor_produto, 0)
     return {
       venda_id: primary.venda_id,
       avisos: sorted,
+      itens_venda: itens,
       cliente_nome: primary.cliente_nome,
       cliente_whatsapp: primary.cliente_whatsapp,
       cliente_id: primary.cliente_id,
@@ -68,7 +77,7 @@ function agruparPorVenda(avisos: AvisoDetalhado[]): GrupoRecompra[] {
       data_aviso: primary.data_aviso,
       data_compra: primary.data_compra,
       atrasado: primary.atrasado,
-      valor_total: grupo.reduce((s, a) => s + a.valor_produto, 0),
+      valor_total,
     }
   })
 }
@@ -106,16 +115,23 @@ interface SecaoProps {
   isVendedora: boolean
   mode: 'recompra' | 'relacionamento'
   mostrarLoja?: boolean
+  itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
 }
 
 function SecaoAvisos({
   titulo, subtitulo, avisos, corCls, badgeCls, icone, valorPotencial,
   onMarcado, onReagendado, onGrupoMarcado, onGrupoReagendado,
   catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome, isVendedora, mode, mostrarLoja,
+  itensVendaPorVenda,
 }: SecaoProps) {
-  const grupos = mode === 'recompra' ? agruparPorVenda(avisos) : null
+  const grupos = mode === 'recompra' ? agruparPorVenda(avisos, itensVendaPorVenda) : null
   const displayCount = grupos ? grupos.length : avisos.length
   if (displayCount === 0) return null
+
+  // valorPotencial from groups uses itens_venda totals when available
+  const valorPotencialEfetivo = grupos
+    ? grupos.reduce((s, g) => s + g.valor_total, 0)
+    : valorPotencial
 
   return (
     <div className="space-y-3">
@@ -130,9 +146,9 @@ function SecaoAvisos({
             {displayCount}
           </span>
           <div className="flex-1 h-px bg-border/50" />
-          {valorPotencial > 0 && (
+          {valorPotencialEfetivo > 0 && (
             <span className="text-xs tabular-nums text-muted-foreground flex-none">
-              {fmt(valorPotencial)}
+              {fmt(valorPotencialEfetivo)}
             </span>
           )}
         </div>
@@ -141,8 +157,10 @@ function SecaoAvisos({
 
       {/* Cards */}
       <div className="space-y-3">
-        {grupos ? grupos.map(grupo =>
-          grupo.avisos.length === 1 ? (
+        {grupos ? grupos.map(grupo => {
+          // Use itens_venda count to decide single vs. grouped card
+          const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : grupo.avisos.length
+          return nProdutos === 1 ? (
             <div key={grupo.avisos[0].id}>
               {mostrarLoja && grupo.avisos[0].loja_nome && (
                 <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
@@ -176,7 +194,7 @@ function SecaoAvisos({
               />
             </div>
           )
-        ) : avisos.map(aviso => (
+        }) : avisos.map(aviso => (
           <div key={aviso.id}>
             {mostrarLoja && aviso.loja_nome && (
               <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
@@ -200,7 +218,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false, taxaConversao }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false, taxaConversao, itensVendaPorVenda }: AvisosListaProps) {
   const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
@@ -282,31 +300,38 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     ? lista.filter(a => a.vendedora_id === vendedoraIdFiltro)
     : lista
 
-  // Financial metric — unique recompra/oferta/follow_up opportunities in the next 90 days (includes overdue)
-  const seenOpps = new Set<string>()
+  // Financial metric — unique venda opportunities in the next 90 days (includes overdue)
+  // Dedup by venda_id; use itens_venda total when available (covers grouped multi-product sequences)
+  const seenVendasAberto = new Set<string>()
   let potencialAberto = 0
   let qtdOportunidades = 0
   for (const a of listaFiltradaPorResponsavel) {
     if (a.tipo !== 'recompra' && a.tipo !== 'oferta' && a.tipo !== 'follow_up') continue
     if (a.data_aviso > limite90) continue
-    const key = `${a.venda_id}__${a.produto_id ?? ''}`
-    if (seenOpps.has(key)) continue
-    seenOpps.add(key)
-    potencialAberto += Number(a.valor_produto || a.valor_venda || 0)
+    if (seenVendasAberto.has(a.venda_id)) continue
+    seenVendasAberto.add(a.venda_id)
+    const itens = itensVendaPorVenda?.[a.venda_id]
+    const valor = itens && itens.length > 0
+      ? itens.reduce((s, i) => s + i.valor_produto, 0)
+      : Number(a.valor_produto || a.valor_venda || 0)
+    potencialAberto += valor
     qtdOportunidades++
   }
 
   // Financial metric — unique opportunities with data_aviso in the current month
-  const seenMes = new Set<string>()
+  const seenVendasMes = new Set<string>()
   let potencialMes = 0
   let qtdOportunidadesMes = 0
   for (const a of listaFiltradaPorResponsavel) {
     if (a.tipo !== 'recompra' && a.tipo !== 'oferta' && a.tipo !== 'follow_up') continue
     if (a.data_aviso < inicioMes || a.data_aviso > fimMes) continue
-    const key = `${a.venda_id}__${a.produto_id ?? ''}`
-    if (seenMes.has(key)) continue
-    seenMes.add(key)
-    potencialMes += Number(a.valor_produto || a.valor_venda || 0)
+    if (seenVendasMes.has(a.venda_id)) continue
+    seenVendasMes.add(a.venda_id)
+    const itens = itensVendaPorVenda?.[a.venda_id]
+    const valor = itens && itens.length > 0
+      ? itens.reduce((s, i) => s + i.valor_produto, 0)
+      : Number(a.valor_produto || a.valor_venda || 0)
+    potencialMes += valor
     qtdOportunidadesMes++
   }
 
@@ -654,7 +679,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             corCls="text-red-700 dark:text-red-400"
             badgeCls="bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
             icone={<AlertCircle className="h-4 w-4" />}
-            valorPotencial={mode === 'recompra' ? grupos.atrasados.reduce((s, a) => s + a.valor_produto, 0) : 0}
+            valorPotencial={0}
             onMarcado={handleMarcado}
             onReagendado={handleReagendado}
             onGrupoMarcado={handleGrupoMarcado}
@@ -667,6 +692,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             isVendedora={isVendedora}
             mode={mode}
             mostrarLoja={mostrarLoja}
+            itensVendaPorVenda={itensVendaPorVenda}
           />
           <SecaoAvisos
             titulo="Hoje"
@@ -675,7 +701,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             corCls="text-blue-700 dark:text-blue-400"
             badgeCls="bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
             icone={<Bell className="h-4 w-4" />}
-            valorPotencial={mode === 'recompra' ? grupos.hoje.reduce((s, a) => s + a.valor_produto, 0) : 0}
+            valorPotencial={0}
             onMarcado={handleMarcado}
             onReagendado={handleReagendado}
             onGrupoMarcado={handleGrupoMarcado}
@@ -688,6 +714,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             isVendedora={isVendedora}
             mode={mode}
             mostrarLoja={mostrarLoja}
+            itensVendaPorVenda={itensVendaPorVenda}
           />
           <SecaoAvisos
             titulo="Próximos dias"
@@ -696,7 +723,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             corCls="text-emerald-700 dark:text-emerald-400"
             badgeCls="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
             icone={<Calendar className="h-4 w-4" />}
-            valorPotencial={mode === 'recompra' ? grupos.proximos7.reduce((s, a) => s + a.valor_produto, 0) : 0}
+            valorPotencial={0}
             onMarcado={handleMarcado}
             onReagendado={handleReagendado}
             onGrupoMarcado={handleGrupoMarcado}
@@ -709,6 +736,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             isVendedora={isVendedora}
             mode={mode}
             mostrarLoja={mostrarLoja}
+            itensVendaPorVenda={itensVendaPorVenda}
           />
           {grupos.futuros.length > 0 && (
             <SecaoAvisos
@@ -730,6 +758,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               loja_nome={loja_nome}
               isVendedora={isVendedora}
               mode={mode}
+              itensVendaPorVenda={itensVendaPorVenda}
             />
           )}
           {listaPorTipo.length === 0 && (
@@ -785,8 +814,9 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </div>
           ) : mode === 'recompra' ? (
             <div className="space-y-3">
-              {agruparPorVenda(avisosFiltrados).map(grupo =>
-                grupo.avisos.length === 1 ? (
+              {agruparPorVenda(avisosFiltrados, itensVendaPorVenda).map(grupo => {
+                const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : grupo.avisos.length
+                return nProdutos === 1 ? (
                   <div key={grupo.avisos[0].id}>
                     {mostrarLoja && grupo.avisos[0].loja_nome && (
                       <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
@@ -820,7 +850,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                     />
                   </div>
                 )
-              )}
+              })}
             </div>
           ) : (
             <div className="space-y-3">

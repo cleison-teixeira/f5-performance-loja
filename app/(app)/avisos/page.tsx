@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { AvisosLista } from './AvisosLista'
-import type { AvisoDetalhado } from './types'
+import type { AvisoDetalhado, ItemVendaGrupo } from './types'
 import { calcularTaxaRecompraMes } from '@/lib/metricas/taxa-conversao'
 
 export interface CatalogoProduto {
@@ -196,6 +196,30 @@ export default async function AvisosPage() {
 
   const taxaConversao = await calcularTaxaRecompraMes(ctx.lojaIds, admin, inicioMes)
 
+  // Fetch all recurrent itens_venda for every unique venda_id that has active avisos
+  const vendaIdsUnicos = [...new Set(avisos.map(a => a.venda_id))]
+  const itensVendaPorVenda: Record<string, ItemVendaGrupo[]> = {}
+  if (vendaIdsUnicos.length > 0) {
+    const { data: itensVendaData } = await admin
+      .from('itens_venda')
+      .select('id, venda_id, produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)')
+      .in('venda_id', vendaIdsUnicos)
+      .eq('recorrente', true)
+    for (const item of itensVendaData ?? []) {
+      const vId = item.venda_id as string
+      const prodRaw = (item as unknown as { produtos: { foto_url: string | null; galeria_urls: string[] | null } | Array<{ foto_url: string | null; galeria_urls: string[] | null }> | null }).produtos
+      const prodFoto = Array.isArray(prodRaw) ? prodRaw[0] : prodRaw
+      if (!itensVendaPorVenda[vId]) itensVendaPorVenda[vId] = []
+      itensVendaPorVenda[vId].push({
+        id: item.id as string,
+        produto_nome: item.produto_nome as string,
+        produto_id: (item.produto_id as string | null) ?? null,
+        produto_foto_url: prodFoto?.foto_url || prodFoto?.galeria_urls?.[0] || null,
+        valor_produto: (item.subtotal as number | null) ?? 0,
+      })
+    }
+  }
+
   return (
     <div className="space-y-5 pb-6">
 
@@ -225,6 +249,7 @@ export default async function AvisosPage() {
         qtdRecomprasMes={qtdRecomprasMes}
         mostrarLoja={mostrarLoja}
         taxaConversao={taxaConversao}
+        itensVendaPorVenda={itensVendaPorVenda}
       />
 
     </div>

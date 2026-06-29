@@ -8,6 +8,7 @@ interface ContextoAviso {
   vendedora_id: string
   cliente_nome: string
   produto_nome: string
+  produto_nome_ancora?: string  // used for recompra/oferta/follow_up in multi-product grouped sequences
   vendedora_nome: string
   loja_nome: string
   origem_recompra_id?: string
@@ -97,6 +98,12 @@ export function gerarAvisos(
     const m = String(dataAviso.getMonth() + 1).padStart(2, '0')
     const d = String(dataAviso.getDate()).padStart(2, '0')
 
+    // In multi-product sequences, anchor product name is used for recompra/oferta/follow_up
+    const TIPOS_ANCORA = new Set(['recompra', 'oferta', 'follow_up'])
+    const produtoNomeEfetivo = (ctx.produto_nome_ancora && TIPOS_ANCORA.has(msg.tipo))
+      ? ctx.produto_nome_ancora
+      : ctx.produto_nome
+
     // Mapeamento de variáveis para interpolação de templates comerciais
     const mapVariaveis: Record<string, string> = {
       cliente: ctx.cliente_nome,
@@ -106,8 +113,8 @@ export function gerarAvisos(
       vendedora_nome: ctx.vendedora_nome,
       loja: ctx.loja_nome,
       loja_nome: ctx.loja_nome,
-      produto: ctx.produto_nome,
-      produto_nome: ctx.produto_nome,
+      produto: produtoNomeEfetivo,
+      produto_nome: produtoNomeEfetivo,
       categoria: ctx.categoria || '',
       parceiro: ctx.parceiro || '',
       ciclo_dias: String(N),

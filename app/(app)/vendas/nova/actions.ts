@@ -325,19 +325,37 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
-    // 6. Gerar avisos para cada item recorrente (com previsão de comissão)
+    // 6. Gerar avisos — sequência única agrupada para vendas com múltiplos produtos recorrentes
     const todosAvisos: AvisoParaInserir[] = []
     const mensagemTipo: Record<string, string> = {}
 
-    for (let i = 0; i < itensVendaData.length; i++) {
-      const itemVendaRow = itensVendaData[i]
-      const itemProcessado = itensProcessados[i]
+    // Pares (row do banco, item processado) apenas para itens recorrentes
+    const pairesRecorrentes = itensVendaData
+      .map((row, i) => ({ row, processado: itensProcessados[i] }))
+      .filter(({ row }) => (row as unknown as { recorrente: boolean }).recorrente)
 
-      if (!(itemVendaRow as unknown as { recorrente: boolean }).recorrente) continue
+    if (pairesRecorrentes.length >= 1) {
+      // Encontrar item âncora: menor ciclo_recompra_dias (empate → primeiro da lista)
+      let anchorIdx = 0
+      let minCiclo = (pairesRecorrentes[0].row as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? 30
+      for (let i = 1; i < pairesRecorrentes.length; i++) {
+        const c = (pairesRecorrentes[i].row as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? 30
+        if (c < minCiclo) { minCiclo = c; anchorIdx = i }
+      }
 
-      const item_venda_id = itemVendaRow.id as string
-      const produto_id = itemVendaRow.produto_id as string
+      const { row: anchorRow, processado: anchorProcessado } = pairesRecorrentes[anchorIdx]
+      const item_venda_id = anchorRow.id as string
+      const produto_id = anchorRow.produto_id as string
 
+      // Nome combinado para agradecimento/relacionamento (lista de todos os produtos recorrentes)
+      const nomesProdutos = pairesRecorrentes.map(p => p.processado.produto_nome)
+      const produto_nome_lista = nomesProdutos.length === 1
+        ? nomesProdutos[0]
+        : nomesProdutos.length === 2
+          ? `${nomesProdutos[0]} e ${nomesProdutos[1]}`
+          : `${nomesProdutos.slice(0, -1).join(', ')} e ${nomesProdutos[nomesProdutos.length - 1]}`
+
+      // Buscar mensagens do produto âncora (mesmo fluxo de seed/fallback de antes)
       let { data: mensagensData } = await supabase
         .from('mensagens_produto')
         .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
@@ -345,11 +363,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         .order('ordem')
 
       if (!mensagensData || mensagensData.length === 0) {
-        const todosPadroes = [
-          ...TEMPLATES_PADRAO,
-          TEMPLATE_OFERTA,
-          TEMPLATE_FOLLOW_UP
-        ]
+        const todosPadroes = [...TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP]
         await supabase.from('mensagens_produto').insert(
           todosPadroes.map(t => ({ produto_id, ...t }))
         )
@@ -361,12 +375,12 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         mensagensData = res.data
       }
 
-      const ordensAtivas = obterOrdensPorModelo(itemProcessado.modelo_fluxo, itemProcessado.produto_qtd_mensagens)
+      const ordensAtivas = obterOrdensPorModelo(anchorProcessado.modelo_fluxo, anchorProcessado.produto_qtd_mensagens)
       const ordensExistentes = (mensagensData ?? []).map(m => m.ordem as number)
       const ordensFaltantes = ordensAtivas.filter(o => !ordensExistentes.includes(o))
 
       if (ordensFaltantes.length > 0) {
-        const DEFAULT_TEMPLATES_MAP: Record<number, any> = {
+        const DEFAULT_TEMPLATES_MAP: Record<number, unknown> = {
           1: TEMPLATES_PADRAO[0],
           2: TEMPLATES_PADRAO[1],
           3: TEMPLATES_PADRAO[2],
@@ -374,16 +388,8 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
           5: TEMPLATE_FOLLOW_UP,
         }
         const novosTemplates = ordensFaltantes.map(ordem => {
-          const padrao = DEFAULT_TEMPLATES_MAP[ordem]
-          return {
-            produto_id,
-            ordem: padrao.ordem,
-            tipo: padrao.tipo,
-            dias_apos_venda: padrao.dias_apos_venda,
-            texto: padrao.texto,
-            estilo: 'clean',
-            tipo_incentivo: 'nenhum'
-          }
+          const padrao = DEFAULT_TEMPLATES_MAP[ordem] as { ordem: number; tipo: string; dias_apos_venda: number; texto: string }
+          return { produto_id, ordem: padrao.ordem, tipo: padrao.tipo, dias_apos_venda: padrao.dias_apos_venda, texto: padrao.texto, estilo: 'clean', tipo_incentivo: 'nenhum' }
         })
         await supabase.from('mensagens_produto').insert(novosTemplates)
         const res = await supabase
@@ -419,12 +425,13 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         cliente_id,
         vendedora_id: dados.vendedora_id,
         cliente_nome,
-        produto_nome: itemProcessado.produto_nome,
+        produto_nome: produto_nome_lista,
+        produto_nome_ancora: pairesRecorrentes.length > 1 ? anchorProcessado.produto_nome : undefined,
         vendedora_nome: dados.vendedora_nome,
         loja_nome: dados.loja_nome,
-        categoria: itemProcessado.categoria,
-        parceiro: itemProcessado.parceiro,
-      }, dados.data_compra, itemProcessado.ciclo_recompra_dias).map(a => ({ ...a, previsao_comissao }))
+        categoria: anchorProcessado.categoria,
+        parceiro: anchorProcessado.parceiro,
+      }, dados.data_compra, minCiclo).map(a => ({ ...a, previsao_comissao }))
 
       todosAvisos.push(...avisos)
     }

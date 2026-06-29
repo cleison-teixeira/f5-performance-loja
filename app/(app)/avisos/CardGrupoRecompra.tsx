@@ -67,9 +67,8 @@ function badgeTemporal(dataAviso: string): { label: string; cls: string; key: st
   }
 }
 
-function montarMensagemGrupoRecompra(grupo: GrupoRecompra, loja_nome: string): string {
-  const primeiroNome = grupo.cliente_nome.split(' ')[0]
-  const nomesProdutos = grupo.avisos.map(a => a.produto_nome)
+function montarMensagemGrupoRecompra(cliente_nome: string, nomesProdutos: string[], loja_nome: string): string {
+  const primeiroNome = cliente_nome.split(' ')[0]
   const lojaRef = loja_nome ? ` na ${loja_nome}` : ''
 
   if (nomesProdutos.length === 2) {
@@ -91,7 +90,20 @@ export function CardGrupoRecompra({
 }: CardGrupoRecompraProps) {
   const primaryAviso = grupo.avisos[0]
 
-  const [textoAtual, setTextoAtual] = useState(() => montarMensagemGrupoRecompra(grupo, loja_nome))
+  // Use itens_venda for accurate product list; fallback to avisos for legacy data
+  const produtos = grupo.itens_venda.length > 0
+    ? grupo.itens_venda
+    : grupo.avisos.map(a => ({
+        id: a.id,
+        produto_nome: a.produto_nome,
+        produto_id: a.produto_id,
+        produto_foto_url: a.produto_foto_url,
+        valor_produto: a.valor_produto,
+      }))
+
+  const [textoAtual, setTextoAtual] = useState(() =>
+    montarMensagemGrupoRecompra(grupo.cliente_nome, produtos.map(p => p.produto_nome), loja_nome)
+  )
   const [editando, setEditando] = useState(false)
   const [rascunho, setRascunho] = useState(textoAtual)
   const [copiado, setCopiado] = useState(false)
@@ -105,9 +117,11 @@ export function CardGrupoRecompra({
   const representativeAviso: AvisoDetalhado = {
     ...primaryAviso,
     item_venda_id: null,
-    produto_nome: grupo.avisos.length === 2
-      ? `${grupo.avisos[0].produto_nome} e ${grupo.avisos[1].produto_nome}`
-      : `${grupo.avisos.length} produtos de recompra`,
+    produto_nome: produtos.length === 2
+      ? `${produtos[0].produto_nome} e ${produtos[1].produto_nome}`
+      : produtos.length > 2
+        ? `${produtos.length} produtos de recompra`
+        : produtos[0]?.produto_nome ?? primaryAviso.produto_nome,
   }
 
   const linkWhatsApp = gerarLinkWhatsApp(grupo.cliente_whatsapp, textoAtual)
@@ -162,7 +176,7 @@ export function CardGrupoRecompra({
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400">
               <Layers className="h-3 w-3" />
-              {grupo.avisos.length} produtos
+              {produtos.length} produtos
             </span>
             <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
               {formatarData(grupo.data_aviso)}
@@ -177,13 +191,13 @@ export function CardGrupoRecompra({
 
           {/* Lista de produtos */}
           <div className="rounded-lg border border-border/50 bg-muted/20 divide-y divide-border/40">
-            {grupo.avisos.map(aviso => (
-              <div key={aviso.id} className="flex items-center gap-3 px-3 py-2.5">
-                {aviso.produto_foto_url ? (
+            {produtos.map(p => (
+              <div key={p.id} className="flex items-center gap-3 px-3 py-2.5">
+                {p.produto_foto_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={aviso.produto_foto_url}
-                    alt={aviso.produto_nome}
+                    src={p.produto_foto_url}
+                    alt={p.produto_nome}
                     className="w-9 h-9 rounded-lg object-cover shrink-0 border border-border/50"
                   />
                 ) : (
@@ -191,9 +205,9 @@ export function CardGrupoRecompra({
                     <Package className="h-4 w-4 text-muted-foreground/30" />
                   </div>
                 )}
-                <span className="flex-1 text-sm text-foreground/80 truncate">{aviso.produto_nome}</span>
+                <span className="flex-1 text-sm text-foreground/80 truncate">{p.produto_nome}</span>
                 <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400 shrink-0">
-                  {fmt(aviso.valor_produto)}
+                  {fmt(p.valor_produto)}
                 </span>
               </div>
             ))}
@@ -349,8 +363,10 @@ export function CardGrupoRecompra({
           loja_id={loja_id}
           onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
           onFechar={() => setModalRecompra(false)}
-          itensPreenchidos={grupo.avisos.map(a => ({ produto_id: a.produto_id, produto_nome: a.produto_nome, preco_unitario: a.valor_produto }))}
-          item_venda_ids_grupo={grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}
+          itensPreenchidos={produtos.map(p => ({ produto_id: p.produto_id, produto_nome: p.produto_nome, preco_unitario: p.valor_produto }))}
+          item_venda_ids_grupo={grupo.itens_venda.length > 0
+            ? grupo.itens_venda.map(i => i.id)
+            : grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}
           isGrupo
         />
       )}
