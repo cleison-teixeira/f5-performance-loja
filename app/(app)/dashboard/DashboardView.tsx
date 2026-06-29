@@ -7,6 +7,7 @@ import type {
   VendedoraRankingMeta, DinheiroMesaInfo, AvisosPrazoInfo, ProdutoTopMes, ListaEsperaInfo,
   RankingRecomprasItem, TopProdutoRecompra, RankingLojasItem,
 } from './page'
+import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 
 interface Props {
   loja: { id: string; nome: string }
@@ -48,6 +49,7 @@ interface Props {
   comissao7Dias: number
   rankingLojas: RankingLojasItem[]
   subtitulo?: string
+  taxaConversao: TaxaConversaoRecompra
 }
 
 export function DashboardView(props: Props) {
@@ -74,6 +76,7 @@ export function DashboardView(props: Props) {
         topProdutosRecompra={props.topProdutosRecompra}
         totalRecomprasValorMes={props.totalRecomprasValorMes}
         qtdRecomprasMes={props.qtdRecomprasMes}
+        taxaConversao={props.taxaConversao}
       />
     )
   }
@@ -105,6 +108,7 @@ export function DashboardView(props: Props) {
       qtdRecomprasMes={props.qtdRecomprasMes}
       rankingLojas={props.rankingLojas}
       subtitulo={props.subtitulo}
+      taxaConversao={props.taxaConversao}
     />
   )
 }

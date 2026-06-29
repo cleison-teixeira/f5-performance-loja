@@ -7,6 +7,7 @@ import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { AvisosLista } from './AvisosLista'
 import type { AvisoDetalhado } from './types'
+import { calcularTaxaConversao } from '@/lib/metricas/taxa-conversao'
 
 export interface CatalogoProduto {
   id: string
@@ -192,6 +193,8 @@ export default async function AvisosPage() {
     }
   })
 
+  const taxaConversao = await calcularTaxaConversao(ctx.lojaIds, admin, hoje)
+
   return (
     <div className="space-y-5 pb-6">
 
@@ -220,6 +223,7 @@ export default async function AvisosPage() {
         totalRecomprasValorMes={totalRecomprasValorMes}
         qtdRecomprasMes={qtdRecomprasMes}
         mostrarLoja={mostrarLoja}
+        taxaConversao={taxaConversao}
       />
 
     </div>

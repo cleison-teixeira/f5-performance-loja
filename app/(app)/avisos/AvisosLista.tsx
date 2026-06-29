@@ -8,6 +8,7 @@ import { CardAviso } from './CardAviso'
 import { CardGrupoRecompra } from './CardGrupoRecompra'
 import type { AvisoDetalhado, GrupoRecompra } from './types'
 import type { CatalogoProduto } from './page'
+import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 
 export interface VendedoraLoja {
   id: string
@@ -28,6 +29,7 @@ interface AvisosListaProps {
   totalRecomprasValorMes?: number
   qtdRecomprasMes?: number
   mostrarLoja?: boolean
+  taxaConversao?: TaxaConversaoRecompra
 }
 
 type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
@@ -198,7 +200,7 @@ function SecaoAvisos({
 
 // ── Lista principal ─────────────────────────────────────────────────────────
 
-export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false }: AvisosListaProps) {
+export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false, taxaConversao }: AvisosListaProps) {
   const router = useRouter()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
@@ -454,17 +456,28 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           </div>
         )}
 
-        {/* Card 4: Avisos atrasados (recompra) / Próximos 7D (relacionamento) */}
+        {/* Card 4: Taxa de conversão (recompra) / Próximos 7D (relacionamento) */}
         {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
-              <AlertCircle className="h-3 w-3 flex-none" />
-              Avisos atrasados
+          <div className="rounded-xl border bg-violet-50/70 dark:bg-violet-950/15 border-violet-200/70 dark:border-violet-800/30 p-4 flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700/65 dark:text-violet-400/60 flex items-center gap-1.5">
+              <TrendingUp className="h-3 w-3 flex-none" />
+              Taxa de conversão
             </p>
-            <p className={`text-2xl font-bold tabular-nums leading-none ${qtdAtrasados > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
-              {qtdAtrasados}
-            </p>
-            <p className="text-[11px] text-red-600/55 dark:text-red-400/50 leading-tight">com ação pendente</p>
+            {taxaConversao && taxaConversao.elegiveis > 0 ? (
+              <>
+                <p className="text-2xl font-bold tabular-nums leading-none text-violet-700 dark:text-violet-300">
+                  {taxaConversao.taxa}%
+                </p>
+                <p className="text-[11px] text-violet-600/55 dark:text-violet-400/50 leading-tight">
+                  {taxaConversao.convertidas} de {taxaConversao.elegiveis} vendas elegíveis
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold tabular-nums leading-none text-muted-foreground">—</p>
+                <p className="text-[11px] text-muted-foreground/55 leading-tight">sem dados suficientes</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">

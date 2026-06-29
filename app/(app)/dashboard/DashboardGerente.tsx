@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import {
   ChevronRight, Package, Bell, TrendingUp, AlertCircle,
-  RefreshCw, Clock, Send,
+  RefreshCw, Send,
 } from 'lucide-react'
 import type { VendedoraRankingMeta, DinheiroMesaInfo, ProdutoTopMes, ListaEsperaInfo, RankingRecomprasItem, TopProdutoRecompra } from './page'
+import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 import { ProdutoEmFocoCard } from './ProdutoEmFocoCard'
 import { DinheiroNaMesaHero } from './DinheiroNaMesaHero'
 
@@ -36,6 +37,7 @@ interface Props {
   topProdutosRecompra: TopProdutoRecompra[]
   totalRecomprasValorMes: number
   qtdRecomprasMes: number
+  taxaConversao: TaxaConversaoRecompra
 }
 
 const AVATAR_BG = ['bg-amber-500', 'bg-slate-400', 'bg-orange-400', 'bg-blue-400', 'bg-violet-400']
@@ -58,6 +60,7 @@ export function DashboardGerente({
   topProdutosRecompra,
   totalRecomprasValorMes,
   qtdRecomprasMes,
+  taxaConversao,
 }: Props) {
   const { totalPotencial, qtdOportunidades, potencial7Dias, qtdClientes7Dias } = dinheiroMesaInfo
 
@@ -115,24 +118,22 @@ export function DashboardGerente({
           <p className="text-xs text-muted-foreground mt-0.5">{qtdRecomprasMes} recompra{qtdRecomprasMes !== 1 ? 's' : ''} este mês</p>
         </div>
 
-        {/* Para hoje */}
-        <div className={`rounded-xl border shadow-sm p-4 ${
-          qtdAvisosHoje > 0
-            ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40'
-            : 'bg-card'
-        }`}>
+        {/* Taxa de conversão */}
+        <div className="rounded-xl border bg-card shadow-sm p-4">
           <div className="flex items-center gap-2 mb-3">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${
-              qtdAvisosHoje > 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-muted/60'
-            }`}>
-              <Clock className={`h-3.5 w-3.5 ${qtdAvisosHoje > 0 ? 'text-blue-500' : 'text-muted-foreground'}`} />
+            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center flex-none">
+              <TrendingUp className="h-3.5 w-3.5 text-violet-500" />
             </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Para hoje</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Taxa de conversão</p>
           </div>
-          <p className={`text-xl font-bold tabular-nums tracking-tight ${qtdAvisosHoje > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-            {qtdAvisosHoje}
+          <p className="text-xl font-bold tabular-nums tracking-tight text-violet-600 dark:text-violet-400">
+            {taxaConversao.elegiveis > 0 ? `${taxaConversao.taxa}%` : '—'}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">a acionar hoje</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {taxaConversao.elegiveis > 0
+              ? `${taxaConversao.convertidas} de ${taxaConversao.elegiveis} vendas elegíveis recompraram`
+              : 'sem vendas elegíveis nos últimos 90 dias'}
+          </p>
         </div>
 
         {/* Atrasados */}
