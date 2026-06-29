@@ -132,7 +132,7 @@ export function DashboardDono({
             <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center flex-none">
               <TrendingUp className="h-3.5 w-3.5 text-violet-500" />
             </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Taxa de recompra geral</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">Taxa de recompra 90 dias</p>
           </div>
           <p className="text-xl font-bold tabular-nums tracking-tight text-violet-600 dark:text-violet-400">
             {taxaConversao.elegiveis > 0 ? `${taxaConversao.taxa}%` : '—'}

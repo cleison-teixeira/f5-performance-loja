@@ -461,7 +461,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
           <div className="rounded-xl border bg-violet-50/70 dark:bg-violet-950/15 border-violet-200/70 dark:border-violet-800/30 p-4 flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700/65 dark:text-violet-400/60 flex items-center gap-1.5">
               <TrendingUp className="h-3 w-3 flex-none" />
-              Taxa do mês
+              Taxa de recompra do mês
             </p>
             {taxaConversao && taxaConversao.elegiveis > 0 ? (
               <>
