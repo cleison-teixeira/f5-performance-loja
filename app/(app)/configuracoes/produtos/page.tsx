@@ -100,6 +100,7 @@ export default async function ConfigProdutosPage() {
     .select('id, nome, preco_sugerido, foto_url, ativo, recorrente, comissionavel_recompra, qtd_mensagens, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta)')
     .eq('loja_id', loja_id)
     .order('nome')
+    .limit(300)
 
   const produtos: ProdutoItem[] = (produtosRaw ?? []).map(p => {
     const mensagensDB = (p.mensagens_produto as unknown as Array<{

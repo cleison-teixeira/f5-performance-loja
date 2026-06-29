@@ -70,7 +70,8 @@ export default async function ListaEsperaPage() {
       .from('lista_espera')
       .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
       .in('loja_id', ctx.lojaIds)
-      .order('criado_em', { ascending: false }),
+      .order('criado_em', { ascending: false })
+      .limit(200),
     ctx.escopo === 'loja'
       ? admin
           .from('categorias')
@@ -103,12 +104,22 @@ export default async function ListaEsperaPage() {
   }
 
   const nomeMap: Record<string, string> = {}
-  const ids = [...new Set((registrosRes.data ?? []).map(r => r.vendedora_id as string).filter(Boolean))]
-  if (ids.length > 0) {
+
+  // Preencher nomeMap com vendedoras já carregadas (evita query extra no caso mais comum)
+  for (const m of vendedorasRes.data ?? []) {
+    const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }> | null
+    const perfil = Array.isArray(p) ? p[0] : p
+    if (perfil?.nome) nomeMap[m.perfil_id as string] = perfil.nome
+  }
+
+  // Lookup apenas para IDs não cobertos pelo vendedorasRes (rede mode ou histórico)
+  const allVendedoraIds = [...new Set((registrosRes.data ?? []).map(r => r.vendedora_id as string).filter(Boolean))]
+  const missingIds = allVendedoraIds.filter(id => !nomeMap[id])
+  if (missingIds.length > 0) {
     const { data: perfisData } = await admin
       .from('perfis')
       .select('id, nome')
-      .in('id', ids)
+      .in('id', missingIds)
     for (const p of perfisData ?? []) nomeMap[p.id as string] = p.nome as string
   }
 

@@ -264,7 +264,8 @@ export default async function DashboardPage() {
       .from('produtos')
       .select('nome, foto_url')
       .in('loja_id', lojaIds)
-      .eq('ativo', true),
+      .eq('ativo', true)
+      .limit(300),
     // Membros das lojas (para mapa de nomes nos avisos)
     !isVendedora
       ? admin
@@ -585,27 +586,27 @@ export default async function DashboardPage() {
   // Ranking das lojas (dono/admin_f5 only — multi-loja)
   let rankingLojas: RankingLojasItem[] = []
   if (multiLoja && lojaIds.length > 0) {
-    // Busca nomes das lojas via admin
-    const { data: lojasData } = await admin
-      .from('lojas')
-      .select('id, nome')
-      .in('id', lojaIds)
+    // Parallelizar as 3 queries do ranking de lojas
+    const [lojasRes, recomprasLojaRes, avisosLojaRes] = await Promise.all([
+      admin.from('lojas').select('id, nome').in('id', lojaIds),
+      admin
+        .from('recompras')
+        .select('loja_id, valor_total')
+        .in('loja_id', lojaIds)
+        .gte('criado_em', inicioMes),
+      admin
+        .from('avisos')
+        .select('loja_id, venda_id, produto_id:itens_venda(produto_id)')
+        .in('loja_id', lojaIds)
+        .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)'),
+    ])
+
+    const lojasData = lojasRes.data
+    const recomprasPorLoja = recomprasLojaRes.data
+    const avisosPorLoja = avisosLojaRes.data
+
     const lojaNomeMap = new Map<string, string>()
     for (const l of lojasData ?? []) lojaNomeMap.set(l.id as string, l.nome as string)
-
-    // Recompras do mês por loja
-    const { data: recomprasPorLoja } = await admin
-      .from('recompras')
-      .select('loja_id, valor_total')
-      .in('loja_id', lojaIds)
-      .gte('criado_em', inicioMes)
-
-    // Oportunidades por loja (avisos pendentes de recompra/oferta)
-    const { data: avisosPorLoja } = await admin
-      .from('avisos')
-      .select('loja_id, venda_id, produto_id:itens_venda(produto_id)')
-      .in('loja_id', lojaIds)
-      .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
 
     const lojaMap = new Map<string, { totalPotencial: number; qtdOportunidades: number; valorRecuperadoMes: number; qtdRecomprasMes: number; seen: Set<string> }>()
     for (const id of lojaIds) {

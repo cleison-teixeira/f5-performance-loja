@@ -64,6 +64,7 @@ export default async function ProdutosPage() {
     .in('loja_id', ctx.lojaIds)
     .eq('ativo', true)
     .order('nome')
+    .limit(300)
 
   type ProdutoRaw = {
     id: string

@@ -64,40 +64,45 @@ export default async function AvisosPage() {
   // Fallback loja_id for catalog/recompras queries in single-loja mode
   const lojaIdFallback = ctx.lojaId ?? ctx.lojaIds[0]
 
-  const { data: avisosRaw } = await admin
-    .from('avisos')
-    .select(`
-      id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
-      clientes(nome, whatsapp),
-      mensagens_produto(tipo),
-      itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
-      vendas(valor)
-    `)
-    .in('loja_id', ctx.lojaIds)
-    .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
-    .order('data_aviso', { ascending: true })
+  const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
 
-  // data_compra via separate query — join ambiguity when itens_venda also has FK to vendas
-  const vendaIds = [...new Set((avisosRaw ?? []).map(a => a.venda_id as string).filter(Boolean))]
-  const dataCompraMap = new Map<string, string>()
-  if (vendaIds.length > 0) {
-    const { data: vendasDatas } = await admin
-      .from('vendas')
-      .select('id, data_compra')
-      .in('id', vendaIds)
-    for (const v of vendasDatas ?? []) {
-      const dc = v.data_compra as string | null
-      if (dc) dataCompraMap.set(v.id as string, dc.slice(0, 10))
-    }
-  }
+  // Parallelizar: avisos + catalogo + recompras + membros em um único batch
+  const [avisosRes, catalogoRes, recomprasRes, membrosRes] = await Promise.all([
+    admin
+      .from('avisos')
+      .select(`
+        id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
+        clientes(nome, whatsapp),
+        mensagens_produto(tipo),
+        itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
+        vendas(valor, data_compra)
+      `)
+      .in('loja_id', ctx.lojaIds)
+      .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
+      .order('data_aviso', { ascending: true })
+      .limit(200),
+    supabase
+      .from('produtos')
+      .select('id, nome, preco_sugerido, comissionavel_recompra')
+      .in('loja_id', ctx.lojaIds)
+      .eq('ativo', true)
+      .order('nome'),
+    admin
+      .from('recompras')
+      .select('valor_total')
+      .in('loja_id', ctx.lojaIds)
+      .gte('criado_em', inicioMes),
+    admin
+      .from('membros_loja')
+      .select('perfil_id, perfis(nome)')
+      .in('loja_id', ctx.lojaIds)
+      .eq('ativo', true),
+  ])
 
-  // Catálogo de produtos para form de recompra (all lojas in context)
-  const { data: catalogoRaw } = await supabase
-    .from('produtos')
-    .select('id, nome, preco_sugerido, comissionavel_recompra')
-    .in('loja_id', ctx.lojaIds)
-    .eq('ativo', true)
-    .order('nome')
+  const avisosRaw = avisosRes.data
+  const catalogoRaw = catalogoRes.data
+  const recomprasData = recomprasRes.data
+  const membrosAtivos = membrosRes.data
 
   const catalogo: CatalogoProduto[] = (catalogoRaw ?? []).map(p => ({
     id: p.id as string,
@@ -106,22 +111,8 @@ export default async function AvisosPage() {
     comissionavel_recompra: (p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra ?? true,
   }))
 
-  // Recompras do mês corrente para card "Recuperado"
-  const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
-  const { data: recomprasData } = await admin
-    .from('recompras')
-    .select('valor_total')
-    .in('loja_id', ctx.lojaIds)
-    .gte('criado_em', inicioMes)
   const totalRecomprasValorMes = (recomprasData ?? []).reduce((s, r) => s + ((r.valor_total as number) ?? 0), 0)
   const qtdRecomprasMes = (recomprasData ?? []).length
-
-  // Todos os membros ativos (para filtro de responsável)
-  const { data: membrosAtivos } = await admin
-    .from('membros_loja')
-    .select('perfil_id, perfis(nome)')
-    .in('loja_id', ctx.lojaIds)
-    .eq('ativo', true)
 
   const todosMembrosIds = (membrosAtivos ?? []).map(m => m.perfil_id as string)
 
@@ -170,7 +161,7 @@ export default async function AvisosPage() {
     } | null
     const produtosRaw = itemVenda?.produtos
     const produtoFoto = Array.isArray(produtosRaw) ? produtosRaw[0] : produtosRaw
-    const venda = a.vendas as unknown as { valor: number } | null
+    const venda = a.vendas as unknown as { valor: number; data_compra: string | null } | null
     const avisoLojaId = a.loja_id as string
 
     return {
@@ -191,7 +182,7 @@ export default async function AvisosPage() {
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       venda_id: a.venda_id as string,
       item_venda_id: (a.item_venda_id as string | null) ?? null,
-      data_compra: dataCompraMap.get(a.venda_id as string) ?? '',
+      data_compra: venda?.data_compra?.slice(0, 10) ?? '',
       observacao_resultado: (a as unknown as { observacao_resultado: string | null }).observacao_resultado ?? null,
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',

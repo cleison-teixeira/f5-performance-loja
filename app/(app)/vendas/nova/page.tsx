@@ -63,19 +63,31 @@ export default async function NovaVendaPage() {
     )
   }
 
-  const { data: perfil } = await supabase
-    .from('perfis')
-    .select('nome')
-    .eq('id', user.id)
-    .single()
+  // Parallelizar queries independentes após ctx
+  const [perfilRes, produtosRes, membrosRes, fixasRes] = await Promise.all([
+    supabase.from('perfis').select('nome').eq('id', user.id).single(),
+    supabase
+      .from('produtos')
+      .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens, mensagens:mensagens_produto(tipo, dias_apos_venda)')
+      .eq('loja_id', ctx.lojaId)
+      .eq('ativo', true)
+      .order('nome'),
+    admin
+      .from('membros_loja')
+      .select('perfil_id, perfis(id, nome)')
+      .eq('loja_id', ctx.lojaId)
+      .eq('ativo', true),
+    admin
+      .from('comissao_fixa_produto')
+      .select('vendedora_id, produto_id, valor_fixo')
+      .eq('loja_id', ctx.lojaId)
+      .eq('ativo', true),
+  ])
 
-  // Produtos ativos da loja (incluindo as mensagens para obter o ciclo de recompra padrão)
-  const { data: produtos } = await supabase
-    .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens, mensagens:mensagens_produto(tipo, dias_apos_venda)')
-    .eq('loja_id', ctx.lojaId)
-    .eq('ativo', true)
-    .order('nome')
+  const perfil = perfilRes.data
+  const produtos = produtosRes.data
+  const membrosVendedoras = membrosRes.data
+  const fixasData = fixasRes.data
 
   const produtosMapeados = (produtos ?? []).map(p => {
     const recompraMsg = (p.mensagens as any)?.find((m: any) => m.tipo === 'recompra')
@@ -91,36 +103,32 @@ export default async function NovaVendaPage() {
     }
   })
 
-  // Todos os membros ativos da loja
-  const { data: membrosVendedoras } = await admin
-    .from('membros_loja')
-    .select('perfil_id, perfis(id, nome)')
-    .eq('loja_id', ctx.lojaId)
-    .eq('ativo', true)
-
   const vendedoraIds = (membrosVendedoras ?? []).map(m => m.perfil_id as string)
 
-  // Comissão padrão das vendedoras
-  const { data: regras } = vendedoraIds.length > 0
-    ? await admin
-        .from('regras_comissao')
-        .select('vendedora_id, percentual')
-        .eq('loja_id', ctx.lojaId)
-        .eq('ativo', true)
-        .in('vendedora_id', vendedoraIds)
-    : { data: [] }
+  // Comissão padrão das vendedoras — parallelizar as duas queries de regras
+  const [regrasRes, regraLogadaRes] = await Promise.all([
+    vendedoraIds.length > 0
+      ? admin
+          .from('regras_comissao')
+          .select('vendedora_id, percentual')
+          .eq('loja_id', ctx.lojaId)
+          .eq('ativo', true)
+          .in('vendedora_id', vendedoraIds)
+      : Promise.resolve({ data: [] as Array<{ vendedora_id: unknown; percentual: unknown }> }),
+    admin
+      .from('regras_comissao')
+      .select('percentual')
+      .eq('loja_id', ctx.lojaId)
+      .eq('vendedora_id', user.id)
+      .eq('ativo', true)
+      .maybeSingle(),
+  ])
 
   const regrasPorId: Record<string, number> = Object.fromEntries(
-    (regras ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
+    (regrasRes.data ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
   )
 
-  const { data: regraLogada } = await admin
-    .from('regras_comissao')
-    .select('percentual')
-    .eq('loja_id', ctx.lojaId)
-    .eq('vendedora_id', user.id)
-    .eq('ativo', true)
-    .maybeSingle()
+  const regraLogada = regraLogadaRes.data
   if (regraLogada) {
     regrasPorId[user.id] = regraLogada.percentual as number
   }
@@ -134,13 +142,6 @@ export default async function NovaVendaPage() {
       percentual_comissao: regrasPorId[m.perfil_id as string] ?? 0,
     }
   })
-
-  // Comissões fixas por produto
-  const { data: fixasData } = await admin
-    .from('comissao_fixa_produto')
-    .select('vendedora_id, produto_id, valor_fixo')
-    .eq('loja_id', ctx.lojaId)
-    .eq('ativo', true)
 
   const fixasPorVendedoraProduto: Record<string, Record<string, number>> = {}
   for (const f of fixasData ?? []) {

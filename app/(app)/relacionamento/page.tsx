@@ -56,24 +56,29 @@ export default async function RelacionamentoPage() {
 
   const lojaIdFallback = ctx.lojaId ?? ctx.lojaIds[0]
 
-  const { data: avisosRaw } = await admin
-    .from('avisos')
-    .select(`
-      id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
-      clientes(nome, whatsapp),
-      mensagens_produto(tipo),
-      itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
-      vendas(valor)
-    `)
-    .in('loja_id', ctx.lojaIds)
-    .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
-    .order('data_aviso', { ascending: true })
+  const [avisosRes, membrosRes] = await Promise.all([
+    admin
+      .from('avisos')
+      .select(`
+        id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao,
+        clientes(nome, whatsapp),
+        mensagens_produto(tipo),
+        itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
+        vendas(valor)
+      `)
+      .in('loja_id', ctx.lojaIds)
+      .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
+      .order('data_aviso', { ascending: true })
+      .limit(200),
+    admin
+      .from('membros_loja')
+      .select('perfil_id, perfis(nome)')
+      .in('loja_id', ctx.lojaIds)
+      .eq('ativo', true),
+  ])
 
-  const { data: membrosAtivos } = await admin
-    .from('membros_loja')
-    .select('perfil_id, perfis(nome)')
-    .in('loja_id', ctx.lojaIds)
-    .eq('ativo', true)
+  const avisosRaw = avisosRes.data
+  const membrosAtivos = membrosRes.data
 
   const vendedoraNomeMap = new Map<string, string>()
   for (const m of membrosAtivos ?? []) {
