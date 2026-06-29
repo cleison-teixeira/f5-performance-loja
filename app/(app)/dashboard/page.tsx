@@ -247,6 +247,7 @@ export default async function DashboardPage() {
         `)
         .in('loja_id', lojaIds)
         .gte('criado_em', data30.toISOString())
+        .not('venda_id', 'is', null)
         .order('criado_em', { ascending: false })
       if (vidFilter) q = q.eq('vendedora_id', vidFilter)
       return q

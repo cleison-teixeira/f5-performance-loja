@@ -131,8 +131,8 @@ export function DashboardGerente({
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {taxaConversao.elegiveis > 0
-              ? `${taxaConversao.convertidas} de ${taxaConversao.elegiveis} vendas elegíveis recompraram`
-              : 'sem vendas elegíveis nos últimos 90 dias'}
+              ? `${taxaConversao.convertidas} de ${taxaConversao.elegiveis} recompras fechadas`
+              : 'sem recompras nos últimos 90 dias'}
           </p>
         </div>
 

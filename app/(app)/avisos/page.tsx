@@ -92,7 +92,8 @@ export default async function AvisosPage() {
       .from('recompras')
       .select('valor_total')
       .in('loja_id', ctx.lojaIds)
-      .gte('criado_em', inicioMes),
+      .gte('criado_em', inicioMes)
+      .not('venda_id', 'is', null),
     admin
       .from('membros_loja')
       .select('perfil_id, perfis(nome)')
