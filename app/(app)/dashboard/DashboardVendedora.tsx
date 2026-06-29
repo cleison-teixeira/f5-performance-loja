@@ -37,6 +37,7 @@ const TIPO_LABEL: Record<string, string> = {
   relacionamento: 'Relacionamento',
   recompra: 'Recompra',
   oferta: 'Oferta',
+  follow_up: 'Follow-up',
 }
 
 const TIPO_COR: Record<string, string> = {
@@ -44,6 +45,7 @@ const TIPO_COR: Record<string, string> = {
   relacionamento: 'bg-amber-100 text-amber-700',
   recompra: 'bg-green-100 text-green-700',
   oferta: 'bg-purple-100 text-purple-700',
+  follow_up: 'bg-rose-100 text-rose-700',
 }
 
 

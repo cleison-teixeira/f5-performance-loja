@@ -42,18 +42,14 @@ function statusTemporal(dataAviso: string): string {
   return `em ${diff} dias`
 }
 
-const TIPO_LABEL: Record<string, string> = {
-  agradecimento: 'Agradecimento',
-  relacionamento: 'Relacionamento',
-  recompra: 'Recompra',
-  oferta: 'Oferta',
-}
+import { formatarTipoAviso } from '@/lib/avisos/tipos'
 
 const TIPO_CORES: Record<string, string> = {
   agradecimento: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   relacionamento: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   recompra: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   oferta: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  follow_up: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
 }
 
 const STATUS_CORES: Record<string, string> = {
@@ -124,7 +120,7 @@ export function ResumoVenda({
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TIPO_CORES[aviso.tipo] ?? 'bg-muted text-muted-foreground'}`}>
-                      {TIPO_LABEL[aviso.tipo] ?? aviso.tipo}
+                      {formatarTipoAviso(aviso.tipo)}
                     </span>
                     <span className="text-xs text-muted-foreground">{formatarData(aviso.data_aviso)}</span>
                     <span className={`ml-auto text-xs ${statusCor}`}>{status}</span>
