@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { DashboardView } from './DashboardView'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
-import { calcularTaxaConversao } from '@/lib/metricas/taxa-conversao'
+import { calcularTaxaRecompraGeral } from '@/lib/metricas/taxa-conversao'
 
 export interface DashboardAviso {
   id: string
@@ -698,7 +698,7 @@ export default async function DashboardPage() {
     qtdClientes: new Set(listaEsperaItens.filter(i => i.status === 'aguardando').map(i => i.cliente_nome)).size,
   }
 
-  const taxaConversao = await calcularTaxaConversao(lojaIds, admin, hoje)
+  const taxaConversao = await calcularTaxaRecompraGeral(lojaIds, admin, hoje)
 
   return (
     <DashboardView
