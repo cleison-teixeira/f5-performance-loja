@@ -233,25 +233,11 @@ export function ConfirmarRecompraModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={item.comissionavel}
-                        onClick={() => atualizar(item.key, { comissionavel: !item.comissionavel })}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${item.comissionavel ? 'bg-primary' : 'bg-muted'}`}
-                      >
-                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${item.comissionavel ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
-                      </button>
-                      <span className="text-xs text-muted-foreground">
-                        {item.comissionavel ? 'Comissionável' : 'Não comissionável'}
-                      </span>
-                    </div>
-                    {subtotal !== null && (
+                  {subtotal !== null && (
+                    <div className="flex justify-end">
                       <span className="text-sm font-medium">{formatarBRL(subtotal)}</span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )
             })}

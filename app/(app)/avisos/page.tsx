@@ -151,7 +151,7 @@ export default async function AvisosPage() {
   const avisos: AvisoDetalhado[] = (avisosRaw ?? []).filter(a => {
     const mp = a.mensagens_produto as unknown as { tipo: string } | null
     const tipo = mp?.tipo ?? ''
-    return tipo === 'recompra' || tipo === 'oferta'
+    return tipo === 'recompra' || tipo === 'oferta' || tipo === 'follow_up'
   }).map(a => {
     const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
     const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
