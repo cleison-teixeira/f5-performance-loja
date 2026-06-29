@@ -49,6 +49,18 @@ export async function getContextoLoja(userId: string, multiLoja: boolean): Promi
     }
   }
 
+  // Dono/admin_f5 com exatamente 1 loja: tratar como single-loja (sem "Toda a rede")
+  if (lojas.length === 1) {
+    const loja = lojas[0]
+    return {
+      lojas,
+      lojaId: loja.id,
+      escopo: 'loja',
+      lojaIds: [loja.id],
+      lojaNome: loja.nome,
+    }
+  }
+
   const jar = await cookies()
   const cookieVal = jar.get(COOKIE_LOJA)?.value ?? ''
   const lojaEncontrada = cookieVal ? lojas.find(l => l.id === cookieVal) ?? null : null

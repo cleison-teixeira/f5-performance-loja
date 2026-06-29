@@ -1,6 +1,7 @@
 'use client'
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { setLojaContexto } from '@/lib/loja/actions'
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 export function SeletorLojaGlobal({ lojas, lojaAtiva }: Props) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const umaLoja = lojas.length === 1
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value
@@ -26,14 +28,22 @@ export function SeletorLojaGlobal({ lojas, lojaAtiva }: Props) {
       <select
         value={lojaAtiva ?? ''}
         onChange={handleChange}
-        disabled={isPending}
-        className="rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-opacity"
+        disabled={isPending || umaLoja}
+        className="rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-100 disabled:cursor-default transition-opacity flex-1 min-w-0"
       >
-        <option value="">Toda a rede</option>
+        {!umaLoja && <option value="">Toda a rede</option>}
         {lojas.map(l => (
           <option key={l.id} value={l.id}>{l.nome}</option>
         ))}
       </select>
+      {umaLoja && (
+        <Link
+          href="/configuracoes/loja"
+          className="text-xs text-muted-foreground hover:text-primary shrink-0 transition-colors"
+        >
+          + Adicionar loja
+        </Link>
+      )}
     </div>
   )
 }
