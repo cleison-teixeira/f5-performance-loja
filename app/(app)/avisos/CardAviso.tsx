@@ -37,7 +37,7 @@ const TIPO_LABEL: Record<AvisoDetalhado['tipo'], string> = {
   relacionamento: 'Relacionamento',
   recompra: 'Recompra',
   oferta: 'Oferta',
-  follow_up: 'Follow-up',
+  follow_up: 'Confirmação',
 }
 
 function fmt(v: number) {

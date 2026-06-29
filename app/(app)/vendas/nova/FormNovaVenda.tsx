@@ -466,7 +466,7 @@ export function FormNovaVenda({
                       <option value="modelo_3_agrad_rec_oferta">Agradecimento + Recompra + Oferta</option>
                       <option value="modelo_3_agrad_rel_rec">Agradecimento + Relacionamento + Recompra</option>
                       <option value="modelo_4_completo">Agradecimento + Relacionamento + Recompra + Oferta</option>
-                      <option value="modelo_5_follow_up">Agradecimento + Relacionamento + Recompra + Oferta + Follow-up</option>
+                      <option value="modelo_5_follow_up">Agradecimento + Relacionamento + Recompra + Oferta + Confirmação</option>
                     </select>
                   </div>
 
@@ -504,7 +504,7 @@ export function FormNovaVenda({
                             renderSteps.push(<li>Relacionamento: em {rel} dias</li>)
                             renderSteps.push(<li>Recompra: em {rec} dias</li>)
                             renderSteps.push(<li>Oferta: em {of} dias</li>)
-                            renderSteps.push(<li>Follow-up: em {fw} dias</li>)
+                            renderSteps.push(<li>Confirmação: em {fw} dias</li>)
                           }
                           return renderSteps
                         })()}

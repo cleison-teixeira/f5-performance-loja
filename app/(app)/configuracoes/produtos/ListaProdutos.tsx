@@ -14,7 +14,7 @@ const TIPO_LABEL: Record<string, string> = {
   relacionamento: 'Relacionamento',
   recompra: 'Recompra',
   oferta: 'Oferta',
-  follow_up: 'Follow-up',
+  follow_up: 'Confirmação',
 }
 
 const inputClass =
@@ -447,7 +447,7 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
                   {qtdMensagens >= 2 && <div>• <strong>Relacionamento:</strong> em {Math.max(0, Math.floor(ciclo / 2))} dias</div>}
                   {qtdMensagens >= 3 && <div>• <strong>Recompra:</strong> em {Math.max(Math.max(0, Math.floor(ciclo / 2)), ciclo - 5)} dias</div>}
                   {qtdMensagens >= 4 && <div>• <strong>Oferta:</strong> em {Math.max(Math.max(Math.max(0, Math.floor(ciclo / 2)), ciclo - 5), ciclo - 1)} dias</div>}
-                  {qtdMensagens === 5 && <div>• <strong>Follow-up:</strong> em {Math.max(Math.max(Math.max(Math.max(0, Math.floor(ciclo / 2)), ciclo - 5), ciclo - 1) + 1, ciclo + 2)} dias</div>}
+                  {qtdMensagens === 5 && <div>• <strong>Confirmação:</strong> em {Math.max(Math.max(Math.max(Math.max(0, Math.floor(ciclo / 2)), ciclo - 5), ciclo - 1) + 1, ciclo + 2)} dias</div>}
                 </div>
               </div>
             )}
