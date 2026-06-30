@@ -1,4 +1,7 @@
-import { Clock, PlayCircle, GraduationCap } from 'lucide-react'
+'use client'
+
+import { Clock, PlayCircle, GraduationCap, BookOpen } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 interface TrainingItem {
   id: string
@@ -146,7 +149,7 @@ const piuvitaItems: PartnerItem[] = [
   {
     id: 'pv-argumentos',
     partner: 'PiùVita',
-    title: 'Argumentos de venda PiuVita',
+    title: 'Argumentos de venda PiùVita',
     description: 'Especialistas da PiùVita apresentam os principais diferenciais e como usar o portfólio para fidelizar clientes.',
     category: 'Expert',
     categoryColor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
@@ -156,8 +159,8 @@ const piuvitaItems: PartnerItem[] = [
   {
     id: 'pv-objecoes',
     partner: 'PiùVita',
-    title: 'Objeções comuns PiuVita',
-    description: 'Aprenda a contornar as principais objeções de preço, qualidade e benefícios dos suplementos PiuVita.',
+    title: 'Objeções comuns PiùVita',
+    description: 'Aprenda a contornar as principais objeções de preço, qualidade e benefícios dos suplementos PiùVita.',
     category: 'Expert',
     categoryColor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     status: 'soon',
@@ -217,14 +220,26 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 }
 
 export default function TreinamentosPage() {
+  const [secaoAtiva, setSecaoAtiva] = useState<'todos' | 'f5' | 'vendas' | 'parceiros' | 'piuvita'>('todos')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const secao = params.get('secao')
+      if (secao === 'piuvita') setSecaoAtiva('piuvita')
+      else if (secao === 'f5') setSecaoAtiva('f5')
+      else if (secao === 'vendas') setSecaoAtiva('vendas')
+      else if (secao === 'parceiros') setSecaoAtiva('parceiros')
+    }
+  }, [])
+
   return (
     <div className="space-y-8">
-
       {/* Cabeçalho */}
       <div>
         <h1 className="text-xl font-semibold">Academia F5 Recompra</h1>
         <p className="text-sm text-muted-foreground">
-          Treinamentos rápidos para sua equipe vender mais e usar melhor a plataforma.
+          Treinamentos rápidos para sua equipe vender mais, usar melhor a plataforma e aproveitar conteúdos de parceiros.
         </p>
       </div>
 
@@ -232,68 +247,104 @@ export default function TreinamentosPage() {
       <div className="rounded-xl border bg-card p-4 flex items-start gap-3">
         <GraduationCap className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Aprenda a usar o F5 Recompra, treine sua equipe e acesse conteúdos de parceiros
-          para vender melhor os produtos da loja. Novos treinamentos chegam em breve.
+          Aprenda a usar o F5, treine sua equipe e acesse conteúdos de parceiros para vender melhor os produtos da loja.
         </p>
       </div>
 
-      {/* Seção: Comece pelo F5 Recompra */}
-      <section className="space-y-3">
-        <SectionHeader
-          title="Comece pelo F5 Recompra"
-          subtitle="Fundamentos da plataforma para toda a equipe."
-        />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {recwayItems.map(item => (
-            <TrainingCard key={item.id} item={item} />
-          ))}
-        </div>
-      </section>
+      {/* Abas / Pílulas de Navegação */}
+      <div className="flex gap-2 border-b pb-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+        {(
+          [
+            { id: 'todos', label: 'Todos' },
+            { id: 'f5', label: 'Comece pelo F5' },
+            { id: 'vendas', label: 'Vendas' },
+            { id: 'parceiros', label: 'Parceiros' },
+            { id: 'piuvita', label: 'PiùVita' },
+          ] as const
+        ).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setSecaoAtiva(tab.id)}
+            className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              secaoAtiva === tab.id
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/85 text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Seção: Treinamentos de Vendas */}
-      <section className="space-y-3">
-        <SectionHeader
-          title="Treinamentos de Vendas"
-          subtitle="Técnicas práticas para converter avisos em vendas reais."
-        />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {vendasItems.map(item => (
-            <TrainingCard key={item.id} item={item} />
-          ))}
-        </div>
-      </section>
+      {/* Seções */}
+      <div className="space-y-8">
+        {/* Seção: Comece pelo F5 Recompra */}
+        {(secaoAtiva === 'todos' || secaoAtiva === 'f5') && (
+          <section className="space-y-3">
+            <SectionHeader
+              title="Comece pelo F5 Recompra"
+              subtitle="Fundamentos da plataforma para toda a equipe."
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {recwayItems.map(item => (
+                <TrainingCard key={item.id} item={item} />
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* Seção: Treinamentos de Parceiros */}
-      <section className="space-y-4">
-        <SectionHeader
-          title="Treinamentos de Parceiros"
-          subtitle="Conteúdo exclusivo de fornecedores para ajudar sua equipe a vender melhor cada produto."
-        />
+        {/* Seção: Treinamentos de Vendas */}
+        {(secaoAtiva === 'todos' || secaoAtiva === 'vendas') && (
+          <section className="space-y-3">
+            <SectionHeader
+              title="Treinamento de Vendas"
+              subtitle="Técnicas práticas para converter avisos em vendas reais."
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {vendasItems.map(item => (
+                <TrainingCard key={item.id} item={item} />
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* PiùVita */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <p className="text-sm font-semibold">PiùVita</p>
-            <span className="text-xs text-muted-foreground">Suplementos e nutrição</span>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {piuvitaItems.map(item => (
-              <TrainingCard key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
+        {/* Seção: Treinamento de Parceiros */}
+        {(secaoAtiva === 'todos' || secaoAtiva === 'parceiros' || secaoAtiva === 'piuvita') && (
+          <section className="space-y-4">
+            {secaoAtiva !== 'piuvita' && (
+              <SectionHeader
+                title="Treinamento de Parceiros"
+                subtitle="Conteúdos exclusivos de parceiros para ajudar sua equipe a vender melhor cada produto."
+              />
+            )}
 
-        {/* Outros parceiros */}
-        <div className="rounded-xl border border-dashed p-5 text-center space-y-1.5">
-          <p className="text-sm font-medium">Novos parceiros em breve</p>
-          <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
-            Fornecedores parceiros terão uma área exclusiva de treinamento aqui.
-            Em breve mais conteúdo de especialistas.
-          </p>
-        </div>
-      </section>
+            {/* PiùVita */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <p className="text-sm font-semibold">PiùVita</p>
+                <span className="text-xs text-muted-foreground">Suplementos e nutrição</span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {piuvitaItems.map(item => (
+                  <TrainingCard key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
 
+            {/* Outros parceiros */}
+            {secaoAtiva !== 'piuvita' && (
+              <div className="rounded-xl border border-dashed p-5 text-center space-y-1.5">
+                <p className="text-sm font-medium">Novos parceiros em breve</p>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                  Fornecedores parceiros terão uma área exclusiva de treinamento aqui.
+                  Em breve mais conteúdo de especialistas.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   )
 }
