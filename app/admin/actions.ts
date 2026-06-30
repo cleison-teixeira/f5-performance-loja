@@ -25,6 +25,7 @@ async function verificarAdminF5() {
 
 export async function liberarAcesso(dados: {
   empresa_nome: string
+  empresa_existente_id: string
   responsavel_nome: string
   responsavel_email: string
   responsavel_whatsapp: string
@@ -33,6 +34,7 @@ export async function liberarAcesso(dados: {
   status: string
   billing_status: string
   loja_nome: string
+  loja_whatsapp: string
   cidade: string
   prazo_acesso: string
   valor_pago: string
@@ -50,41 +52,50 @@ export async function liberarAcesso(dados: {
   try {
     const user = await verificarAdminF5()
     if (!user) return { ...zero, erro: 'Sem permissão' }
-    if (!dados.empresa_nome.trim()) return { ...zero, erro: 'Nome da empresa obrigatório' }
-    if (!dados.responsavel_email.trim()) return { ...zero, erro: 'E-mail do responsável obrigatório' }
-    if (!dados.loja_nome.trim()) return { ...zero, erro: 'Nome da loja inicial obrigatório' }
+    if (!dados.responsavel_email.trim()) return { ...zero, erro: 'E-mail do dono obrigatório' }
+    if (!dados.loja_nome.trim()) return { ...zero, erro: 'Nome da loja obrigatório' }
+    if (!dados.empresa_existente_id.trim() && !dados.empresa_nome.trim()) {
+      return { ...zero, erro: 'Selecione uma empresa/rede existente ou informe um nome para criar uma nova' }
+    }
 
     const admin = createAdminClient()
     const email = dados.responsavel_email.trim().toLowerCase()
 
-    // 1. Criar empresa
-    const { data: empresaData, error: empresaErr } = await admin
-      .from('empresas')
-      .insert({
-        nome: dados.empresa_nome.trim(),
-        responsavel_nome: dados.responsavel_nome.trim() || null,
-        responsavel_email: email,
-        responsavel_whatsapp: dados.responsavel_whatsapp.trim() || null,
-        nicho: dados.nicho.trim() || null,
-        plano_id: dados.plano_id || null,
-        status: dados.status || 'em_onboarding',
-        billing_status: dados.billing_status || 'trial',
-      })
-      .select('id')
-      .single()
+    // 1. Criar empresa ou usar existente
+    let empresa_id: string
 
-    if (empresaErr || !empresaData) {
-      return { ...zero, erro: empresaErr?.message ?? 'Erro ao criar empresa' }
+    if (dados.empresa_existente_id.trim()) {
+      empresa_id = dados.empresa_existente_id.trim()
+    } else {
+      const { data: empresaData, error: empresaErr } = await admin
+        .from('empresas')
+        .insert({
+          nome: dados.empresa_nome.trim(),
+          responsavel_nome: dados.responsavel_nome.trim() || null,
+          responsavel_email: email,
+          responsavel_whatsapp: dados.responsavel_whatsapp.trim() || null,
+          nicho: dados.nicho.trim() || null,
+          plano_id: dados.plano_id || null,
+          status: dados.status || 'em_onboarding',
+          billing_status: dados.billing_status || 'trial',
+        })
+        .select('id')
+        .single()
+
+      if (empresaErr || !empresaData) {
+        return { ...zero, erro: empresaErr?.message ?? 'Erro ao criar empresa' }
+      }
+      empresa_id = empresaData.id as string
     }
-    const empresa_id = empresaData.id as string
 
-    // 2. Criar loja inicial (nova empresa sempre tem 0 lojas — sem verificação de limite)
+    // 2. Criar loja
     const { data: lojaData, error: lojaErr } = await admin
       .from('lojas')
       .insert({
         empresa_id,
         nome: dados.loja_nome.trim(),
         cidade: dados.cidade.trim() || null,
+        whatsapp: dados.loja_whatsapp.trim() || null,
         ativa: true,
       })
       .select('id')
@@ -413,6 +424,92 @@ export async function cancelarLiberacao(id: string): Promise<{ ok: boolean; erro
 
     if (error) return { ok: false, erro: error.message }
     return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+// ── Loja ─────────────────────────────────────────────────────────────────────
+
+export async function atualizarLoja(dados: {
+  id: string
+  nome: string
+  cidade: string
+  whatsapp: string
+  ativa: boolean
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+    if (!dados.nome.trim()) return { ok: false, erro: 'Nome da loja obrigatório' }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('lojas')
+      .update({
+        nome: dados.nome.trim(),
+        cidade: dados.cidade.trim() || null,
+        whatsapp: dados.whatsapp.trim() || null,
+        ativa: dados.ativa,
+      })
+      .eq('id', dados.id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+// ── Adicionar acesso a loja existente ────────────────────────────────────────
+
+export async function adicionarAcessoLoja(dados: {
+  loja_id: string
+  email: string
+  nome: string
+  role: 'dono' | 'gerente' | 'vendedora' | 'admin_f5'
+}): Promise<{ ok: boolean; resultado?: 'vinculado' | 'pendente'; erro?: string }> {
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+    if (!dados.email.trim()) return { ok: false, erro: 'E-mail obrigatório' }
+    if (!dados.loja_id) return { ok: false, erro: 'Loja obrigatória' }
+
+    const admin = createAdminClient()
+    const email = dados.email.trim().toLowerCase()
+
+    const { data: authData } = await admin.auth.admin.listUsers()
+    const usuarioAuth = authData?.users.find(u => u.email?.toLowerCase() === email)
+
+    if (usuarioAuth) {
+      await admin.from('perfis').upsert(
+        { id: usuarioAuth.id, nome: dados.nome.trim() || email.split('@')[0] },
+        { onConflict: 'id' }
+      )
+      await admin.from('membros_loja').upsert(
+        { loja_id: dados.loja_id, perfil_id: usuarioAuth.id, role: dados.role, ativo: true },
+        { onConflict: 'loja_id,perfil_id' }
+      )
+      return { ok: true, resultado: 'vinculado' }
+    }
+
+    const { data: lojaData } = await admin
+      .from('lojas')
+      .select('empresa_id')
+      .eq('id', dados.loja_id)
+      .single()
+
+    await admin.from('liberacoes_acesso').insert({
+      email,
+      nome: dados.nome.trim() || null,
+      empresa_id: lojaData?.empresa_id ?? null,
+      loja_id: dados.loja_id,
+      role: dados.role,
+      status: 'pendente',
+      criado_por: user.id,
+    })
+
+    return { ok: true, resultado: 'pendente' }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
   }

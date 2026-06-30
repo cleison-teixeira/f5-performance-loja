@@ -54,6 +54,25 @@ export interface AdminStats {
   total_empresas: number
   total_lojas: number
   total_pendentes: number
+  receita_estimada: number
+}
+
+export interface MembroLoja {
+  membro_id: string
+  perfil_id: string
+  nome: string | null
+  role: string
+  ativo: boolean
+}
+
+export interface AcessoLoja {
+  loja_id: string
+  loja_nome: string
+  empresa_id: string
+  empresa_nome: string
+  ativa: boolean
+  membros: MembroLoja[]
+  pendentes: { id: string; email: string; nome: string | null; role: string }[]
 }
 
 export default async function AdminPage() {
@@ -169,10 +188,74 @@ export default async function AdminPage() {
   const totalLojasAtivas = lojasRaw.filter(l => (l.ativa as boolean) && !(l.admin_only as boolean)).length
   const totalPendentes = liberacoes.filter(l => l.status === 'pendente').length
 
+  // Acessos por loja
+  const lojasVisiveis = lojasRaw.filter(l => !(l.admin_only as boolean))
+  const lojaIdsVisiveis = lojasVisiveis.map(l => l.id as string)
+
+  let acessosPorLoja: AcessoLoja[] = []
+
+  if (lojaIdsVisiveis.length > 0) {
+    const { data: membrosData } = await admin
+      .from('membros_loja')
+      .select('id, loja_id, perfil_id, role, ativo')
+      .in('loja_id', lojaIdsVisiveis)
+
+    const perfilIds = [...new Set((membrosData ?? []).map(m => m.perfil_id as string))]
+    const nomeMap: Record<string, string | null> = {}
+    if (perfilIds.length > 0) {
+      const { data: perfisData } = await admin
+        .from('perfis')
+        .select('id, nome')
+        .in('id', perfilIds)
+      ;(perfisData ?? []).forEach(p => { nomeMap[p.id as string] = p.nome as string | null })
+    }
+
+    const membrosPorLoja: Record<string, MembroLoja[]> = {}
+    ;(membrosData ?? []).forEach(m => {
+      const lid = m.loja_id as string
+      if (!membrosPorLoja[lid]) membrosPorLoja[lid] = []
+      membrosPorLoja[lid].push({
+        membro_id: m.id as string,
+        perfil_id: m.perfil_id as string,
+        nome: nomeMap[m.perfil_id as string] ?? null,
+        role: m.role as string,
+        ativo: m.ativo as boolean,
+      })
+    })
+
+    const libsPorLoja: Record<string, { id: string; email: string; nome: string | null; role: string }[]> = {}
+    ;(liberacoesRes.data ?? []).filter(l => l.status === 'pendente' && l.loja_id).forEach(l => {
+      const lid = l.loja_id as string
+      if (!libsPorLoja[lid]) libsPorLoja[lid] = []
+      libsPorLoja[lid].push({
+        id: l.id as string,
+        email: l.email as string,
+        nome: l.nome as string | null,
+        role: l.role as string,
+      })
+    })
+
+    acessosPorLoja = lojasVisiveis
+      .map(l => ({
+        loja_id: l.id as string,
+        loja_nome: l.nome as string,
+        empresa_id: l.empresa_id as string,
+        empresa_nome: empresaMap[l.empresa_id as string] ?? '',
+        ativa: l.ativa as boolean,
+        membros: membrosPorLoja[l.id as string] ?? [],
+        pendentes: libsPorLoja[l.id as string] ?? [],
+      }))
+      .sort((a, b) =>
+        a.empresa_nome.localeCompare(b.empresa_nome, 'pt-BR') ||
+        a.loja_nome.localeCompare(b.loja_nome, 'pt-BR')
+      )
+  }
+
   const stats: AdminStats = {
     total_empresas: empresas.filter(e => !e.lojas.every(l => l.admin_only)).length,
     total_lojas: totalLojasAtivas,
     total_pendentes: totalPendentes,
+    receita_estimada: totalLojasAtivas * 149,
   }
 
   return (
@@ -181,6 +264,7 @@ export default async function AdminPage() {
       planos={planos}
       liberacoes={liberacoes}
       stats={stats}
+      acessosPorLoja={acessosPorLoja}
     />
   )
 }
