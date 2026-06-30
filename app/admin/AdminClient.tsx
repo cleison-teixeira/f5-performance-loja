@@ -537,7 +537,9 @@ export function AdminClient({
                   </div>
 
                   {lojasRede.length === 0 && (
-                    <p className="text-xs text-zinc-400">Nenhuma loja selecionada. Use o campo acima para buscar e adicionar.</p>
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2.5 py-1.5">
+                      Selecione pelo menos uma loja para liberar acesso rede. Clique no item da lista para adicioná-la.
+                    </p>
                   )}
                 </div>
               </Field>
