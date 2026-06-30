@@ -28,7 +28,7 @@ function calcDiasAposVenda(tipo: string, ciclo: number): number {
   const ofe = Math.max(rec, N - 1)
   if (tipo === 'agradecimento') return 0
   if (tipo === 'relacionamento') return rel
-  if (tipo === 'recompra') return rec
+  if (tipo === 'recompra') return N
   if (tipo === 'oferta') return ofe
   if (tipo === 'follow_up') return Math.max(ofe + 1, N + 2)
   return 0
