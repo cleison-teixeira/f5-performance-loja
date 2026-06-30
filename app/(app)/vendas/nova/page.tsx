@@ -66,9 +66,9 @@ export default async function NovaVendaPage() {
   // Parallelizar queries independentes após ctx
   const [perfilRes, produtosRes, membrosRes, fixasRes] = await Promise.all([
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
-    supabase
+    admin
       .from('produtos')
-      .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens, mensagens:mensagens_produto(ordem, tipo, dias_apos_venda)')
+      .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens')
       .eq('loja_id', ctx.lojaId)
       .eq('ativo', true)
       .order('nome'),
@@ -89,23 +89,31 @@ export default async function NovaVendaPage() {
   const membrosVendedoras = membrosRes.data
   const fixasData = fixasRes.data
 
-  const produtosMapeados = (produtos ?? []).map(p => {
-    const msgs = Array.isArray(p.mensagens) ? (p.mensagens as any[]) : []
-    const recompraMsg = msgs.find((m: any) => m.tipo === 'recompra')
-      ?? msgs.find((m: any) => m.ordem === 3)
-    const cicloRaw = recompraMsg?.dias_apos_venda
-    const ciclo_padrao = typeof cicloRaw === 'number' && cicloRaw > 0 ? cicloRaw : 30
-    return {
-      id: p.id,
-      nome: p.nome,
-      preco_sugerido: p.preco_sugerido,
-      foto_url: p.foto_url,
-      recorrente: p.recorrente,
-      comissionavel_recompra: p.comissionavel_recompra,
-      qtd_mensagens: (p as any).qtd_mensagens ?? 3,
-      ciclo_padrao,
+  // Buscar ciclo real de cada produto via admin (tipo='recompra') — imune a RLS
+  const produtoIds = (produtos ?? []).map(p => p.id as string)
+  const cicloMap: Record<string, number> = {}
+  if (produtoIds.length > 0) {
+    const { data: recomprasData } = await admin
+      .from('mensagens_produto')
+      .select('produto_id, dias_apos_venda')
+      .eq('tipo', 'recompra')
+      .in('produto_id', produtoIds)
+    for (const r of recomprasData ?? []) {
+      const dias = r.dias_apos_venda as number
+      if (dias > 0) cicloMap[r.produto_id as string] = dias
     }
-  })
+  }
+
+  const produtosMapeados = (produtos ?? []).map(p => ({
+    id: p.id,
+    nome: p.nome,
+    preco_sugerido: p.preco_sugerido,
+    foto_url: p.foto_url,
+    recorrente: p.recorrente,
+    comissionavel_recompra: p.comissionavel_recompra,
+    qtd_mensagens: (p as any).qtd_mensagens ?? 3,
+    ciclo_padrao: cicloMap[p.id as string] ?? 30,
+  }))
 
   const vendedoraIds = (membrosVendedoras ?? []).map(m => m.perfil_id as string)
 
