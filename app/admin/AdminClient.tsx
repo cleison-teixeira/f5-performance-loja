@@ -14,19 +14,14 @@ type LiberarForm = {
   email: string
   loja_nome: string
   loja_whatsapp: string
-  cidade: string
-  nicho: string
   valor_mensal: string
   status: string
-  prazo_acesso: string
-  origem: string
   observacao: string
-  comprovante_url: string
 }
 
 const STATUS_OPCOES = [
-  { value: 'trial', label: 'Trial (7 dias)' },
   { value: 'ativo', label: 'Ativo' },
+  { value: 'trial', label: 'Trial (7 dias automático)' },
   { value: 'cortesia', label: 'Cortesia' },
   { value: 'suspenso', label: 'Suspenso' },
   { value: 'cancelado', label: 'Cancelado' },
@@ -37,9 +32,8 @@ const STATUS_EMPRESA: Record<string, string> = {
 }
 
 const VAZIO: LiberarForm = {
-  email: '', loja_nome: '', loja_whatsapp: '', cidade: '', nicho: '',
-  valor_mensal: '149,00', status: 'trial', prazo_acesso: '',
-  origem: '', observacao: '', comprovante_url: '',
+  email: '', loja_nome: '', loja_whatsapp: '',
+  valor_mensal: '149,00', status: 'ativo', observacao: '',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -81,7 +75,7 @@ function StatusBadge({ value }: { value: string }) {
   )
 }
 
-function maxTrialDate(): string {
+function trialAte(): string {
   const d = new Date()
   d.setDate(d.getDate() + 7)
   return d.toISOString().split('T')[0]
@@ -93,6 +87,15 @@ function formatDate(iso: string): string {
 
 function formatBRL(v: number): string {
   return 'R$ ' + v.toLocaleString('pt-BR')
+}
+
+function maskWhatsApp(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (digits.length === 0) return ''
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -107,6 +110,9 @@ export function AdminClient({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<Msg>(null)
+
+  // Busca global
+  const [busca, setBusca] = useState('')
 
   // Liberar form
   const [form, setForm] = useState<LiberarForm>(VAZIO)
@@ -129,17 +135,23 @@ export function AdminClient({
     setForm(prev => ({ ...prev, [field]: v }))
   }
 
+  // Licenças filtradas pela busca
+  const liberacoesFiltradas = busca.trim()
+    ? liberacoes.filter(l => {
+        const q = busca.toLowerCase()
+        return (
+          l.email.toLowerCase().includes(q) ||
+          (l.loja_nome ?? '').toLowerCase().includes(q) ||
+          (l.loja_whatsapp ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, ''))
+        )
+      })
+    : liberacoes
+
   // ── Liberar ───────────────────────────────────────────────────────────────
 
   function submitLiberar() {
     if (!form.email.trim()) return showMsg('erro', 'E-mail da compra obrigatório.')
     if (!form.loja_nome.trim()) return showMsg('erro', 'Nome da loja obrigatório.')
-
-    if (form.status === 'trial' && form.prazo_acesso) {
-      if (form.prazo_acesso > maxTrialDate()) {
-        return showMsg('erro', `Trial máximo de 7 dias. Data máxima: ${maxTrialDate()}.`)
-      }
-    }
 
     setResultado(null)
     startTransition(async () => {
@@ -149,18 +161,18 @@ export function AdminClient({
         responsavel_nome: '',
         responsavel_email: form.email,
         responsavel_whatsapp: '',
-        nicho: form.nicho,
+        nicho: '',
         plano_id: '',
         status: STATUS_EMPRESA[form.status] ?? 'em_onboarding',
         billing_status: form.status,
         loja_nome: form.loja_nome,
         loja_whatsapp: form.loja_whatsapp,
-        cidade: form.cidade,
-        prazo_acesso: form.status === 'trial' ? form.prazo_acesso : '',
+        cidade: '',
+        prazo_acesso: form.status === 'trial' ? trialAte() : '',
         valor_pago: form.valor_mensal,
-        origem: form.origem,
+        origem: '',
         observacao: form.observacao,
-        comprovante_url: form.comprovante_url,
+        comprovante_url: '',
       })
       if (res.ok) {
         setResultado({ resultado: res.resultado!, loja: form.loja_nome })
@@ -233,7 +245,27 @@ export function AdminClient({
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <div className="max-w-3xl mx-auto px-6 py-6 space-y-5">
+
+        {/* Busca global */}
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por loja, e-mail ou WhatsApp..."
+            className="w-full border border-zinc-200 rounded-lg pl-10 pr-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 shadow-sm"
+          />
+          {busca && (
+            <button onClick={() => setBusca('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 text-lg leading-none">
+              ×
+            </button>
+          )}
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
@@ -293,39 +325,33 @@ export function AdminClient({
             <Field label="Nome da loja *">
               <Inp value={form.loja_nome} onChange={v => setF('loja_nome', v)} placeholder="Ex: Cia Cidade Azul Angeloni" />
             </Field>
+
             <Field label="WhatsApp da loja">
-              <Inp value={form.loja_whatsapp} onChange={v => setF('loja_whatsapp', v)} type="tel" placeholder="(47) 9xxxx-xxxx" />
-            </Field>
-            <Field label="Cidade">
-              <Inp value={form.cidade} onChange={v => setF('cidade', v)} placeholder="Florianópolis" />
-            </Field>
-            <Field label="Nicho">
-              <Inp value={form.nicho} onChange={v => setF('nicho', v)} placeholder="suplementos, farmácia..." />
+              <Inp
+                value={form.loja_whatsapp}
+                onChange={v => setF('loja_whatsapp', maskWhatsApp(v))}
+                type="tel"
+                placeholder="(48) 99999-9999"
+              />
             </Field>
 
             <Field label="Valor mensal (R$)">
               <Inp value={form.valor_mensal} onChange={v => setF('valor_mensal', v)} placeholder="149,00" />
             </Field>
+
             <Field label="Status">
               <select value={form.status} onChange={e => setF('status', e.target.value)}
                 className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400">
                 {STATUS_OPCOES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </Field>
-
-            {form.status === 'trial' && (
-              <Field label={`Trial até (máx. ${maxTrialDate()})`}>
-                <Inp value={form.prazo_acesso} onChange={v => setF('prazo_acesso', v)} type="date" />
-              </Field>
-            )}
-
-            <Field label="Origem">
-              <Inp value={form.origem} onChange={v => setF('origem', v)} placeholder="Instagram, indicação, Asaas..." />
-            </Field>
-            <Field label="Link do comprovante">
-              <Inp value={form.comprovante_url} onChange={v => setF('comprovante_url', v)} type="url" placeholder="https://" />
-            </Field>
           </div>
+
+          {form.status === 'trial' && (
+            <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+              Trial automático: acesso válido por 7 dias a partir da liberação (até {trialAte()}).
+            </p>
+          )}
 
           <Field label="Observação interna">
             <textarea value={form.observacao} onChange={e => setF('observacao', e.target.value)}
@@ -345,29 +371,39 @@ export function AdminClient({
         {/* ── Licenças Recentes ── */}
         <div className="bg-white rounded-lg border border-zinc-200 p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-800">Licenças recentes</h2>
-            {stats.total_pendentes > 0 && (
+            <h2 className="text-sm font-semibold text-zinc-800">
+              Licenças recentes
+              {busca && liberacoesFiltradas.length !== liberacoes.length && (
+                <span className="ml-2 text-xs font-normal text-zinc-400">
+                  {liberacoesFiltradas.length} resultado{liberacoesFiltradas.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </h2>
+            {stats.total_pendentes > 0 && !busca && (
               <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full font-medium">
                 {stats.total_pendentes} pendente{stats.total_pendentes > 1 ? 's' : ''}
               </span>
             )}
           </div>
 
-          {liberacoes.length === 0 && (
-            <p className="text-sm text-zinc-400">Nenhuma liberação registrada.</p>
+          {liberacoesFiltradas.length === 0 && (
+            <p className="text-sm text-zinc-400">
+              {busca ? 'Nenhum resultado para a busca.' : 'Nenhuma liberação registrada.'}
+            </p>
           )}
 
           <div className="divide-y divide-zinc-100">
-            {liberacoes.map(l => (
+            {liberacoesFiltradas.map(l => (
               <div key={l.id} className="py-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm font-medium text-zinc-800 truncate">{l.email}</p>
                   <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
-                    {l.loja_nome && <span>{l.loja_nome}</span>}
+                    {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
                     {l.loja_nome && <span className="text-zinc-300">·</span>}
                     <span>{l.valor_pago ? `R$${l.valor_pago}/mês` : 'R$149/mês'}</span>
-                    {l.origem && <><span className="text-zinc-300">·</span><span>{l.origem}</span></>}
-                    {l.prazo_acesso && <><span className="text-zinc-300">·</span><span>até {l.prazo_acesso}</span></>}
+                    {l.prazo_acesso && (
+                      <><span className="text-zinc-300">·</span><span>trial até {l.prazo_acesso}</span></>
+                    )}
                     <span className="text-zinc-300">·</span>
                     <span>{formatDate(l.criado_em)}</span>
                   </div>

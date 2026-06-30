@@ -11,8 +11,8 @@ export interface LiberacaoRow {
   nome: string | null
   status: string
   loja_nome: string | null
+  loja_whatsapp: string | null
   valor_pago: number | null
-  origem: string | null
   prazo_acesso: string | null
   criado_em: string
 }
@@ -50,7 +50,7 @@ export default async function AdminPage() {
   const [lojasRes, empresasRes, liberacoesRes] = await Promise.all([
     admin
       .from('lojas')
-      .select('id, nome, empresa_id')
+      .select('id, nome, empresa_id, whatsapp')
       .eq('ativa', true)
       .eq('admin_only', false)
       .order('nome'),
@@ -68,7 +68,11 @@ export default async function AdminPage() {
   ;(empresasRes.data ?? []).forEach(e => { empresaMap[e.id as string] = e.nome as string })
 
   const lojaMap: Record<string, string> = {}
-  ;(lojasRes.data ?? []).forEach(l => { lojaMap[l.id as string] = l.nome as string })
+  const lojaWhatsappMap: Record<string, string> = {}
+  ;(lojasRes.data ?? []).forEach(l => {
+    lojaMap[l.id as string] = l.nome as string
+    if (l.whatsapp) lojaWhatsappMap[l.id as string] = l.whatsapp as string
+  })
 
   const todasLojas: LojaSimples[] = (lojasRes.data ?? []).map(l => ({
     id: l.id as string,
@@ -85,8 +89,8 @@ export default async function AdminPage() {
     nome: l.nome as string | null,
     status: l.status as string,
     loja_nome: l.loja_id ? (lojaMap[l.loja_id as string] ?? null) : null,
+    loja_whatsapp: l.loja_id ? (lojaWhatsappMap[l.loja_id as string] ?? null) : null,
     valor_pago: l.valor_pago as number | null,
-    origem: l.origem as string | null,
     prazo_acesso: l.prazo_acesso as string | null,
     criado_em: l.criado_em as string,
   }))
