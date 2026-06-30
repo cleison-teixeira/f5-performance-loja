@@ -5,8 +5,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { AdminClient } from './AdminClient'
 
-const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
-
 export interface LojaRow {
   id: string
   empresa_id: string
@@ -61,24 +59,20 @@ export interface AdminStats {
 export default async function AdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/login?next=/admin')
 
   const admin = createAdminClient()
 
-  const { data: todosMembros } = await admin
+  const { data: adminMembro } = await admin
     .from('membros_loja')
-    .select('role')
+    .select('id')
     .eq('perfil_id', user.id)
+    .eq('role', 'admin_f5')
     .eq('ativo', true)
+    .limit(1)
+    .maybeSingle()
 
-  const role = todosMembros && todosMembros.length > 0
-    ? todosMembros.reduce((best: string, m) => {
-        const mRole = m.role as string
-        return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-      }, todosMembros[0].role as string)
-    : null
-
-  if (role !== 'admin_f5') redirect('/dashboard')
+  if (!adminMembro) redirect('/dashboard')
 
   const [empresasRes, lojasRes, planosRes, liberacoesRes] = await Promise.all([
     admin

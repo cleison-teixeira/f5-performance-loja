@@ -29,6 +29,7 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const senhaAtualizada = searchParams.get('mensagem') === 'senha_atualizada'
   const linkInvalido = searchParams.get('erro') === 'link_invalido'
+  const nextParam = searchParams.get('next')
 
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -80,10 +81,11 @@ export function LoginForm() {
 
       log(`sessão OK — ${sess.user.email}`)
       log(`expira: ${new Date(sess.expires_at! * 1000).toLocaleString('pt-BR')}`)
-      log('redirecionando para /dashboard...')
+      const destino = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard'
+      log(`redirecionando para ${destino}...`)
 
       // Hard navigation — garante envio correto dos cookies sem race condition
-      window.location.href = '/dashboard'
+      window.location.href = destino
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       log(`EXCEÇÃO: ${msg}`, false)
