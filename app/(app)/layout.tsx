@@ -20,12 +20,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     admin.from('membros_loja').select('role').eq('perfil_id', user.id).eq('ativo', true),
   ])
 
-  const role = todosMembros && todosMembros.length > 0
-    ? todosMembros.reduce((best: string, m) => {
-        const mRole = m.role as string
-        return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-      }, todosMembros[0].role as string)
-    : 'vendedora'
+  if (!todosMembros || todosMembros.length === 0) redirect('/sem-acesso')
+
+  const role = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
 
   const multiLoja = ['dono', 'admin_f5'].includes(role)
   const ctx = multiLoja ? await getContextoLoja(user.id, true) : null
