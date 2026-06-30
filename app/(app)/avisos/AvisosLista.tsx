@@ -157,10 +157,31 @@ function SecaoAvisos({
 
       {/* Cards */}
       <div className="space-y-3">
-        {grupos ? grupos.map(grupo => {
+        {grupos ? grupos.flatMap(grupo => {
+          // When a group has mixed tipos (e.g. tipo filter = 'todos'), render each aviso individually
+          const tiposUnicos = new Set(grupo.avisos.map((a: AvisoDetalhado) => a.tipo))
+          if (tiposUnicos.size > 1) {
+            return grupo.avisos.map(aviso => (
+              <div key={aviso.id}>
+                {mostrarLoja && aviso.loja_nome && (
+                  <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
+                )}
+                <CardAviso
+                  aviso={aviso}
+                  onMarcado={onMarcado}
+                  onReagendado={onReagendado}
+                  catalogo={catalogo}
+                  percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
+                  vendedorasLoja={vendedorasLoja}
+                  loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
+                  isVendedora={isVendedora}
+                />
+              </div>
+            ))
+          }
           // Use itens_venda count to decide single vs. grouped card
           const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : grupo.avisos.length
-          return nProdutos === 1 ? (
+          return [nProdutos === 1 ? (
             <div key={grupo.avisos[0].id}>
               {mostrarLoja && grupo.avisos[0].loja_nome && (
                 <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
@@ -193,7 +214,7 @@ function SecaoAvisos({
                 isVendedora={isVendedora}
               />
             </div>
-          )
+          )]
         }) : avisos.map(aviso => (
           <div key={aviso.id}>
             {mostrarLoja && aviso.loja_nome && (
@@ -814,9 +835,29 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </div>
           ) : mode === 'recompra' ? (
             <div className="space-y-3">
-              {agruparPorVenda(avisosFiltrados, itensVendaPorVenda).map(grupo => {
+              {agruparPorVenda(avisosFiltrados, itensVendaPorVenda).flatMap(grupo => {
+                const tiposUnicos = new Set(grupo.avisos.map((a: AvisoDetalhado) => a.tipo))
+                if (tiposUnicos.size > 1) {
+                  return grupo.avisos.map(aviso => (
+                    <div key={aviso.id}>
+                      {mostrarLoja && aviso.loja_nome && (
+                        <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
+                      )}
+                      <CardAviso
+                        aviso={aviso}
+                        onMarcado={handleMarcado}
+                        onReagendado={handleReagendado}
+                        catalogo={catalogo}
+                        percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
+                        vendedorasLoja={vendedorasLoja}
+                        loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
+                        isVendedora={isVendedora}
+                      />
+                    </div>
+                  ))
+                }
                 const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : grupo.avisos.length
-                return nProdutos === 1 ? (
+                return [nProdutos === 1 ? (
                   <div key={grupo.avisos[0].id}>
                     {mostrarLoja && grupo.avisos[0].loja_nome && (
                       <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
@@ -849,7 +890,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                       isVendedora={isVendedora}
                     />
                   </div>
-                )
+                )]
               })}
             </div>
           ) : (

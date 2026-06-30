@@ -68,7 +68,7 @@ export default async function NovaVendaPage() {
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
     supabase
       .from('produtos')
-      .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens, mensagens:mensagens_produto(tipo, dias_apos_venda)')
+      .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens, mensagens:mensagens_produto(ordem, tipo, dias_apos_venda)')
       .eq('loja_id', ctx.lojaId)
       .eq('ativo', true)
       .order('nome'),
@@ -90,7 +90,11 @@ export default async function NovaVendaPage() {
   const fixasData = fixasRes.data
 
   const produtosMapeados = (produtos ?? []).map(p => {
-    const recompraMsg = (p.mensagens as any)?.find((m: any) => m.tipo === 'recompra')
+    const msgs = Array.isArray(p.mensagens) ? (p.mensagens as any[]) : []
+    const recompraMsg = msgs.find((m: any) => m.tipo === 'recompra')
+      ?? msgs.find((m: any) => m.ordem === 3)
+    const cicloRaw = recompraMsg?.dias_apos_venda
+    const ciclo_padrao = typeof cicloRaw === 'number' && cicloRaw > 0 ? cicloRaw : 30
     return {
       id: p.id,
       nome: p.nome,
@@ -99,7 +103,7 @@ export default async function NovaVendaPage() {
       recorrente: p.recorrente,
       comissionavel_recompra: p.comissionavel_recompra,
       qtd_mensagens: (p as any).qtd_mensagens ?? 3,
-      ciclo_padrao: recompraMsg?.dias_apos_venda ?? 30
+      ciclo_padrao,
     }
   })
 
