@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   Building2, UsersRound,
-  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown
+  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +30,7 @@ const gestaoItemsVendedora: typeof gestaoItemsBase = []
 
 const configuracaoItems = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
 ]
 
 const aprenderItems = [

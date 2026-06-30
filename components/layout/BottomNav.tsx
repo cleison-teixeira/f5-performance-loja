@@ -6,7 +6,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
   Building2, UsersRound,
-  ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown
+  ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +34,7 @@ const gestaoDrawerVendedora: typeof gestaoDrawerBase = []
 
 const configuracaoDrawer = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
 ]
 
 const aprenderDrawer = [
