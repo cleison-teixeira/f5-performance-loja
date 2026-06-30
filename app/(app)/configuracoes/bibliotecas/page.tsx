@@ -116,11 +116,11 @@ export default async function ConfigBibliotecasPage() {
   }))
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Bibliotecas</h1>
         <p className="text-sm text-muted-foreground">
-          Instale catálogos de produtos e treinamentos prontos para acelerar a operação da loja.
+          Instale produtos prontos e libere treinamentos para acelerar a recompra na sua loja.
         </p>
       </div>
       <BibliotecasClient

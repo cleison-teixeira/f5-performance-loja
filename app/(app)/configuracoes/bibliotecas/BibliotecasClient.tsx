@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Package, X, CheckCircle2, BookOpen, GraduationCap, Clock } from 'lucide-react'
+import Link from 'next/link'
+import { Package, X, CheckCircle2, BookOpen, GraduationCap, Clock, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { instalarBiblioteca } from './actions'
 import type { BibliotecaItem } from './page'
@@ -39,6 +40,13 @@ function nomeDisplay(bib: BibliotecaItem) {
   return bib.parceiro_nome ? `${bib.parceiro_nome} Produtos` : bib.nome
 }
 
+const DETALHES_BIBLIOTECA = [
+  'Fotos dos produtos',
+  'Preços sugeridos',
+  'Ciclos configurados',
+  '5 mensagens prontas',
+]
+
 export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: instaladosArr, multiLoja }: Props) {
   const [instalados, setInstalados] = useState(() => new Set(instaladosArr))
   const [modalBibliotecaId, setModalBibliotecaId] = useState<string | null>(null)
@@ -49,12 +57,6 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
   const modalBiblioteca = modalBibliotecaId
     ? bibliotecas.find(b => b.id === modalBibliotecaId) ?? null
     : null
-
-  // Check if PiùVita produtos is installed in any loja (for treinamentos status)
-  const piuvitaBib = bibliotecas.find(b => b.slug === 'piuvita')
-  const piuvitaInstalada = piuvitaBib
-    ? lojas.some(l => instalados.has(`${l.id}:${piuvitaBib.id}`))
-    : false
 
   function abrirModal(bibliotecaId: string) {
     setResultado(null)
@@ -111,96 +113,152 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
     <>
       <div className="space-y-8">
 
-        {/* ── Seção 1: Produtos parceiros ────────────────────────────────────── */}
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-foreground">Produtos parceiros</h2>
-          </div>
-          <p className="text-xs text-muted-foreground -mt-1">
-            Catálogos prontos com foto, preço, ciclo de recompra e mensagens configuradas.
+        {/* ── Hero ────────────────────────────────────────────────────────────── */}
+        <div className="rounded-xl border bg-muted/30 p-4 md:p-5 space-y-3">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Comece por uma biblioteca de produtos parceiros. Em poucos segundos, sua loja recebe produtos com foto, preço, ciclo de recompra e mensagens prontas.
           </p>
+          <Link
+            href="/configuracoes/produtos"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Ver produtos instalados
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {/* ── Seção 1: Produtos parceiros ─────────────────────────────────────── */}
+        <section className="space-y-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Produtos parceiros</h2>
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Catálogos prontos com foto, preço, ciclo de recompra e mensagens configuradas.
+            </p>
+          </div>
 
           {bibliotecas.length === 0 ? (
-            <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
+            <div className="rounded-xl border border-dashed bg-muted/30 p-10 text-center">
               <BookOpen className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Nenhuma biblioteca de parceiros disponível no momento.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {bibliotecas.map(bib => {
                 const instaladoCount = multiLoja ? contarLojasInstaladas(instalados, bib.id, lojas) : 0
                 const instaladoNaLoja = !multiLoja && lojaId ? isInstalado(instalados, lojaId, bib.id) : false
                 const todasInstaladas = multiLoja && instaladoCount === lojas.length && lojas.length > 0
 
                 return (
-                  <div key={bib.id} className="rounded-lg border bg-card p-4 flex items-start gap-4">
-                    {bib.parceiro_logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={bib.parceiro_logo}
-                        alt={bib.parceiro_nome ?? bib.nome}
-                        className="w-12 h-12 rounded object-contain shrink-0 bg-muted"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded bg-muted flex items-center justify-center shrink-0">
-                        <Package className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
+                  <div key={bib.id} className="rounded-xl border bg-card overflow-hidden flex flex-col">
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{nomeDisplay(bib)}</p>
-
-                        {multiLoja ? (
-                          todasInstaladas ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium shrink-0">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Instalado em todas
+                    {/* Cabeçalho do card */}
+                    <div className="p-4 border-b bg-muted/20 flex items-center gap-3">
+                      {bib.parceiro_logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={bib.parceiro_logo}
+                          alt={bib.parceiro_nome ?? bib.nome}
+                          className="w-11 h-11 rounded-lg object-contain bg-background shrink-0 border"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm leading-tight">{nomeDisplay(bib)}</p>
+                        <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                          {bib.qtd_itens > 0 && (
+                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                              {bib.qtd_itens} produto{bib.qtd_itens !== 1 ? 's' : ''}
                             </span>
-                          ) : (
+                          )}
+                          {bib.nicho && (
+                            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground capitalize">
+                              {bib.nicho}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                            Pronto para recompra
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Corpo do card */}
+                    <div className="flex-1 p-4 space-y-4">
+                      {bib.descricao && (
+                        <p className="text-sm text-muted-foreground leading-relaxed">{bib.descricao}</p>
+                      )}
+
+                      <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                        {DETALHES_BIBLIOTECA.map(item => (
+                          <li key={item} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <CheckCircle2 className="h-3 w-3 text-primary/60 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Rodapé / CTA */}
+                    <div className="p-4 border-t space-y-2.5">
+                      {multiLoja ? (
+                        todasInstaladas ? (
+                          <div className="flex items-center justify-center gap-2 py-2 text-green-600 text-sm font-medium">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Instalado em todas as lojas
+                          </div>
+                        ) : (
+                          <>
+                            {instaladoCount > 0 && (
+                              <p className="text-xs text-center text-muted-foreground">
+                                Instalada em {instaladoCount} de {lojas.length} loja{lojas.length !== 1 ? 's' : ''}
+                              </p>
+                            )}
                             <button
                               onClick={() => abrirModal(bib.id)}
                               disabled={isPending}
-                              className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                              className="w-full rounded-lg bg-primary text-primary-foreground text-sm font-semibold py-2.5 hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                             >
                               {instaladoCount > 0 ? 'Instalar em mais lojas' : 'Instalar produtos'}
                             </button>
-                          )
-                        ) : (
-                          instaladoNaLoja ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium shrink-0">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Produtos instalados
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => instalarSingle(bib.id)}
-                              disabled={isPending}
-                              className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                          </>
+                        )
+                      ) : (
+                        instaladoNaLoja ? (
+                          <>
+                            <div className="flex items-center justify-center gap-2 text-green-600">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="text-sm font-medium">Produtos instalados</span>
+                            </div>
+                            <Link
+                              href="/configuracoes/produtos"
+                              className="flex items-center justify-center gap-1.5 text-sm text-primary font-medium hover:underline"
                             >
-                              {isPending ? 'Instalando...' : 'Instalar produtos'}
-                            </button>
-                          )
-                        )}
-                      </div>
-
-                      <div className="mt-1 flex items-center gap-3 flex-wrap">
-                        {bib.qtd_itens > 0 && (
-                          <span className="text-xs text-muted-foreground">{bib.qtd_itens} produto{bib.qtd_itens !== 1 ? 's' : ''}</span>
-                        )}
-                        {bib.nicho && (
-                          <span className="text-xs text-muted-foreground capitalize">{bib.nicho}</span>
-                        )}
-                        {multiLoja && instaladoCount > 0 && !todasInstaladas && (
-                          <span className="text-xs text-muted-foreground">
-                            Instalada em {instaladoCount} de {lojas.length} loja{lojas.length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-
-                      {bib.descricao && (
-                        <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{bib.descricao}</p>
+                              Ver produtos
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => instalarSingle(bib.id)}
+                            disabled={isPending}
+                            className="w-full rounded-lg bg-primary text-primary-foreground text-sm font-semibold py-2.5 hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                          >
+                            {isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Instalando…
+                              </>
+                            ) : (
+                              'Instalar produtos'
+                            )}
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
@@ -210,55 +268,79 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
           )}
         </section>
 
-        {/* ── Seção 2: Treinamentos ──────────────────────────────────────────── */}
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-foreground">Treinamentos</h2>
+        {/* ── Seção 2: Treinamentos ───────────────────────────────────────────── */}
+        <section className="space-y-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Treinamentos</h2>
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Conteúdos para treinar a equipe e padronizar a abordagem de recompra.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground -mt-1">
-            Conteúdos para capacitar a equipe e padronizar a venda recorrente.
-          </p>
 
-          <div className="space-y-3">
-            {/* F5 Recompra — sempre disponível */}
-            <div className="rounded-lg border bg-card p-4 flex items-start gap-4">
-              <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                <GraduationCap className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <p className="font-medium text-sm">F5 Recompra</p>
-                  <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium shrink-0">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+          <div className="grid gap-4 sm:grid-cols-2">
+
+            {/* F5 Recompra — disponível */}
+            <div className="rounded-xl border bg-card overflow-hidden flex flex-col">
+              <div className="p-4 border-b bg-primary/5 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">F5 Recompra</p>
+                  <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-green-50 dark:bg-green-950/30 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="h-3 w-3" />
                     Já disponível na Academia
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Treinamentos padrão da plataforma.</p>
+              </div>
+              <div className="flex-1 p-4">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Treinamentos padrão para usar o sistema, registrar vendas e acompanhar a Fila de Recompra.
+                </p>
+              </div>
+              <div className="p-4 border-t">
+                <Link
+                  href="/treinamentos"
+                  className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary text-primary text-sm font-semibold py-2.5 hover:bg-primary/5 transition-colors"
+                >
+                  Abrir Academia
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             </div>
 
-            {/* PiùVita Treinamentos */}
-            <div className="rounded-lg border bg-card p-4 flex items-start gap-4">
-              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center shrink-0">
-                <BookOpen className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <p className="font-medium text-sm">PiùVita Treinamentos</p>
-                  <span className={cn(
-                    'inline-flex items-center gap-1 text-xs font-medium shrink-0',
-                    piuvitaInstalada ? 'text-muted-foreground' : 'text-muted-foreground'
-                  )}>
-                    <Clock className="h-3.5 w-3.5" />
+            {/* PiùVita Treinamentos — em breve */}
+            <div className="rounded-xl border bg-card overflow-hidden flex flex-col opacity-60">
+              <div className="p-4 border-b bg-muted/20 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <BookOpen className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">PiùVita Treinamentos</p>
+                  <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    <Clock className="h-3 w-3" />
                     Em breve
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Conteúdos para venda e recompra dos produtos PiùVita.</p>
+              </div>
+              <div className="flex-1 p-4">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Conteúdos específicos para vender e recomprar produtos PiùVita.
+                </p>
+              </div>
+              <div className="p-4 border-t">
+                <div className="flex items-center justify-center text-xs text-muted-foreground py-1.5">
+                  Disponível em breve
+                </div>
               </div>
             </div>
+
           </div>
         </section>
+
       </div>
 
       {/* ── Modal multi-loja ────────────────────────────────────────────────── */}
