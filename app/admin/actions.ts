@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ── Auth guard ────────────────────────────────────────────────────────────────
+
 async function verificarAdminF5() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,6 +19,127 @@ async function verificarAdminF5() {
     .limit(1)
   if (!data || data.length === 0) return null
   return user
+}
+
+// ── Liberar acesso (ação principal) ──────────────────────────────────────────
+
+export async function liberarAcesso(dados: {
+  empresa_nome: string
+  responsavel_nome: string
+  responsavel_email: string
+  responsavel_whatsapp: string
+  nicho: string
+  plano_id: string
+  status: string
+  billing_status: string
+  loja_nome: string
+  cidade: string
+  prazo_acesso: string
+  valor_pago: string
+  origem: string
+  observacao: string
+  comprovante_url: string
+}): Promise<{
+  ok: boolean
+  resultado?: 'vinculado' | 'pendente'
+  empresa_id?: string
+  loja_id?: string
+  erro?: string
+}> {
+  const zero = { ok: false as const }
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ...zero, erro: 'Sem permissão' }
+    if (!dados.empresa_nome.trim()) return { ...zero, erro: 'Nome da empresa obrigatório' }
+    if (!dados.responsavel_email.trim()) return { ...zero, erro: 'E-mail do responsável obrigatório' }
+    if (!dados.loja_nome.trim()) return { ...zero, erro: 'Nome da loja inicial obrigatório' }
+
+    const admin = createAdminClient()
+    const email = dados.responsavel_email.trim().toLowerCase()
+
+    // 1. Criar empresa
+    const { data: empresaData, error: empresaErr } = await admin
+      .from('empresas')
+      .insert({
+        nome: dados.empresa_nome.trim(),
+        responsavel_nome: dados.responsavel_nome.trim() || null,
+        responsavel_email: email,
+        responsavel_whatsapp: dados.responsavel_whatsapp.trim() || null,
+        nicho: dados.nicho.trim() || null,
+        plano_id: dados.plano_id || null,
+        status: dados.status || 'em_onboarding',
+        billing_status: dados.billing_status || 'trial',
+      })
+      .select('id')
+      .single()
+
+    if (empresaErr || !empresaData) {
+      return { ...zero, erro: empresaErr?.message ?? 'Erro ao criar empresa' }
+    }
+    const empresa_id = empresaData.id as string
+
+    // 2. Criar loja inicial (nova empresa sempre tem 0 lojas — sem verificação de limite)
+    const { data: lojaData, error: lojaErr } = await admin
+      .from('lojas')
+      .insert({
+        empresa_id,
+        nome: dados.loja_nome.trim(),
+        cidade: dados.cidade.trim() || null,
+        ativa: true,
+      })
+      .select('id')
+      .single()
+
+    if (lojaErr || !lojaData) {
+      return { ...zero, erro: lojaErr?.message ?? 'Erro ao criar loja' }
+    }
+    const loja_id = lojaData.id as string
+
+    // 3. Buscar usuário pelo e-mail
+    const { data: authData } = await admin.auth.admin.listUsers()
+    const usuarioAuth = authData?.users.find(u => u.email?.toLowerCase() === email)
+
+    if (usuarioAuth) {
+      // 4a. Usuário existe → garantir perfil → criar vínculo
+      await admin.from('perfis').upsert(
+        {
+          id: usuarioAuth.id,
+          nome: dados.responsavel_nome.trim() || email.split('@')[0],
+          whatsapp: dados.responsavel_whatsapp.trim() || null,
+        },
+        { onConflict: 'id' }
+      )
+
+      await admin.from('membros_loja').upsert(
+        { loja_id, perfil_id: usuarioAuth.id, role: 'dono', ativo: true },
+        { onConflict: 'loja_id,perfil_id' }
+      )
+
+      return { ok: true, resultado: 'vinculado', empresa_id, loja_id }
+    }
+
+    // 4b. Usuário não existe → liberar acesso pendente
+    await admin.from('liberacoes_acesso').insert({
+      email,
+      nome: dados.responsavel_nome.trim() || null,
+      whatsapp: dados.responsavel_whatsapp.trim() || null,
+      empresa_id,
+      loja_id,
+      role: 'dono',
+      plano_id: dados.plano_id || null,
+      status: 'pendente',
+      origem: dados.origem.trim() || null,
+      valor_pago: dados.valor_pago ? parseFloat(dados.valor_pago.replace(',', '.')) : null,
+      prazo_acesso: dados.prazo_acesso || null,
+      observacao: dados.observacao.trim() || null,
+      comprovante_url: dados.comprovante_url.trim() || null,
+      criado_por: user.id,
+    })
+
+    return { ok: true, resultado: 'pendente', empresa_id, loja_id }
+  } catch (err) {
+    return { ...zero, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
 }
 
 // ── Empresa ───────────────────────────────────────────────────────────────────
@@ -131,14 +254,15 @@ export async function criarLoja(dados: {
         .eq('id', empresa.plano_id)
         .single()
 
-      if (plano && (plano.max_lojas as number | null) != null) {
+      const maxLojas = plano?.max_lojas as number | null
+      if (maxLojas != null) {
         const { count } = await admin
           .from('lojas')
           .select('id', { count: 'exact', head: true })
           .eq('empresa_id', dados.empresa_id)
           .eq('ativa', true)
 
-        if ((count ?? 0) >= (plano.max_lojas as number)) {
+        if ((count ?? 0) >= maxLojas) {
           return {
             ok: false,
             erro: 'Limite de lojas do plano atingido. Faça upgrade antes de adicionar nova loja.',
@@ -166,7 +290,7 @@ export async function criarLoja(dados: {
   }
 }
 
-// ── Usuários e acessos ────────────────────────────────────────────────────────
+// ── Acessos ───────────────────────────────────────────────────────────────────
 
 export type UsuarioResult = {
   id: string
@@ -267,6 +391,25 @@ export async function alterarAcesso(
       .from('membros_loja')
       .update({ ativo })
       .eq('id', membro_id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+export async function cancelarLiberacao(id: string): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('liberacoes_acesso')
+      .update({ status: 'cancelado' })
+      .eq('id', id)
+      .eq('status', 'pendente')
 
     if (error) return { ok: false, erro: error.message }
     return { ok: true }

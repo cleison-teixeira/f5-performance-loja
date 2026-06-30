@@ -6,7 +6,6 @@ import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   Building2, UsersRound,
   Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen,
-  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -85,9 +84,6 @@ export function Sidebar({ role }: Props) {
   }
 
   const gestaoItems = hideGestao ? gestaoItemsVendedora : gestaoItemsBase
-  const adminF5Items: NavItem[] = role === 'admin_f5' ? [
-    { href: '/admin-f5', label: 'Admin F5', icon: Shield },
-  ] : []
 
   return (
     <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
@@ -99,7 +95,6 @@ export function Sidebar({ role }: Props) {
         <Section label="Gestão" Icon={Building2} items={gestaoItems} />
         <Section label="Configuração" Icon={Settings} items={configuracaoItems} />
         <Section label="Aprender" Icon={GraduationCap} items={aprenderItems} />
-        <Section label="Admin F5" Icon={Shield} items={adminF5Items} />
       </nav>
     </aside>
   )

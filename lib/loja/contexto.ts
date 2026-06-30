@@ -25,11 +25,12 @@ export async function getLojasDoUsuario(userId: string): Promise<{ id: string; n
 
   const lojaIds = [...new Set(membros.map(m => m.loja_id as string))]
 
-  // Step 2: loja names from lojas table directly
+  // Step 2: loja names — exclui lojas internas (admin_only)
   const { data: lojas } = await admin
     .from('lojas')
     .select('id, nome')
     .in('id', lojaIds)
+    .eq('admin_only', false)
     .order('nome')
 
   return (lojas ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))

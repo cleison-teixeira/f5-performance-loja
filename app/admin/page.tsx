@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { AdminF5Client } from './AdminF5Client'
+import { AdminClient } from './AdminClient'
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
@@ -14,6 +14,7 @@ export interface LojaRow {
   cidade: string | null
   whatsapp: string | null
   ativa: boolean
+  admin_only: boolean
 }
 
 export interface EmpresaRow {
@@ -40,7 +41,24 @@ export interface PlanoOption {
   max_lojas: number | null
 }
 
-export default async function AdminF5Page() {
+export interface LiberacaoRow {
+  id: string
+  email: string
+  nome: string | null
+  status: string
+  role: string
+  empresa_nome: string | null
+  loja_nome: string | null
+  criado_em: string
+}
+
+export interface AdminStats {
+  total_empresas: number
+  total_lojas: number
+  total_pendentes: number
+}
+
+export default async function AdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -62,20 +80,25 @@ export default async function AdminF5Page() {
 
   if (role !== 'admin_f5') redirect('/dashboard')
 
-  const [empresasRes, lojasRes, planosRes] = await Promise.all([
+  const [empresasRes, lojasRes, planosRes, liberacoesRes] = await Promise.all([
     admin
       .from('empresas')
       .select('id, nome, responsavel_nome, responsavel_whatsapp, responsavel_email, nicho, status, billing_status, plano_id, notas_internas')
       .order('nome'),
     admin
       .from('lojas')
-      .select('id, empresa_id, nome, cidade, whatsapp, ativa')
+      .select('id, empresa_id, nome, cidade, whatsapp, ativa, admin_only')
       .order('nome'),
     admin
       .from('planos')
       .select('id, nome, slug, max_lojas')
       .eq('ativo', true)
       .order('nome'),
+    admin
+      .from('liberacoes_acesso')
+      .select('id, email, nome, status, role, empresa_id, loja_id, criado_em')
+      .order('criado_em', { ascending: false })
+      .limit(50),
   ])
 
   const planosRaw = planosRes.data ?? []
@@ -87,21 +110,29 @@ export default async function AdminF5Page() {
     }
   }
 
+  const lojasRaw = lojasRes.data ?? []
+  const lojaMap: Record<string, string> = {}
   const lojasPorEmpresa: Record<string, LojaRow[]> = {}
-  for (const l of lojasRes.data ?? []) {
+  for (const l of lojasRaw) {
     const eid = l.empresa_id as string
-    if (!lojasPorEmpresa[eid]) lojasPorEmpresa[eid] = []
-    lojasPorEmpresa[eid].push({
+    const lojaRow: LojaRow = {
       id: l.id as string,
       empresa_id: eid,
       nome: l.nome as string,
       cidade: l.cidade as string | null,
       whatsapp: l.whatsapp as string | null,
       ativa: l.ativa as boolean,
-    })
+      admin_only: l.admin_only as boolean,
+    }
+    if (!lojasPorEmpresa[eid]) lojasPorEmpresa[eid] = []
+    lojasPorEmpresa[eid].push(lojaRow)
+    lojaMap[l.id as string] = l.nome as string
   }
 
-  const empresas: EmpresaRow[] = (empresasRes.data ?? []).map(e => {
+  const empresasRaw = empresasRes.data ?? []
+  const empresaMap: Record<string, string> = {}
+  const empresas: EmpresaRow[] = empresasRaw.map(e => {
+    empresaMap[e.id as string] = e.nome as string
     const lojas = lojasPorEmpresa[e.id as string] ?? []
     const planoId = e.plano_id as string | null
     const planoInfo = planoId ? planoMap[planoId] : null
@@ -118,7 +149,7 @@ export default async function AdminF5Page() {
       plano_nome: planoInfo?.nome ?? null,
       plano_max_lojas: planoInfo?.max_lojas ?? null,
       notas_internas: e.notas_internas as string | null,
-      qtd_lojas: lojas.filter(l => l.ativa).length,
+      qtd_lojas: lojas.filter(l => l.ativa && !l.admin_only).length,
       lojas,
     }
   })
@@ -130,13 +161,32 @@ export default async function AdminF5Page() {
     max_lojas: p.max_lojas as number | null,
   }))
 
+  const liberacoes: LiberacaoRow[] = (liberacoesRes.data ?? []).map(l => ({
+    id: l.id as string,
+    email: l.email as string,
+    nome: l.nome as string | null,
+    status: l.status as string,
+    role: l.role as string,
+    empresa_nome: l.empresa_id ? (empresaMap[l.empresa_id as string] ?? null) : null,
+    loja_nome: l.loja_id ? (lojaMap[l.loja_id as string] ?? null) : null,
+    criado_em: l.criado_em as string,
+  }))
+
+  const totalLojasAtivas = lojasRaw.filter(l => (l.ativa as boolean) && !(l.admin_only as boolean)).length
+  const totalPendentes = liberacoes.filter(l => l.status === 'pendente').length
+
+  const stats: AdminStats = {
+    total_empresas: empresas.filter(e => !e.lojas.every(l => l.admin_only)).length,
+    total_lojas: totalLojasAtivas,
+    total_pendentes: totalPendentes,
+  }
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Admin F5</h1>
-        <p className="text-sm text-muted-foreground">Gestão de empresas, lojas e acessos.</p>
-      </div>
-      <AdminF5Client empresas={empresas} planos={planos} />
-    </div>
+    <AdminClient
+      empresas={empresas}
+      planos={planos}
+      liberacoes={liberacoes}
+      stats={stats}
+    />
   )
 }
