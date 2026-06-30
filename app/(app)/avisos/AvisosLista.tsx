@@ -40,7 +40,7 @@ const TIPOS_RECOMPRA: { value: TipoFiltro; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'recompra', label: 'Recompra' },
   { value: 'oferta', label: 'Oferta' },
-  { value: 'follow_up', label: 'Follow-up' },
+  { value: 'follow_up', label: 'Confirmação' },
 ]
 
 const TIPOS_RELACIONAMENTO: { value: TipoFiltro; label: string }[] = [

@@ -3,7 +3,7 @@ export const TIPO_AVISO_LABEL: Record<string, string> = {
   relacionamento: 'Relacionamento',
   recompra: 'Recompra',
   oferta: 'Oferta',
-  follow_up: 'Follow-up',
+  follow_up: 'Confirmação',
 }
 
 export function formatarTipoAviso(tipo: string): string {
