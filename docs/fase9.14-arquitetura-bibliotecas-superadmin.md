@@ -277,3 +277,63 @@ Os campos `asaas_customer_id`, `asaas_subscription_id` e datas de ciclo existem 
 | 034_upgrade_treinamentos | ADD COLUMNs em treinamentos |
 
 Todas são ADD/CREATE, zero risco destrutivo.
+
+---
+
+## 17. Importação inicial da biblioteca PiùVita (9.14B.2)
+
+### Origem
+
+- Arquivo: `data/bibliotecas/piuvita-produtos.csv`
+- Fonte original: planilha fornecida pelo time F5 com produtos selecionados do catálogo PiùVita
+- Quantidade: 30 produtos
+
+### Destino
+
+- Tabela: `biblioteca_itens`
+- Biblioteca: slug `piuvita`
+- Parceiro: slug `piuvita`
+
+### Mapeamento de campos
+
+| Campo CSV | Campo no banco |
+|-----------|----------------|
+| Produto | nome |
+| Link imagem | foto_url |
+| Preço (R$) | preco_sugerido (vírgula → ponto) |
+| Recompra (dias) | ciclo_recompra_dias |
+| avisos configurados | qtd_mensagens |
+
+Valores padrão aplicados a todos os itens:
+
+- `categoria` = `suplementos`
+- `nicho` = `suplementos`
+- `recorrente` = true
+- `comissionavel` = true
+- `repasse_ativo` = false
+- `tipo_acordo` = `livre`
+- `ativo` = true
+
+### Script de importação
+
+`scripts/importar-biblioteca-piuvita.js`
+
+- Lê o CSV de `data/bibliotecas/piuvita-produtos.csv`
+- Valida todos os campos antes de qualquer INSERT
+- Faz upsert idempotente por nome normalizado dentro da biblioteca
+- Exibe resumo de inseridos / atualizados / erros
+
+### Regra de idempotência
+
+- Critério de duplicidade: mesma `biblioteca_id` + nome normalizado (sem acentos, lowercase, sem especiais)
+- Se já existir: atualiza `foto_url`, `preco_sugerido`, `ciclo_recompra_dias`, `qtd_mensagens`, `categoria`, `nicho`, `ativo`
+- Se não existir: insere novo registro
+- Nunca cria duplicados
+
+### O que esta importação NÃO faz
+
+- Não instala produtos em nenhuma loja
+- Não altera `produtos` operacionais
+- Não preenche `produtos.biblioteca_item_id`
+- Não cria avisos, vendas ou recompras
+- `instalacoes_biblioteca` permanece vazia após a importação
