@@ -1,21 +1,28 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { LiberacaoRow, LojaSimples, AdminStats } from './page'
-import type { UsuarioResult } from './actions'
-import { liberarAcesso, cancelarLiberacao, buscarUsuarioPorEmail, vincularUsuario } from './actions'
+import { liberarAcesso, cancelarLiberacao, liberarRede } from './actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Msg = { tipo: 'ok' | 'erro'; texto: string } | null
+type Aba = 'loja' | 'rede'
 
-type LiberarForm = {
+type LojaForm = {
   email: string
   loja_nome: string
   loja_whatsapp: string
   valor_mensal: string
   status: string
+  observacao: string
+}
+
+type RedeForm = {
+  email: string
+  rede_nome: string
+  whatsapp: string
   observacao: string
 }
 
@@ -31,9 +38,13 @@ const STATUS_EMPRESA: Record<string, string> = {
   trial: 'trial', ativo: 'ativa', cortesia: 'ativa', suspenso: 'inativa', cancelado: 'inativa',
 }
 
-const VAZIO: LiberarForm = {
+const VAZIO_LOJA: LojaForm = {
   email: '', loja_nome: '', loja_whatsapp: '',
   valor_mensal: '149,00', status: 'ativo', observacao: '',
+}
+
+const VAZIO_REDE: RedeForm = {
+  email: '', rede_nome: '', whatsapp: '', observacao: '',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -61,7 +72,6 @@ function StatusBadge({ value }: { value: string }) {
   const map: Record<string, string> = {
     pendente: 'bg-yellow-100 text-yellow-700',
     aplicado: 'bg-green-100 text-green-700',
-    vinculado: 'bg-green-100 text-green-700',
     ativo: 'bg-green-100 text-green-700',
     trial: 'bg-blue-100 text-blue-700',
     cortesia: 'bg-purple-100 text-purple-700',
@@ -111,31 +121,41 @@ export function AdminClient({
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<Msg>(null)
 
+  // Aba ativa
+  const [aba, setAba] = useState<Aba>('loja')
+
   // Busca global
   const [busca, setBusca] = useState('')
 
-  // Liberar form
-  const [form, setForm] = useState<LiberarForm>(VAZIO)
-  const [resultado, setResultado] = useState<{ resultado: 'vinculado' | 'pendente'; loja: string } | null>(null)
+  // Formulário Loja
+  const [lojaForm, setLojaForm] = useState<LojaForm>(VAZIO_LOJA)
+  const [resultadoLoja, setResultadoLoja] = useState<{ resultado: 'vinculado' | 'pendente'; nome: string } | null>(null)
 
-  // Consultar / Anexar
-  const [consultarAberto, setConsultarAberto] = useState(false)
-  const [emailConsulta, setEmailConsulta] = useState('')
-  const [usuarioConsulta, setUsuarioConsulta] = useState<UsuarioResult | null>(null)
-  const [consultaErro, setConsultaErro] = useState<string | null>(null)
-  const [buscando, setBuscando] = useState(false)
-  const [anexarLojaId, setAnexarLojaId] = useState('')
+  // Formulário Rede
+  const [redeForm, setRedeForm] = useState<RedeForm>(VAZIO_REDE)
+  const [lojasRede, setLojasRede] = useState<LojaSimples[]>([])
+  const [buscaLoja, setBuscaLoja] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [resultadoRede, setResultadoRede] = useState<{ resultado: 'vinculado' | 'pendente'; count: number } | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   function showMsg(tipo: 'ok' | 'erro', texto: string) {
     setMsg({ tipo, texto })
     setTimeout(() => setMsg(null), 6000)
   }
 
-  function setF(field: keyof LiberarForm, v: string) {
-    setForm(prev => ({ ...prev, [field]: v }))
-  }
-
-  // Licenças filtradas pela busca
+  // Filtro da lista de licenças
   const liberacoesFiltradas = busca.trim()
     ? liberacoes.filter(l => {
         const q = busca.toLowerCase()
@@ -147,36 +167,44 @@ export function AdminClient({
       })
     : liberacoes
 
-  // ── Liberar ───────────────────────────────────────────────────────────────
+  // Lojas disponíveis para Rede (excluindo já selecionadas)
+  const lojasFiltradas = todasLojas.filter(l =>
+    !lojasRede.some(s => s.id === l.id) &&
+    (buscaLoja === '' ||
+      l.nome.toLowerCase().includes(buscaLoja.toLowerCase()) ||
+      l.empresa_nome.toLowerCase().includes(buscaLoja.toLowerCase()))
+  )
 
-  function submitLiberar() {
-    if (!form.email.trim()) return showMsg('erro', 'E-mail da compra obrigatório.')
-    if (!form.loja_nome.trim()) return showMsg('erro', 'Nome da loja obrigatório.')
+  // ── Liberar Loja ─────────────────────────────────────────────────────────
 
-    setResultado(null)
+  function submitLoja() {
+    if (!lojaForm.email.trim()) return showMsg('erro', 'E-mail da compra obrigatório.')
+    if (!lojaForm.loja_nome.trim()) return showMsg('erro', 'Nome da loja obrigatório.')
+
+    setResultadoLoja(null)
     startTransition(async () => {
       const res = await liberarAcesso({
-        empresa_nome: form.loja_nome,
+        empresa_nome: lojaForm.loja_nome,
         empresa_existente_id: '',
         responsavel_nome: '',
-        responsavel_email: form.email,
+        responsavel_email: lojaForm.email,
         responsavel_whatsapp: '',
         nicho: '',
         plano_id: '',
-        status: STATUS_EMPRESA[form.status] ?? 'em_onboarding',
-        billing_status: form.status,
-        loja_nome: form.loja_nome,
-        loja_whatsapp: form.loja_whatsapp,
+        status: STATUS_EMPRESA[lojaForm.status] ?? 'em_onboarding',
+        billing_status: lojaForm.status,
+        loja_nome: lojaForm.loja_nome,
+        loja_whatsapp: lojaForm.loja_whatsapp,
         cidade: '',
-        prazo_acesso: form.status === 'trial' ? trialAte() : '',
-        valor_pago: form.valor_mensal,
+        prazo_acesso: lojaForm.status === 'trial' ? trialAte() : '',
+        valor_pago: lojaForm.valor_mensal,
         origem: '',
-        observacao: form.observacao,
+        observacao: lojaForm.observacao,
         comprovante_url: '',
       })
       if (res.ok) {
-        setResultado({ resultado: res.resultado!, loja: form.loja_nome })
-        setForm(VAZIO)
+        setResultadoLoja({ resultado: res.resultado!, nome: lojaForm.loja_nome })
+        setLojaForm(VAZIO_LOJA)
         router.refresh()
       } else {
         showMsg('erro', res.erro ?? 'Erro ao liberar.')
@@ -184,32 +212,39 @@ export function AdminClient({
     })
   }
 
-  // ── Consultar / Anexar ────────────────────────────────────────────────────
+  // ── Liberar Rede ─────────────────────────────────────────────────────────
 
-  async function handleBuscar() {
-    if (!emailConsulta.trim()) return
-    setBuscando(true)
-    setConsultaErro(null)
-    setUsuarioConsulta(null)
-    setAnexarLojaId('')
-    const res = await buscarUsuarioPorEmail(emailConsulta)
-    setBuscando(false)
-    if (res.ok && res.usuario) setUsuarioConsulta(res.usuario)
-    else setConsultaErro(res.erro ?? 'Usuário não encontrado.')
+  function adicionarLojaRede(loja: LojaSimples) {
+    setLojasRede(prev => [...prev, loja])
+    setBuscaLoja('')
+    setShowDropdown(false)
   }
 
-  function submitAnexar() {
-    if (!usuarioConsulta || !anexarLojaId) return
+  function removerLojaRede(id: string) {
+    setLojasRede(prev => prev.filter(l => l.id !== id))
+  }
+
+  function submitRede() {
+    if (!redeForm.email.trim()) return showMsg('erro', 'E-mail do dono obrigatório.')
+    if (!redeForm.rede_nome.trim()) return showMsg('erro', 'Nome da rede obrigatório.')
+    if (lojasRede.length === 0) return showMsg('erro', 'Selecione ao menos uma loja.')
+
+    setResultadoRede(null)
     startTransition(async () => {
-      const res = await vincularUsuario({ perfil_id: usuarioConsulta.id, loja_id: anexarLojaId, role: 'dono' })
+      const res = await liberarRede({
+        email: redeForm.email,
+        rede_nome: redeForm.rede_nome,
+        whatsapp: redeForm.whatsapp,
+        observacao: redeForm.observacao,
+        loja_ids: lojasRede.map(l => l.id),
+      })
       if (res.ok) {
-        showMsg('ok', 'Loja anexada com sucesso.')
-        setAnexarLojaId('')
-        const refresh = await buscarUsuarioPorEmail(emailConsulta)
-        if (refresh.ok && refresh.usuario) setUsuarioConsulta(refresh.usuario)
+        setResultadoRede({ resultado: res.resultado!, count: res.lojas_processadas ?? lojasRede.length })
+        setRedeForm(VAZIO_REDE)
+        setLojasRede([])
         router.refresh()
       } else {
-        showMsg('erro', res.erro ?? 'Erro ao anexar.')
+        showMsg('erro', res.erro ?? 'Erro ao liberar.')
       }
     })
   }
@@ -283,7 +318,7 @@ export function AdminClient({
           </div>
         </div>
 
-        {/* Global message */}
+        {/* Mensagem global */}
         {msg && (
           <div className={`rounded-md px-4 py-3 text-sm border ${
             msg.tipo === 'ok' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
@@ -292,80 +327,224 @@ export function AdminClient({
           </div>
         )}
 
-        {/* ── Formulário: Liberar Licença ── */}
-        <div className="bg-white rounded-lg border border-zinc-200 p-6 space-y-5">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-800">Liberar licença de loja</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">R$149/mês por loja ativa</p>
+        {/* ── Painel principal ── */}
+        <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
+
+          {/* Pills / menu */}
+          <div className="px-5 pt-4 pb-0">
+            <div className="flex gap-1 bg-zinc-100 rounded-lg p-1 w-fit">
+              <button
+                onClick={() => { setAba('loja'); setResultadoRede(null) }}
+                className={`text-sm font-medium py-1.5 px-5 rounded-md transition-colors ${
+                  aba === 'loja' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                }`}
+              >
+                Liberar Loja
+              </button>
+              <button
+                onClick={() => { setAba('rede'); setResultadoLoja(null) }}
+                className={`text-sm font-medium py-1.5 px-5 rounded-md transition-colors ${
+                  aba === 'rede' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                }`}
+              >
+                Liberar Rede
+              </button>
+            </div>
           </div>
 
-          {/* Resultado */}
-          {resultado && (
-            <div className={`rounded-md border p-3 text-sm ${
-              resultado.resultado === 'vinculado'
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-            }`}>
-              {resultado.resultado === 'vinculado' ? (
-                <><strong>{resultado.loja}</strong> — acesso liberado. O cliente pode logar agora.</>
-              ) : (
-                <><strong>{resultado.loja}</strong> — pendente. O acesso será ativado quando o cliente criar a conta.</>
+          {/* ── Aba: Liberar Loja ── */}
+          {aba === 'loja' && (
+            <div className="p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-800">Liberar licença de loja</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">R$149/mês por loja ativa — gera nova licença faturável</p>
+              </div>
+
+              {resultadoLoja && (
+                <div className={`rounded-md border p-3 text-sm ${
+                  resultadoLoja.resultado === 'vinculado'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                }`}>
+                  {resultadoLoja.resultado === 'vinculado' ? (
+                    <><strong>{resultadoLoja.nome}</strong> — acesso liberado. O cliente pode logar agora.</>
+                  ) : (
+                    <><strong>{resultadoLoja.nome}</strong> — pendente. O acesso será ativado quando o cliente criar a conta.</>
+                  )}
+                  <button onClick={() => setResultadoLoja(null)} className="ml-3 text-xs underline opacity-60 hover:opacity-100">×</button>
+                </div>
               )}
-              <button onClick={() => setResultado(null)} className="ml-3 text-xs underline opacity-60 hover:opacity-100">×</button>
-            </div>
-          )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <Field label="E-mail da compra *">
-                <Inp value={form.email} onChange={v => setF('email', v)} type="email" placeholder="cliente@email.com" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <Field label="E-mail da compra *">
+                    <Inp value={lojaForm.email} onChange={v => setLojaForm(p => ({ ...p, email: v }))} type="email" placeholder="cliente@email.com" />
+                  </Field>
+                </div>
+                <Field label="Nome da loja *">
+                  <Inp value={lojaForm.loja_nome} onChange={v => setLojaForm(p => ({ ...p, loja_nome: v }))} placeholder="Ex: Cia Cidade Azul Angeloni" />
+                </Field>
+                <Field label="WhatsApp da loja">
+                  <Inp
+                    value={lojaForm.loja_whatsapp}
+                    onChange={v => setLojaForm(p => ({ ...p, loja_whatsapp: maskWhatsApp(v) }))}
+                    type="tel"
+                    placeholder="(48) 99999-9999"
+                  />
+                </Field>
+                <Field label="Valor mensal (R$)">
+                  <Inp value={lojaForm.valor_mensal} onChange={v => setLojaForm(p => ({ ...p, valor_mensal: v }))} placeholder="149,00" />
+                </Field>
+                <Field label="Status">
+                  <select value={lojaForm.status} onChange={e => setLojaForm(p => ({ ...p, status: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400">
+                    {STATUS_OPCOES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </Field>
+              </div>
+
+              {lojaForm.status === 'trial' && (
+                <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+                  Trial automático: acesso válido por 7 dias a partir da liberação (até {trialAte()}).
+                </p>
+              )}
+
+              <Field label="Observação interna">
+                <textarea value={lojaForm.observacao} onChange={e => setLojaForm(p => ({ ...p, observacao: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
               </Field>
+
+              <button
+                onClick={submitLoja}
+                disabled={pending || !lojaForm.email.trim() || !lojaForm.loja_nome.trim()}
+                className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+              >
+                {pending ? 'Liberando...' : 'Liberar acesso'}
+              </button>
             </div>
-
-            <Field label="Nome da loja *">
-              <Inp value={form.loja_nome} onChange={v => setF('loja_nome', v)} placeholder="Ex: Cia Cidade Azul Angeloni" />
-            </Field>
-
-            <Field label="WhatsApp da loja">
-              <Inp
-                value={form.loja_whatsapp}
-                onChange={v => setF('loja_whatsapp', maskWhatsApp(v))}
-                type="tel"
-                placeholder="(48) 99999-9999"
-              />
-            </Field>
-
-            <Field label="Valor mensal (R$)">
-              <Inp value={form.valor_mensal} onChange={v => setF('valor_mensal', v)} placeholder="149,00" />
-            </Field>
-
-            <Field label="Status">
-              <select value={form.status} onChange={e => setF('status', e.target.value)}
-                className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400">
-                {STATUS_OPCOES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </Field>
-          </div>
-
-          {form.status === 'trial' && (
-            <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
-              Trial automático: acesso válido por 7 dias a partir da liberação (até {trialAte()}).
-            </p>
           )}
 
-          <Field label="Observação interna">
-            <textarea value={form.observacao} onChange={e => setF('observacao', e.target.value)}
-              rows={2}
-              className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
-          </Field>
+          {/* ── Aba: Liberar Rede ── */}
+          {aba === 'rede' && (
+            <div className="p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-800">Liberar acesso brinde ao dono multi-lojas</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">Sem custo adicional — vincula o mesmo e-mail a várias lojas existentes</p>
+              </div>
 
-          <button
-            onClick={submitLiberar}
-            disabled={pending || !form.email.trim() || !form.loja_nome.trim()}
-            className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-          >
-            {pending ? 'Liberando...' : 'Liberar acesso'}
-          </button>
+              {resultadoRede && (
+                <div className={`rounded-md border p-3 text-sm ${
+                  resultadoRede.resultado === 'vinculado'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                }`}>
+                  {resultadoRede.resultado === 'vinculado' ? (
+                    <>Dono vinculado a <strong>{resultadoRede.count}</strong> loja{resultadoRede.count > 1 ? 's' : ''}. Pode logar agora e ver o seletor multi-loja.</>
+                  ) : (
+                    <><strong>{resultadoRede.count}</strong> pendência{resultadoRede.count > 1 ? 's' : ''} criada{resultadoRede.count > 1 ? 's' : ''}. O acesso será ativado quando o dono criar a conta.</>
+                  )}
+                  <button onClick={() => setResultadoRede(null)} className="ml-3 text-xs underline opacity-60 hover:opacity-100">×</button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <Field label="E-mail do dono *">
+                    <Inp value={redeForm.email} onChange={v => setRedeForm(p => ({ ...p, email: v }))} type="email" placeholder="dono@email.com" />
+                  </Field>
+                </div>
+                <Field label="Nome da rede *">
+                  <Inp value={redeForm.rede_nome} onChange={v => setRedeForm(p => ({ ...p, rede_nome: v }))} placeholder="Ex: Cia Cidade Azul" />
+                </Field>
+                <Field label="WhatsApp do dono">
+                  <Inp
+                    value={redeForm.whatsapp}
+                    onChange={v => setRedeForm(p => ({ ...p, whatsapp: maskWhatsApp(v) }))}
+                    type="tel"
+                    placeholder="(48) 99999-9999"
+                  />
+                </Field>
+              </div>
+
+              {/* Seletor de lojas */}
+              <Field label="Lojas da rede *">
+                <div className="space-y-2">
+                  {/* Chips de lojas selecionadas */}
+                  {lojasRede.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {lojasRede.map(l => (
+                        <span key={l.id}
+                          className="inline-flex items-center gap-1 bg-zinc-800 text-white text-xs px-2.5 py-1 rounded-full">
+                          {l.nome}
+                          <button
+                            type="button"
+                            onClick={() => removerLojaRede(l.id)}
+                            className="opacity-60 hover:opacity-100 leading-none ml-0.5"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Input de busca + dropdown */}
+                  <div className="relative" ref={dropdownRef}>
+                    <input
+                      type="text"
+                      value={buscaLoja}
+                      onChange={e => { setBuscaLoja(e.target.value); setShowDropdown(true) }}
+                      onFocus={() => setShowDropdown(true)}
+                      placeholder="Buscar loja pelo nome..."
+                      className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    />
+                    {showDropdown && lojasFiltradas.length > 0 && (
+                      <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {lojasFiltradas.slice(0, 10).map(l => (
+                          <button
+                            key={l.id}
+                            type="button"
+                            onClick={() => adicionarLojaRede(l)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 transition-colors"
+                          >
+                            <span className="font-medium text-zinc-800">{l.nome}</span>
+                            {l.empresa_nome && (
+                              <span className="text-zinc-400 ml-1.5 text-xs">{l.empresa_nome}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showDropdown && buscaLoja && lojasFiltradas.length === 0 && (
+                      <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-md shadow-sm px-3 py-2">
+                        <p className="text-sm text-zinc-400">Nenhuma loja encontrada.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {lojasRede.length === 0 && (
+                    <p className="text-xs text-zinc-400">Nenhuma loja selecionada. Use o campo acima para buscar e adicionar.</p>
+                  )}
+                </div>
+              </Field>
+
+              <Field label="Observação interna">
+                <textarea value={redeForm.observacao} onChange={e => setRedeForm(p => ({ ...p, observacao: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
+              </Field>
+
+              <button
+                onClick={submitRede}
+                disabled={pending || !redeForm.email.trim() || !redeForm.rede_nome.trim() || lojasRede.length === 0}
+                className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+              >
+                {pending ? 'Liberando...' : `Liberar acesso rede${lojasRede.length > 0 ? ` (${lojasRede.length} loja${lojasRede.length > 1 ? 's' : ''})` : ''}`}
+              </button>
+            </div>
+          )}
+
         </div>
 
         {/* ── Licenças Recentes ── */}
@@ -420,91 +599,6 @@ export function AdminClient({
               </div>
             ))}
           </div>
-        </div>
-
-        {/* ── Consultar / Anexar Loja ── */}
-        <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
-          <button
-            onClick={() => setConsultarAberto(v => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-zinc-50 transition-colors"
-          >
-            <div>
-              <p className="text-sm font-semibold text-zinc-800">Consultar / Anexar loja</p>
-              <p className="text-xs text-zinc-400 mt-0.5">Busque um cliente por e-mail e vincule lojas adicionais</p>
-            </div>
-            <span className="text-zinc-400 text-lg leading-none">{consultarAberto ? '−' : '+'}</span>
-          </button>
-
-          {consultarAberto && (
-            <div className="border-t border-zinc-100 px-5 py-4 space-y-4">
-
-              {/* Busca */}
-              <div className="flex gap-2">
-                <input type="email" value={emailConsulta} onChange={e => setEmailConsulta(e.target.value)}
-                  placeholder="cliente@email.com"
-                  onKeyDown={e => e.key === 'Enter' && handleBuscar()}
-                  className="flex-1 border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400" />
-                <button onClick={handleBuscar} disabled={buscando || !emailConsulta.trim()}
-                  className="bg-zinc-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors">
-                  {buscando ? '...' : 'Buscar'}
-                </button>
-              </div>
-
-              {consultaErro && (
-                <p className="text-sm text-red-600">{consultaErro}</p>
-              )}
-
-              {/* Resultado da consulta */}
-              {usuarioConsulta && (
-                <div className="space-y-3">
-                  <div className="rounded-md bg-zinc-50 border border-zinc-200 px-4 py-3">
-                    <p className="text-sm font-medium text-zinc-800">{usuarioConsulta.nome ?? '(sem nome)'}</p>
-                    <p className="text-xs text-zinc-500">{usuarioConsulta.email}</p>
-                  </div>
-
-                  {/* Lojas atuais */}
-                  {usuarioConsulta.vinculos.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-zinc-400 mb-2">Lojas vinculadas</p>
-                      <div className="space-y-1">
-                        {usuarioConsulta.vinculos.map(v => (
-                          <div key={v.membro_id} className="flex items-center justify-between text-sm border border-zinc-100 rounded px-3 py-1.5">
-                            <span className="text-zinc-700 truncate">{v.loja_nome}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${v.ativo ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-400'}`}>
-                              {v.ativo ? 'ativo' : 'inativo'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Anexar loja */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-zinc-400">Anexar loja existente</p>
-                    <div className="flex gap-2">
-                      <select value={anexarLojaId} onChange={e => setAnexarLojaId(e.target.value)}
-                        className="flex-1 border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400">
-                        <option value="">Selecionar loja...</option>
-                        {todasLojas.map(l => (
-                          <option key={l.id} value={l.id}>
-                            {l.empresa_nome ? `${l.empresa_nome} — ` : ''}{l.nome}
-                          </option>
-                        ))}
-                      </select>
-                      <button onClick={submitAnexar} disabled={pending || !anexarLojaId}
-                        className="bg-zinc-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors whitespace-nowrap">
-                        {pending ? '...' : 'Anexar'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-zinc-400">
-                      A loja precisa já existir no sistema. Use o formulário acima para criar novas lojas.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
       </div>

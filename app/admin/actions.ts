@@ -461,6 +461,79 @@ export async function atualizarLoja(dados: {
   }
 }
 
+// ── Liberar acesso rede (dono multi-lojas, sem custo adicional) ──────────────
+
+export async function liberarRede(dados: {
+  email: string
+  rede_nome: string
+  whatsapp: string
+  observacao: string
+  loja_ids: string[]
+}): Promise<{
+  ok: boolean
+  resultado?: 'vinculado' | 'pendente'
+  lojas_processadas?: number
+  erro?: string
+}> {
+  const zero = { ok: false as const }
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ...zero, erro: 'Sem permissão' }
+    if (!dados.email.trim()) return { ...zero, erro: 'E-mail do dono obrigatório' }
+    if (!dados.loja_ids.length) return { ...zero, erro: 'Selecione ao menos uma loja' }
+
+    const admin = createAdminClient()
+    const email = dados.email.trim().toLowerCase()
+
+    const { data: authData } = await admin.auth.admin.listUsers()
+    const usuarioAuth = authData?.users.find(u => u.email?.toLowerCase() === email)
+
+    if (usuarioAuth) {
+      if (dados.whatsapp.trim()) {
+        await admin.from('perfis').update({ whatsapp: dados.whatsapp.trim() }).eq('id', usuarioAuth.id)
+      }
+      await Promise.all(
+        dados.loja_ids.map(loja_id =>
+          admin.from('membros_loja').upsert(
+            { loja_id, perfil_id: usuarioAuth.id, role: 'dono', ativo: true },
+            { onConflict: 'loja_id,perfil_id' }
+          )
+        )
+      )
+      return { ok: true, resultado: 'vinculado', lojas_processadas: dados.loja_ids.length }
+    }
+
+    // Usuário não existe → gera pendência para cada loja
+    const { data: lojasData } = await admin
+      .from('lojas')
+      .select('id, empresa_id')
+      .in('id', dados.loja_ids)
+
+    const empresaMap: Record<string, string> = {}
+    ;(lojasData ?? []).forEach(l => { empresaMap[l.id as string] = l.empresa_id as string })
+
+    await Promise.all(
+      dados.loja_ids.map(loja_id =>
+        admin.from('liberacoes_acesso').insert({
+          email,
+          whatsapp: dados.whatsapp.trim() || null,
+          empresa_id: empresaMap[loja_id] ?? null,
+          loja_id,
+          role: 'dono',
+          status: 'pendente',
+          valor_pago: null,
+          observacao: dados.observacao.trim() || null,
+          criado_por: user.id,
+        })
+      )
+    )
+
+    return { ok: true, resultado: 'pendente', lojas_processadas: dados.loja_ids.length }
+  } catch (err) {
+    return { ...zero, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
 // ── Adicionar acesso a loja existente ────────────────────────────────────────
 
 export async function adicionarAcessoLoja(dados: {
