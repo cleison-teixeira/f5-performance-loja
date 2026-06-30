@@ -8,6 +8,7 @@ import { UploadFotoProduto } from '@/components/ui/upload-foto-produto'
 import { ORDENS_POR_MODELO, MODELO_OPTIONS } from '@/lib/mensagens/modelos'
 import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
 import type { ProdutoItem, MensagemSlot } from './page'
+import { NICHOS_OFICIAIS, getCategoriasDoNicho } from '@/lib/config/produtos-segmentos'
 
 const TIPO_LABEL: Record<string, string> = {
   agradecimento: 'Agradecimento',
@@ -34,12 +35,13 @@ function parseBRL(raw: string): number | null {
 
 interface FormProdutoProps {
   loja_id: string
+  lojaNichos: string[]
   produto?: ProdutoItem
   onSucesso: () => void
   onCancelar: () => void
 }
 
-function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoProps) {
+function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: FormProdutoProps) {
   const [nome, setNome] = useState(produto?.nome ?? '')
   const [preco, setPreco] = useState(
     produto?.preco_sugerido != null
@@ -51,9 +53,26 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
   const [recorrente, setRecorrente] = useState(produto?.recorrente ?? true)
   const [comissionavelRecompra, setComissionavelRecompra] = useState(produto?.comissionavel_recompra ?? true)
   const [qtdMensagens, setQtdMensagens] = useState<1 | 2 | 3 | 4 | 5>(produto?.qtd_mensagens ?? 3)
-  const [nicho, setNicho] = useState(produto?.nicho ?? '')
+  
+  const nichosHabilitados = lojaNichos.length > 0 ? lojaNichos : ['Outros']
+  const defaultNicho = produto?.nicho ?? (nichosHabilitados.length === 1 ? nichosHabilitados[0] : '')
+  const [nicho, setNicho] = useState(defaultNicho)
   const [parceiro, setParceiro] = useState(produto?.parceiro ?? '')
   const [categoria, setCategoria] = useState(produto?.categoria ?? '')
+
+  const isNichoLegado = nicho !== '' && !NICHOS_OFICIAIS.includes(nicho as any)
+  const categoriasValidas = getCategoriasDoNicho(nicho)
+  const isCategoriaLegada = categoria !== '' && !categoriasValidas.includes(categoria)
+  const isLegado = isNichoLegado || isCategoriaLegada
+
+  const nichoOptions = Array.from(new Set([...nichosHabilitados, ...(produto?.nicho ? [produto.nicho] : [])]))
+  const categoriaOptions = Array.from(new Set([...categoriasValidas, ...(produto?.categoria ? [produto.categoria] : [])]))
+
+  function handleNichoChange(novoNicho: string) {
+    setNicho(novoNicho)
+    const novasCategorias = getCategoriasDoNicho(novoNicho)
+    setCategoria(novasCategorias.includes('Outros') ? 'Outros' : (novasCategorias[0] ?? ''))
+  }
   const [galeriaRaw, setGaleriaRaw] = useState(produto?.galeria_urls?.join(', ') ?? '')
   const [variantesRaw, setVariantesRaw] = useState(produto?.variantes?.join(', ') ?? '')
   
@@ -202,16 +221,32 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
           onFotoAlterada={setFotoUrl}
         />
 
+        {isLegado && (
+          <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3 text-xs text-amber-700 dark:text-amber-400 font-medium">
+            Este produto possui classificação antiga. Selecione uma opção padronizada para atualizar.
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Nicho</label>
-            <input
-              type="text"
+            <select
               value={nicho}
-              onChange={e => setNicho(e.target.value)}
+              onChange={e => handleNichoChange(e.target.value)}
               className={inputClass}
-              placeholder="Ex: Suplementos"
-            />
+            >
+              <option value="">Selecione o nicho</option>
+              {nichoOptions.map(n => (
+                <option key={n} value={n}>
+                  {n} {!NICHOS_OFICIAIS.includes(n as any) ? '(Antigo/Fora do padrão)' : ''}
+                </option>
+              ))}
+            </select>
+            {lojaNichos.length === 0 && (
+              <p className="text-[10px] text-amber-600 font-medium mt-0.5 leading-normal">
+                Configure os nichos da loja para padronizar os produtos.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Parceiro (Opcional)</label>
@@ -227,13 +262,18 @@ function FormProduto({ loja_id, produto, onSucesso, onCancelar }: FormProdutoPro
 
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Categoria</label>
-          <input
-            type="text"
+          <select
             value={categoria}
             onChange={e => setCategoria(e.target.value)}
             className={inputClass}
-            placeholder="Ex: Saúde e Bem-estar"
-          />
+          >
+            <option value="">Selecione a categoria</option>
+            {categoriaOptions.map(c => (
+              <option key={c} value={c}>
+                {c} {!categoriasValidas.includes(c) ? '(Antigo/Fora do padrão)' : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-1.5">
@@ -681,9 +721,10 @@ interface Props {
   produtos: ProdutoItem[]
   loja_id: string
   podeEditar: boolean
+  lojaNichos?: string[]
 }
 
-export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
+export function ListaProdutos({ produtos, loja_id, podeEditar, lojaNichos = [] }: Props) {
   const router = useRouter()
   const [mostrarFormNovo, setMostrarFormNovo] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -741,6 +782,7 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
       {mostrarFormNovo && (
         <FormProduto
           loja_id={loja_id}
+          lojaNichos={lojaNichos}
           onSucesso={handleSucesso}
           onCancelar={() => setMostrarFormNovo(false)}
         />
@@ -772,6 +814,7 @@ export function ListaProdutos({ produtos, loja_id, podeEditar }: Props) {
               {editandoId === produto.id ? (
                 <FormProduto
                   loja_id={loja_id}
+                  lojaNichos={lojaNichos}
                   produto={produto}
                   onSucesso={handleSucesso}
                   onCancelar={() => setEditandoId(null)}

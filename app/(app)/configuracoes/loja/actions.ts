@@ -12,6 +12,7 @@ export async function salvarLoja(dados: {
   whatsapp: string
   email: string
   ativa: boolean
+  nichos: string[]
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
     const supabase = await createClient()
@@ -32,6 +33,7 @@ export async function salvarLoja(dados: {
         whatsapp: dados.whatsapp,
         email: dados.email,
         ativa: dados.ativa,
+        nichos: dados.nichos || [],
       })
       .eq('id', dados.loja_id)
 

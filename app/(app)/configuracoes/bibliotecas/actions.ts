@@ -67,6 +67,14 @@ export async function instalarBiblioteca(dados: {
     const invalidas = dados.loja_ids.filter(id => !lojasPermitidas.has(id))
     if (invalidas.length > 0) return { ...zero, erro: 'Acesso negado a uma ou mais lojas selecionadas' }
 
+    // Fetch biblioteca details to get its nicho
+    const { data: bibData } = await admin
+      .from('bibliotecas')
+      .select('nicho')
+      .eq('id', dados.biblioteca_id)
+      .single()
+    const bibliotecaNicho = bibData?.nicho as string | null
+
     // Fetch biblioteca itens
     const { data: itens, error: itensErr } = await admin
       .from('biblioteca_itens')
@@ -89,6 +97,23 @@ export async function instalarBiblioteca(dados: {
     let produtosIgnorados = 0
 
     for (const lojaId of dados.loja_ids) {
+      // Auto-enable biblioteca nicho in the loja if not present
+      if (bibliotecaNicho) {
+        const { data: lojaInfo } = await admin
+          .from('lojas')
+          .select('nichos')
+          .eq('id', lojaId)
+          .single()
+        
+        const nichosExistentes = Array.isArray(lojaInfo?.nichos) ? (lojaInfo.nichos as string[]) : []
+        if (!nichosExistentes.includes(bibliotecaNicho)) {
+          await admin
+            .from('lojas')
+            .update({ nichos: [...nichosExistentes, bibliotecaNicho] })
+            .eq('id', lojaId)
+        }
+      }
+
       // Upsert instalacao (idempotent — on conflict update ativo=true)
       await admin
         .from('instalacoes_biblioteca')

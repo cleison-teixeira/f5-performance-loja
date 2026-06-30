@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { salvarLoja } from './actions'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
+import { NICHOS_OFICIAIS } from '@/lib/config/produtos-segmentos'
 
 interface Props {
   empresa: { id: string; nome: string }
@@ -13,6 +14,7 @@ interface Props {
     whatsapp: string
     email: string
     ativa: boolean
+    nichos: string[]
   }
   podeEditar: boolean
 }
@@ -28,8 +30,17 @@ export function FormLoja({ empresa, loja, podeEditar }: Props) {
   const [whatsapp, setWhatsapp] = useState(formatarWhatsapp(loja.whatsapp))
   const [email, setEmail] = useState(loja.email)
   const [ativa, setAtiva] = useState(loja.ativa)
+  const [selectedNichos, setSelectedNichos] = useState<string[]>(loja.nichos || [])
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null)
+
+  function handleNichoToggle(nicho: string) {
+    if (selectedNichos.includes(nicho)) {
+      setSelectedNichos(selectedNichos.filter(n => n !== nicho))
+    } else {
+      setSelectedNichos([...selectedNichos, nicho])
+    }
+  }
 
   async function handleSalvar() {
     setSalvando(true)
@@ -44,6 +55,7 @@ export function FormLoja({ empresa, loja, podeEditar }: Props) {
       whatsapp: normalizarWhatsapp(whatsapp),
       email,
       ativa,
+      nichos: selectedNichos,
     })
     setSalvando(false)
     if (res.ok) {
@@ -64,6 +76,10 @@ export function FormLoja({ empresa, loja, podeEditar }: Props) {
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Loja</p>
           <p className="text-sm">{loja.nome}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Nichos Habilitados</p>
+          <p className="text-sm">{selectedNichos.length > 0 ? selectedNichos.join(', ') : 'Nenhum nicho configurado'}</p>
         </div>
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cidade</p>
@@ -163,7 +179,32 @@ export function FormLoja({ empresa, loja, podeEditar }: Props) {
         />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="space-y-2 border-t pt-4">
+        <label className="text-sm font-medium">Nichos da loja</label>
+        {selectedNichos.length === 0 && (
+          <p className="text-xs text-amber-600 font-medium">
+            Configure os nichos da loja para padronizar os produtos.
+          </p>
+        )}
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          {NICHOS_OFICIAIS.map(nicho => {
+            const isChecked = selectedNichos.includes(nicho)
+            return (
+              <label key={nicho} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => handleNichoToggle(nicho)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                />
+                {nicho}
+              </label>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 border-t pt-4">
         <button
           type="button"
           role="switch"

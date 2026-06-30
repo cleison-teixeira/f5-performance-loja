@@ -19,6 +19,7 @@ type LojaCompleta = {
   ativa: boolean
   empresa_id: string
   empresa: { id: string; nome: string }
+  nichos: string[]
 }
 
 export default async function ConfigLojaPage({
@@ -34,7 +35,7 @@ export default async function ConfigLojaPage({
   const admin = createAdminClient()
   const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(id, nome, cidade, endereco, whatsapp, email, ativa, empresa_id, empresas(id, nome))')
+    .select('loja_id, role, lojas(id, nome, cidade, endereco, whatsapp, email, ativa, empresa_id, nichos, empresas(id, nome))')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
 
@@ -65,10 +66,12 @@ export default async function ConfigLojaPage({
     const lojaRaw = m.lojas as unknown as {
       id: string; nome: string; cidade: string | null; endereco: string | null
       whatsapp: string | null; email: string | null; ativa: boolean; empresa_id: string
+      nichos: string[] | null
       empresas: { id: string; nome: string } | Array<{ id: string; nome: string }> | null
     } | Array<{
       id: string; nome: string; cidade: string | null; endereco: string | null
       whatsapp: string | null; email: string | null; ativa: boolean; empresa_id: string
+      nichos: string[] | null
       empresas: { id: string; nome: string } | Array<{ id: string; nome: string }> | null
     }> | null
 
@@ -89,6 +92,7 @@ export default async function ConfigLojaPage({
       ativa: lojaItem.ativa,
       empresa_id: lojaItem.empresa_id,
       empresa: empresa ? { id: empresa.id, nome: empresa.nome } : { id: '', nome: '' },
+      nichos: Array.isArray(lojaItem.nichos) ? (lojaItem.nichos as string[]) : [],
     })
   }
 
@@ -120,6 +124,7 @@ export default async function ConfigLojaPage({
               whatsapp: lojaEditando.whatsapp ?? '',
               email: lojaEditando.email ?? '',
               ativa: lojaEditando.ativa,
+              nichos: lojaEditando.nichos,
             }}
             podeEditar={podeEditar}
           />
@@ -160,6 +165,7 @@ export default async function ConfigLojaPage({
               whatsapp: lojaEditando.whatsapp ?? '',
               email: lojaEditando.email ?? '',
               ativa: lojaEditando.ativa,
+              nichos: lojaEditando.nichos,
             }}
             podeEditar={podeEditar}
           />

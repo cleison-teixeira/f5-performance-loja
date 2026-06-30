@@ -178,6 +178,42 @@ async function main() {
     const qtd_mensagens = parseInt(row['avisos configurados'], 10);
     const nomNorm = normalizarNome(nome);
 
+    const piuvitaMap = {
+      'acido folico c60': 'Saúde feminina / Gestante',
+      'b12 metilfolato c60': 'Vitaminas e minerais',
+      'coenzima q10 c60': 'Saúde cardiovascular',
+      'complexo b c60': 'Vitaminas e minerais',
+      'creatina efervescente maca verde 180g': 'Creatinas',
+      'creatina efervescente maca verde 360g': 'Creatinas',
+      'creatina efervescente natural 150g': 'Creatinas',
+      'creatina efervescente natural 360g': 'Creatinas',
+      'creatina efervescente uva 150g': 'Creatinas',
+      'creatina efervescente uva 180g': 'Creatinas',
+      'creatina efervescente uva 360g': 'Creatinas',
+      'curcuma c60': 'Fitoterápicos / Naturais',
+      'melatonina c60': 'Sono / Relaxamento',
+      'piu aminomix sache c30': 'Aminoácidos',
+      'piu brain c60': 'Cérebro / Foco / Cognição',
+      'piu cuore c30': 'Saúde cardiovascular',
+      'piu cuore d3 c30': 'Saúde cardiovascular',
+      'piu energy 1 c60': 'Pré-treino / Energia',
+      'piu energy 2 c30': 'Pré-treino / Energia',
+      'piu mag magnesio c60': 'Vitaminas e minerais',
+      'piu max colageno c30': 'Colágeno / Articulações',
+      'piu multi az c60': 'Vitaminas e minerais',
+      'piu multi mulher c60': 'Saúde feminina / Gestante',
+      'piu nac pro 200mg sache c30': 'Fígado / Detox / Antioxidantes',
+      'piu zen c60': 'Sono / Relaxamento',
+      'piufort antiox': 'Fígado / Detox / Antioxidantes',
+      'piufort gestan': 'Saúde feminina / Gestante',
+      'piufort imune': 'Imunidade',
+      'piufort slim': 'Metabolismo / Controle de peso',
+      'piufort woman': 'Saúde feminina / Gestante'
+    };
+
+    const key = nomNorm.replace(/[^a-z0-9]/g, '');
+    const categoriaResolvida = piuvitaMap[key] || 'Outros';
+
     const payload = {
       biblioteca_id: biblioteca.id,
       parceiro_id: parceiro.id,
@@ -186,8 +222,8 @@ async function main() {
       preco_sugerido,
       ciclo_recompra_dias,
       qtd_mensagens,
-      categoria: 'suplementos',
-      nicho: 'suplementos',
+      categoria: categoriaResolvida,
+      nicho: 'Suplementos / Produtos naturais',
       recorrente: true,
       comissionavel: true,
       repasse_ativo: false,
@@ -206,8 +242,8 @@ async function main() {
           preco_sugerido,
           ciclo_recompra_dias,
           qtd_mensagens,
-          categoria: 'suplementos',
-          nicho: 'suplementos',
+          categoria: categoriaResolvida,
+          nicho: 'Suplementos / Produtos naturais',
           ativo: true,
         })
         .eq('id', idExistente);

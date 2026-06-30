@@ -95,6 +95,13 @@ export default async function ConfigProdutosPage() {
   const loja_id = ctx.lojaId
   const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
 
+  const { data: lojaRes } = await admin
+    .from('lojas')
+    .select('nichos')
+    .eq('id', loja_id)
+    .single()
+  const lojaNichos = Array.isArray(lojaRes?.nichos) ? (lojaRes.nichos as string[]) : []
+
   const { data: produtosRaw } = await supabase
     .from('produtos')
     .select('id, nome, preco_sugerido, foto_url, ativo, recorrente, comissionavel_recompra, qtd_mensagens, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta)')
@@ -230,7 +237,7 @@ export default async function ConfigProdutosPage() {
         <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
         <p className="text-sm text-muted-foreground">{ctx.lojaNome}</p>
       </div>
-      <ListaProdutos produtos={produtos} loja_id={loja_id} podeEditar={podeEditar} />
+      <ListaProdutos produtos={produtos} loja_id={loja_id} podeEditar={podeEditar} lojaNichos={lojaNichos} />
     </div>
   )
 }
