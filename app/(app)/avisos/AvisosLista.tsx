@@ -33,7 +33,7 @@ interface AvisosListaProps {
   itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
 }
 
-type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7'
+type Periodo = 'todos' | 'atrasados' | 'hoje' | 'proximos7' | 'em_acompanhamento'
 type TipoFiltro = 'todos' | AvisoDetalhado['tipo']
 
 const TIPOS_RECOMPRA: { value: TipoFiltro; label: string }[] = [
@@ -278,10 +278,15 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   }
 
   function handleMarcado(id: string, fecharOppKey?: string) {
-    setLista(prev => fecharOppKey
-      ? prev.filter(a => oppKey(a) !== fecharOppKey)
-      : prev.filter(a => a.id !== id)
-    )
+    if (fecharOppKey) {
+      setLista(prev => prev.filter(a => oppKey(a) !== fecharOppKey))
+    } else {
+      if (mode === 'relacionamento') {
+        setLista(prev => prev.filter(a => a.id !== id))
+      } else {
+        setLista(prev => prev.map(a => a.id === id ? { ...a, status: 'contato_feito' } : a))
+      }
+    }
     router.refresh()
   }
 
@@ -294,8 +299,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     router.refresh()
   }
 
-  function handleGrupoMarcado(venda_id: string) {
-    setLista(prev => prev.filter(a => a.venda_id !== venda_id))
+  function handleGrupoMarcado(venda_id: string, fechar = true) {
+    if (fechar) {
+      setLista(prev => prev.filter(a => a.venda_id !== venda_id))
+    } else {
+      setLista(prev => prev.map(a => a.venda_id === venda_id ? { ...a, status: 'contato_feito' } : a))
+    }
     router.refresh()
   }
 
@@ -356,10 +365,12 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     qtdOportunidadesMes++
   }
 
+  const isContatoFeito = (a: AvisoDetalhado) => a.status === 'contato_feito' || (a.status === 'enviado' && !a.recompra_id)
+
   // Aviso counts — operational queue (all types, all time buckets)
-  const qtdAtrasados = listaFiltradaPorResponsavel.filter(a => a.data_aviso < hoje).length
-  const qtdHoje = listaFiltradaPorResponsavel.filter(a => a.data_aviso === hoje).length
-  const qtdProximos7 = listaFiltradaPorResponsavel.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length
+  const qtdAtrasados = listaFiltradaPorResponsavel.filter(a => a.data_aviso < hoje && !isContatoFeito(a)).length
+  const qtdHoje = listaFiltradaPorResponsavel.filter(a => a.data_aviso === hoje && !isContatoFeito(a)).length
+  const qtdProximos7 = listaFiltradaPorResponsavel.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7 && !isContatoFeito(a)).length
 
   // Filtra por busca/produto/data (antes de tipo, para que contadores de tipo reflitam a busca)
   const listaComFiltrosBusca = listaFiltradaPorResponsavel.filter(a => {
@@ -385,28 +396,37 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   // Contadores por período (sobre a lista já filtrada por tipo)
   const counts: Record<Periodo, number> = {
     todos:     listaPorTipo.length,
-    atrasados: listaPorTipo.filter(a => a.data_aviso < hoje).length,
-    hoje:      listaPorTipo.filter(a => a.data_aviso === hoje).length,
-    proximos7: listaPorTipo.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7).length,
+    atrasados: listaPorTipo.filter(a => a.data_aviso < hoje && !isContatoFeito(a)).length,
+    hoje:      listaPorTipo.filter(a => a.data_aviso === hoje && !isContatoFeito(a)).length,
+    proximos7: listaPorTipo.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7 && !isContatoFeito(a)).length,
+    em_acompanhamento: listaPorTipo.filter(a => isContatoFeito(a)).length,
   }
 
   // Grupos para a view "todos"
   const grupos = {
-    atrasados: listaPorTipo.filter(a => a.data_aviso < hoje),
-    hoje:      listaPorTipo.filter(a => a.data_aviso === hoje),
-    proximos7: listaPorTipo.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7),
-    futuros:   listaPorTipo.filter(a => a.data_aviso > limite7),
+    atrasados: listaPorTipo.filter(a => a.data_aviso < hoje && !isContatoFeito(a)),
+    hoje:      listaPorTipo.filter(a => a.data_aviso === hoje && !isContatoFeito(a)),
+    proximos7: listaPorTipo.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7 && !isContatoFeito(a)),
+    futuros:   listaPorTipo.filter(a => a.data_aviso > limite7 && !isContatoFeito(a)),
+    emAcompanhamento: listaPorTipo.filter(a => isContatoFeito(a)),
   }
 
   // Lista filtrada para vistas de período único (sem grouping)
   const avisosFiltrados = listaPorTipo.filter(a => {
-    if (periodo === 'atrasados') return a.data_aviso < hoje
-    if (periodo === 'hoje')      return a.data_aviso === hoje
-    if (periodo === 'proximos7') return a.data_aviso > hoje && a.data_aviso <= limite7
+    if (periodo === 'atrasados') return a.data_aviso < hoje && !isContatoFeito(a)
+    if (periodo === 'hoje')      return a.data_aviso === hoje && !isContatoFeito(a)
+    if (periodo === 'proximos7') return a.data_aviso > hoje && a.data_aviso <= limite7 && !isContatoFeito(a)
+    if (periodo === 'em_acompanhamento') return isContatoFeito(a)
     return true
   })
 
-  const periodos: { value: Periodo; label: string }[] = [
+  const periodos: { value: Periodo; label: string }[] = mode === 'recompra' ? [
+    { value: 'todos',     label: 'Todos' },
+    { value: 'atrasados', label: 'Atrasados' },
+    { value: 'hoje',      label: 'Hoje' },
+    { value: 'proximos7', label: 'Próximos 7 dias' },
+    { value: 'em_acompanhamento', label: 'Em acompanhamento' },
+  ] : [
     { value: 'todos',     label: 'Todos' },
     { value: 'atrasados', label: 'Atrasados' },
     { value: 'hoje',      label: 'Hoje' },
@@ -767,6 +787,29 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
               corCls="text-muted-foreground"
               badgeCls="bg-muted text-muted-foreground"
               icone={<Calendar className="h-4 w-4" />}
+              valorPotencial={0}
+              onMarcado={handleMarcado}
+              onReagendado={handleReagendado}
+              onGrupoMarcado={handleGrupoMarcado}
+              onGrupoReagendado={handleGrupoReagendado}
+              catalogo={catalogo}
+              percentuaisPorVendedora={percentuaisPorVendedora}
+              vendedorasLoja={vendedorasLoja}
+              loja_id={loja_id}
+              loja_nome={loja_nome}
+              isVendedora={isVendedora}
+              mode={mode}
+              itensVendaPorVenda={itensVendaPorVenda}
+            />
+          )}
+          {mode === 'recompra' && grupos.emAcompanhamento.length > 0 && (
+            <SecaoAvisos
+              titulo="Em acompanhamento"
+              subtitulo="Oportunidades que já foram iniciadas e continuam ativas."
+              avisos={grupos.emAcompanhamento}
+              corCls="text-blue-700 dark:text-blue-400"
+              badgeCls="bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
+              icone={<RefreshCw className="h-4 w-4" />}
               valorPotencial={0}
               onMarcado={handleMarcado}
               onReagendado={handleReagendado}

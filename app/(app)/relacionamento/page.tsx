@@ -96,7 +96,9 @@ export default async function RelacionamentoPage() {
   const avisos: AvisoDetalhado[] = (avisosRaw ?? []).filter(a => {
     const mp = a.mensagens_produto as unknown as { tipo: string } | null
     const tipo = mp?.tipo ?? ''
-    return tipo === 'agradecimento' || tipo === 'relacionamento'
+    const status = a.status as string
+    const isRelacionamentoContatoFeito = status === 'contato_feito' || (status === 'enviado' && !a.recompra_id)
+    return (tipo === 'agradecimento' || tipo === 'relacionamento') && !isRelacionamentoContatoFeito
   }).map(a => {
     const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
     const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
