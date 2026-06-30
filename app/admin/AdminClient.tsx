@@ -168,12 +168,18 @@ export function AdminClient({
     : liberacoes
 
   // Lojas disponíveis para Rede (excluindo já selecionadas)
-  const lojasFiltradas = todasLojas.filter(l =>
-    !lojasRede.some(s => s.id === l.id) &&
-    (buscaLoja === '' ||
-      l.nome.toLowerCase().includes(buscaLoja.toLowerCase()) ||
-      l.empresa_nome.toLowerCase().includes(buscaLoja.toLowerCase()))
-  )
+  const lojasFiltradas = todasLojas.filter(l => {
+    if (lojasRede.some(s => s.id === l.id)) return false
+    if (buscaLoja === '') return true
+    const q = buscaLoja.toLowerCase()
+    const qDigits = buscaLoja.replace(/\D/g, '')
+    return (
+      l.nome.toLowerCase().includes(q) ||
+      l.empresa_nome.toLowerCase().includes(q) ||
+      (l.email ?? '').toLowerCase().includes(q) ||
+      (qDigits.length >= 4 && (l.whatsapp ?? '').replace(/\D/g, '').includes(qDigits))
+    )
+  })
 
   // ── Liberar Loja ─────────────────────────────────────────────────────────
 
@@ -496,7 +502,7 @@ export function AdminClient({
                       value={buscaLoja}
                       onChange={e => { setBuscaLoja(e.target.value); setShowDropdown(true) }}
                       onFocus={() => setShowDropdown(true)}
-                      placeholder="Buscar loja pelo nome..."
+                      placeholder="Buscar loja por nome, e-mail ou WhatsApp..."
                       className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
                     />
                     {showDropdown && lojasFiltradas.length > 0 && (
@@ -508,9 +514,16 @@ export function AdminClient({
                             onClick={() => adicionarLojaRede(l)}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 transition-colors"
                           >
-                            <span className="font-medium text-zinc-800">{l.nome}</span>
-                            {l.empresa_nome && (
-                              <span className="text-zinc-400 ml-1.5 text-xs">{l.empresa_nome}</span>
+                            <div>
+                              <span className="font-medium text-zinc-800">{l.nome}</span>
+                              {l.empresa_nome && (
+                                <span className="text-zinc-400 ml-1.5 text-xs">{l.empresa_nome}</span>
+                              )}
+                            </div>
+                            {(l.email || l.whatsapp) && (
+                              <div className="text-xs text-zinc-400 mt-0.5">
+                                {l.email}{l.email && l.whatsapp ? ' · ' : ''}{l.whatsapp}
+                              </div>
                             )}
                           </button>
                         ))}

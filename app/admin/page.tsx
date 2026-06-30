@@ -21,6 +21,8 @@ export interface LojaSimples {
   id: string
   nome: string
   empresa_nome: string
+  whatsapp: string | null
+  email: string | null
 }
 
 export interface AdminStats {
@@ -74,10 +76,28 @@ export default async function AdminPage() {
     if (l.whatsapp) lojaWhatsappMap[l.id as string] = l.whatsapp as string
   })
 
+  // Busca e-mail associado a cada loja (para pesquisa no seletor Liberar Rede)
+  const lojaIds = (lojasRes.data ?? []).map(l => l.id as string)
+  const lojaEmailMap: Record<string, string> = {}
+  if (lojaIds.length > 0) {
+    const { data: emailRows } = await admin
+      .from('liberacoes_acesso')
+      .select('loja_id, email')
+      .in('loja_id', lojaIds)
+      .order('criado_em', { ascending: false })
+    ;(emailRows ?? []).forEach(row => {
+      if (row.loja_id && !lojaEmailMap[row.loja_id as string]) {
+        lojaEmailMap[row.loja_id as string] = row.email as string
+      }
+    })
+  }
+
   const todasLojas: LojaSimples[] = (lojasRes.data ?? []).map(l => ({
     id: l.id as string,
     nome: l.nome as string,
     empresa_nome: empresaMap[l.empresa_id as string] ?? '',
+    whatsapp: (l.whatsapp as string | null) ?? null,
+    email: lojaEmailMap[l.id as string] ?? null,
   }))
 
   const totalLojasAtivas = (lojasRes.data ?? []).length
