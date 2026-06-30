@@ -59,11 +59,12 @@ export default async function ConfigBibliotecasPage() {
     )
   }
 
-  // Fetch bibliotecas ativas
+  // Fetch apenas bibliotecas de parceiros (exclui F5 Geral que tem parceiro_id NULL)
   const { data: bibliotecasRaw } = await admin
     .from('bibliotecas')
     .select('id, nome, slug, descricao, nicho, parceiro_id')
     .eq('ativo', true)
+    .not('parceiro_id', 'is', null)
     .order('nome')
 
   // Resolve parceiro names and logos separately
@@ -119,7 +120,7 @@ export default async function ConfigBibliotecasPage() {
       <div>
         <h1 className="text-xl font-semibold">Bibliotecas</h1>
         <p className="text-sm text-muted-foreground">
-          Instale catálogos de produtos prontos para configurar em suas lojas.
+          Instale catálogos de produtos e treinamentos prontos para acelerar a operação da loja.
         </p>
       </div>
       <BibliotecasClient
