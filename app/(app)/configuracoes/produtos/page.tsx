@@ -7,6 +7,7 @@ import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { ListaProdutos } from './ListaProdutos'
 import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
+import { normalizarNicho } from '@/lib/config/produtos-segmentos'
 
 export interface MensagemSlot {
   id: string | null
@@ -100,7 +101,9 @@ export default async function ConfigProdutosPage() {
     .select('nichos')
     .eq('id', loja_id)
     .single()
-  const lojaNichos = Array.isArray(lojaRes?.nichos) ? (lojaRes.nichos as string[]) : []
+  const lojaNichos = (Array.isArray(lojaRes?.nichos) ? (lojaRes.nichos as string[]) : [])
+    .map(normalizarNicho)
+    .filter(Boolean)
 
   const { data: produtosRaw } = await supabase
     .from('produtos')

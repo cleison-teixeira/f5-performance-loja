@@ -244,7 +244,9 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
             </select>
             {lojaNichos.length === 0 && (
               <p className="text-[10px] text-amber-600 font-medium mt-0.5 leading-normal">
-                Configure os nichos da loja para padronizar os produtos.
+                Configure o nicho da loja em{' '}
+                <a href="/minha-conta" className="underline">Minha Conta</a>{' '}
+                para padronizar os produtos.
               </p>
             )}
           </div>

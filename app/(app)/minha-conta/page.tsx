@@ -3,21 +3,18 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { normalizarNicho } from '@/lib/config/produtos-segmentos'
 import { FormMinhaConta } from './FormMinhaConta'
 
 export type LojaData = {
   id: string
   nome: string
+  documento: string | null
   email: string | null
   whatsapp: string | null
   cidade: string | null
   endereco: string | null
-  nichos: string[]
-}
-
-export type PerfilData = {
-  nome: string
-  whatsapp: string | null
+  nicho: string
 }
 
 export type AssinaturaItem = {
@@ -45,21 +42,18 @@ export default async function MinhaContaPage() {
 
   const admin = createAdminClient()
 
-  const [perfilRes, membrosRes] = await Promise.all([
-    admin.from('perfis').select('nome, whatsapp').eq('id', user.id).maybeSingle(),
-    admin
-      .from('membros_loja')
-      .select('role, loja_id, lojas(id, nome, email, whatsapp, cidade, endereco, nichos)')
-      .eq('perfil_id', user.id)
-      .eq('ativo', true),
-  ])
+  const { data: membrosData } = await admin
+    .from('membros_loja')
+    .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, nichos)')
+    .eq('perfil_id', user.id)
+    .eq('ativo', true)
 
-  if (!membrosRes.data || membrosRes.data.length === 0) redirect('/sem-acesso')
+  if (!membrosData || membrosData.length === 0) redirect('/sem-acesso')
 
-  const role = membrosRes.data.reduce((best: string, m) => {
+  const role = membrosData.reduce((best: string, m) => {
     const mRole = m.role as string
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-  }, membrosRes.data[0].role as string)
+  }, membrosData[0].role as string)
 
   const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
 
@@ -67,34 +61,38 @@ export default async function MinhaContaPage() {
   const seen = new Set<string>()
   const todasLojas: LojaData[] = []
 
-  for (const m of membrosRes.data) {
+  for (const m of membrosData) {
     type LojaRaw = {
-      id: string; nome: string; email: string | null; whatsapp: string | null
-      cidade: string | null; endereco: string | null; nichos: string[] | null
+      id: string; nome: string; documento: string | null; email: string | null
+      whatsapp: string | null; cidade: string | null; endereco: string | null
+      nichos: string[] | null
     }
     const lojaRaw = m.lojas as unknown as LojaRaw | LojaRaw[] | null
     const lojaItem = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
     if (!lojaItem || seen.has(lojaItem.id)) continue
     seen.add(lojaItem.id)
+
+    const rawNicho = Array.isArray(lojaItem.nichos) ? (lojaItem.nichos[0] ?? '') : ''
+
     todasLojas.push({
       id: lojaItem.id,
       nome: lojaItem.nome,
+      documento: lojaItem.documento,
       email: lojaItem.email,
       whatsapp: lojaItem.whatsapp,
       cidade: lojaItem.cidade,
       endereco: lojaItem.endereco,
-      nichos: Array.isArray(lojaItem.nichos) ? (lojaItem.nichos as string[]) : [],
+      nicho: normalizarNicho(rawNicho),
     })
   }
 
-  // Primary loja for editing
   const loja = todasLojas[0] ?? null
 
-  // Build loja name map for assinatura display
+  // Build name map for assinatura
   const lojaNameMap: Record<string, string> = {}
   todasLojas.forEach(l => { lojaNameMap[l.id] = l.nome })
 
-  // Assinatura: fetch records by user's email (owner of the license)
+  // Assinatura by user's email
   const { data: libData } = await admin
     .from('liberacoes_acesso')
     .select('id, tipo, status, valor_pago, prazo_acesso, criado_em, aplicado_em, loja_id')
@@ -114,15 +112,9 @@ export default async function MinhaContaPage() {
 
   const lojasVinculadas: LojaVinculada[] = todasLojas.map(l => ({ id: l.id, nome: l.nome }))
 
-  const perfil: PerfilData = {
-    nome: (perfilRes.data?.nome as string) ?? '',
-    whatsapp: (perfilRes.data?.whatsapp as string | null) ?? null,
-  }
-
   return (
     <FormMinhaConta
       emailConta={user.email ?? ''}
-      perfil={perfil}
       loja={loja}
       todasLojas={todasLojas}
       podeEditar={podeEditar}

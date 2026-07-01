@@ -4,14 +4,30 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { LogOut } from 'lucide-react'
-import type { LojaData, PerfilData, AssinaturaItem, LojaVinculada } from './page'
-import { salvarDadosLoja, salvarContato, salvarEndereco } from './actions'
+import { NICHOS_OFICIAIS } from '@/lib/config/produtos-segmentos'
+import type { LojaData, AssinaturaItem, LojaVinculada } from './page'
+import { salvarLoja, salvarEndereco } from './actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Msg = { tipo: 'ok' | 'erro'; texto: string } | null
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function maskDocumento(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 14)
+  if (d.length === 0) return ''
+  if (d.length <= 11) {
+    let r = d
+    if (d.length > 3) r = d.slice(0, 3) + '.' + d.slice(3)
+    if (d.length > 6) r = r.slice(0, 7) + '.' + r.slice(7)
+    if (d.length > 9) r = r.slice(0, 11) + '-' + r.slice(11)
+    return r
+  }
+  let r = d.slice(0, 2) + '.' + d.slice(2, 5) + '.' + d.slice(5, 8) + '/' + d.slice(8, 12)
+  if (d.length > 12) r += '-' + d.slice(12, 14)
+  return r
+}
 
 function maskWpp(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -40,12 +56,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function Inp({
   value, onChange, type = 'text', placeholder = '', disabled = false, readOnly = false,
 }: {
-  value: string
-  onChange?: (v: string) => void
-  type?: string
-  placeholder?: string
-  disabled?: boolean
-  readOnly?: boolean
+  value: string; onChange?: (v: string) => void; type?: string
+  placeholder?: string; disabled?: boolean; readOnly?: boolean
 }) {
   return (
     <input
@@ -57,7 +69,7 @@ function Inp({
       readOnly={readOnly}
       className={`w-full border rounded-md px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring/50
         ${readOnly || disabled
-          ? 'border-border bg-muted/50 text-muted-foreground cursor-default select-all'
+          ? 'border-border bg-muted/50 text-muted-foreground cursor-default'
           : 'border-input bg-background focus:border-ring'
         }`}
     />
@@ -91,11 +103,12 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+const selectCls = 'w-full border border-input bg-background rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring disabled:bg-muted/50 disabled:text-muted-foreground disabled:cursor-default'
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function FormMinhaConta({
   emailConta,
-  perfil,
   loja,
   todasLojas,
   podeEditar,
@@ -103,7 +116,6 @@ export function FormMinhaConta({
   lojasVinculadas,
 }: {
   emailConta: string
-  perfil: PerfilData
   loja: LojaData | null
   todasLojas: LojaData[]
   podeEditar: boolean
@@ -113,17 +125,13 @@ export function FormMinhaConta({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
-  // Dados da loja
+  // Dados da loja (card unificado)
   const [nomeLoja, setNomeLoja] = useState(loja?.nome ?? '')
-  const [nicho, setNicho] = useState(loja?.nichos[0] ?? '')
-  const [msgLoja, setMsgLoja] = useState<Msg>(null)
-
-  // Contato
+  const [documento, setDocumento] = useState(maskDocumento(loja?.documento ?? ''))
+  const [nicho, setNicho] = useState(loja?.nicho ?? '')
   const [emailLoja, setEmailLoja] = useState(loja?.email ?? '')
   const [whatsappLoja, setWhatsappLoja] = useState(loja?.whatsapp ?? '')
-  const [nomeResp, setNomeResp] = useState(perfil.nome)
-  const [whatsappResp, setWhatsappResp] = useState(perfil.whatsapp ?? '')
-  const [msgContato, setMsgContato] = useState<Msg>(null)
+  const [msgLoja, setMsgLoja] = useState<Msg>(null)
 
   // Endereço
   const [cidade, setCidade] = useState(loja?.cidade ?? '')
@@ -142,32 +150,24 @@ export function FormMinhaConta({
     router.refresh()
   }
 
-  function salvarLoja() {
+  function handleSalvarLoja() {
     if (!loja) return
     if (!nomeLoja.trim()) return showMsg(setMsgLoja, 'erro', 'Nome da loja obrigatório.')
     startTransition(async () => {
-      const res = await salvarDadosLoja({ loja_id: loja.id, nome: nomeLoja, nicho })
+      const res = await salvarLoja({
+        loja_id: loja.id,
+        nome: nomeLoja,
+        documento: documento.replace(/\D/g, '') ? documento : '',
+        nicho,
+        loja_email: emailLoja,
+        loja_whatsapp: whatsappLoja,
+      })
       if (res.ok) { showMsg(setMsgLoja, 'ok', 'Dados da loja salvos.'); router.refresh() }
       else showMsg(setMsgLoja, 'erro', res.erro ?? 'Erro ao salvar.')
     })
   }
 
-  function salvarContatoHandler() {
-    if (!loja) return
-    startTransition(async () => {
-      const res = await salvarContato({
-        loja_id: loja.id,
-        loja_email: emailLoja,
-        loja_whatsapp: whatsappLoja,
-        responsavel_nome: nomeResp,
-        responsavel_whatsapp: whatsappResp,
-      })
-      if (res.ok) { showMsg(setMsgContato, 'ok', 'Contato salvo.'); router.refresh() }
-      else showMsg(setMsgContato, 'erro', res.erro ?? 'Erro ao salvar.')
-    })
-  }
-
-  function salvarEnderecoHandler() {
+  function handleSalvarEndereco() {
     if (!loja) return
     startTransition(async () => {
       const res = await salvarEndereco({ loja_id: loja.id, cidade, endereco })
@@ -176,10 +176,8 @@ export function FormMinhaConta({
     })
   }
 
-  // ── Styles ──
   const btnPrimary = 'bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-40 transition-colors'
-  const sectionCard = 'rounded-xl border border-border bg-card p-5 space-y-5'
-  const sectionTitle = 'text-sm font-semibold text-foreground'
+  const card = 'rounded-xl border border-border bg-card p-5 space-y-5'
 
   return (
     <div className="space-y-5 max-w-lg mx-auto pb-8">
@@ -190,9 +188,9 @@ export function FormMinhaConta({
         <p className="text-sm text-muted-foreground mt-0.5">{loja?.nome ?? ''}</p>
         {todasLojas.length > 1 && (
           <p className="text-xs text-muted-foreground mt-1">
-            Editando dados de <span className="font-medium">{loja?.nome}</span>.{' '}
+            Editando <span className="font-medium">{loja?.nome}</span>.{' '}
             <a href="/configuracoes/loja" className="underline underline-offset-2 hover:text-foreground transition-colors">
-              Gerenciar outras unidades →
+              Outras unidades →
             </a>
           </p>
         )}
@@ -206,27 +204,56 @@ export function FormMinhaConta({
 
       {loja && (
         <>
-          {/* 1. Dados da loja */}
-          <section className={sectionCard}>
-            <h2 className={sectionTitle}>Dados da loja</h2>
+          {/* 1. Dados da loja (unificado) */}
+          <section className={card}>
+            <h2 className="text-sm font-semibold text-foreground">Dados da loja</h2>
 
             <div className="space-y-4">
               <Field label="Nome da loja">
                 <Inp value={nomeLoja} onChange={setNomeLoja} placeholder="Nome da loja" disabled={!podeEditar || pending} />
               </Field>
 
-              <Field label="Nicho / Segmento" hint="Segmento principal da loja.">
-                <Inp value={nicho} onChange={setNicho} placeholder="Ex: Suplementos, Cosméticos, Veterinário..." disabled={!podeEditar || pending} />
+              <Field label="CNPJ / CPF" hint="CPF: 000.000.000-00 · CNPJ: 00.000.000/0000-00">
+                <Inp
+                  value={documento}
+                  onChange={v => setDocumento(maskDocumento(v))}
+                  placeholder="000.000.000-00"
+                  disabled={!podeEditar || pending}
+                />
               </Field>
 
-              <div className="rounded-md border border-border/50 bg-muted/40 px-3 py-2">
-                <p className="text-xs text-muted-foreground">CNPJ / CPF será liberado em breve.</p>
+              <Field label="Nicho / Segmento">
+                <select
+                  value={nicho}
+                  onChange={e => setNicho(e.target.value)}
+                  disabled={!podeEditar || pending}
+                  className={selectCls}
+                >
+                  <option value="">Selecionar nicho...</option>
+                  {NICHOS_OFICIAIS.map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="border-t border-border/50 pt-4 space-y-4">
+                <Field label="E-mail da conta" hint="Não é possível alterar o e-mail de login por aqui.">
+                  <Inp value={emailConta} readOnly />
+                </Field>
+
+                <Field label="E-mail da loja">
+                  <Inp value={emailLoja} onChange={setEmailLoja} type="email" placeholder="contato@loja.com.br" disabled={!podeEditar || pending} />
+                </Field>
+
+                <Field label="WhatsApp da loja">
+                  <Inp value={whatsappLoja} onChange={v => setWhatsappLoja(maskWpp(v))} type="tel" placeholder="(48) 99999-9999" disabled={!podeEditar || pending} />
+                </Field>
               </div>
             </div>
 
             {podeEditar && (
               <div className="flex items-center gap-3">
-                <button onClick={salvarLoja} disabled={pending} className={btnPrimary}>
+                <button onClick={handleSalvarLoja} disabled={pending} className={btnPrimary}>
                   {pending ? 'Salvando...' : 'Salvar dados'}
                 </button>
                 <SectionMsg msg={msgLoja} />
@@ -234,49 +261,9 @@ export function FormMinhaConta({
             )}
           </section>
 
-          {/* 2. Contato */}
-          <section className={sectionCard}>
-            <h2 className={sectionTitle}>Contato</h2>
-
-            <div className="space-y-4">
-              <Field label="E-mail da conta" hint="Não é possível alterar o e-mail de login por aqui.">
-                <Inp value={emailConta} readOnly />
-              </Field>
-
-              <Field label="E-mail da loja">
-                <Inp value={emailLoja} onChange={setEmailLoja} type="email" placeholder="contato@loja.com.br" disabled={!podeEditar || pending} />
-              </Field>
-
-              <Field label="WhatsApp da loja">
-                <Inp value={whatsappLoja} onChange={v => setWhatsappLoja(maskWpp(v))} type="tel" placeholder="(48) 99999-9999" disabled={!podeEditar || pending} />
-              </Field>
-
-              <div className="border-t border-border/50 pt-4 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">Responsável</p>
-
-                <Field label="Nome">
-                  <Inp value={nomeResp} onChange={setNomeResp} placeholder="Seu nome" disabled={!podeEditar || pending} />
-                </Field>
-
-                <Field label="WhatsApp pessoal">
-                  <Inp value={whatsappResp} onChange={v => setWhatsappResp(maskWpp(v))} type="tel" placeholder="(48) 99999-9999" disabled={!podeEditar || pending} />
-                </Field>
-              </div>
-            </div>
-
-            {podeEditar && (
-              <div className="flex items-center gap-3">
-                <button onClick={salvarContatoHandler} disabled={pending} className={btnPrimary}>
-                  {pending ? 'Salvando...' : 'Salvar contato'}
-                </button>
-                <SectionMsg msg={msgContato} />
-              </div>
-            )}
-          </section>
-
-          {/* 3. Endereço */}
-          <section className={sectionCard}>
-            <h2 className={sectionTitle}>Endereço</h2>
+          {/* 2. Endereço */}
+          <section className={card}>
+            <h2 className="text-sm font-semibold text-foreground">Endereço</h2>
 
             <div className="space-y-4">
               <Field label="Cidade">
@@ -296,7 +283,7 @@ export function FormMinhaConta({
 
             {podeEditar && (
               <div className="flex items-center gap-3">
-                <button onClick={salvarEnderecoHandler} disabled={pending} className={btnPrimary}>
+                <button onClick={handleSalvarEndereco} disabled={pending} className={btnPrimary}>
                   {pending ? 'Salvando...' : 'Salvar endereço'}
                 </button>
                 <SectionMsg msg={msgEndereco} />
@@ -304,9 +291,9 @@ export function FormMinhaConta({
             )}
           </section>
 
-          {/* 4. Assinatura */}
-          <section className={sectionCard}>
-            <h2 className={sectionTitle}>Assinatura</h2>
+          {/* 3. Assinatura */}
+          <section className={card}>
+            <h2 className="text-sm font-semibold text-foreground">Assinatura</h2>
 
             {assinatura.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma informação de assinatura encontrada.</p>
@@ -323,7 +310,6 @@ export function FormMinhaConta({
                           </div>
                           <StatusBadge status={a.status} />
                         </div>
-
                         <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
                           <div>
                             <p className="text-muted-foreground mb-0.5">Tipo</p>
@@ -362,7 +348,6 @@ export function FormMinhaConta({
                           </div>
                           <StatusBadge status={a.status} />
                         </div>
-
                         <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
                           <div>
                             <p className="text-muted-foreground mb-0.5">Tipo</p>
@@ -373,9 +358,8 @@ export function FormMinhaConta({
                             <p className="font-medium text-foreground">{formatDate(a.criado_em)}</p>
                           </div>
                         </div>
-
                         {lojasVinculadas.length > 0 && (
-                          <div className="pt-0.5 space-y-1.5">
+                          <div className="space-y-1.5">
                             <p className="text-xs text-muted-foreground">Lojas vinculadas</p>
                             <div className="flex flex-wrap gap-1.5">
                               {lojasVinculadas.map(lv => (
@@ -401,8 +385,8 @@ export function FormMinhaConta({
       )}
 
       {/* Sessão */}
-      <section className={sectionCard}>
-        <h2 className={sectionTitle}>Sessão</h2>
+      <section className={card}>
+        <h2 className="text-sm font-semibold text-foreground">Sessão</h2>
         <p className="text-sm text-muted-foreground">
           Use esta opção apenas se quiser encerrar o acesso neste dispositivo.
         </p>

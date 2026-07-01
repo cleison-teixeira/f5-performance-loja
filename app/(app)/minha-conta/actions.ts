@@ -18,10 +18,13 @@ async function verificarPertenceLoja(userId: string, lojaId: string): Promise<st
 
 const PODE_EDITAR = ['dono', 'gerente', 'admin_f5']
 
-export async function salvarDadosLoja(dados: {
+export async function salvarLoja(dados: {
   loja_id: string
   nome: string
+  documento: string
   nicho: string
+  loja_email: string
+  loja_whatsapp: string
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
     const supabase = await createClient()
@@ -37,52 +40,14 @@ export async function salvarDadosLoja(dados: {
       .from('lojas')
       .update({
         nome: dados.nome.trim(),
+        documento: dados.documento.trim() || null,
         nichos: dados.nicho.trim() ? [dados.nicho.trim()] : [],
+        email: dados.loja_email.trim() || null,
+        whatsapp: dados.loja_whatsapp.trim() || null,
       })
       .eq('id', dados.loja_id)
 
     if (error) return { ok: false, erro: error.message }
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
-  }
-}
-
-export async function salvarContato(dados: {
-  loja_id: string
-  loja_email: string
-  loja_whatsapp: string
-  responsavel_nome: string
-  responsavel_whatsapp: string
-}): Promise<{ ok: boolean; erro?: string }> {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { ok: false, erro: 'Sem permissão' }
-
-    const role = await verificarPertenceLoja(user.id, dados.loja_id)
-    if (!role || !PODE_EDITAR.includes(role)) return { ok: false, erro: 'Sem permissão para editar esta loja' }
-
-    const admin = createAdminClient()
-    const [lojaRes, perfilRes] = await Promise.all([
-      admin
-        .from('lojas')
-        .update({
-          email: dados.loja_email.trim() || null,
-          whatsapp: dados.loja_whatsapp.trim() || null,
-        })
-        .eq('id', dados.loja_id),
-      admin
-        .from('perfis')
-        .update({
-          nome: dados.responsavel_nome.trim(),
-          whatsapp: dados.responsavel_whatsapp.trim() || null,
-        })
-        .eq('id', user.id),
-    ])
-
-    if (lojaRes.error) return { ok: false, erro: lojaRes.error.message }
-    if (perfilRes.error) return { ok: false, erro: perfilRes.error.message }
     return { ok: true }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }

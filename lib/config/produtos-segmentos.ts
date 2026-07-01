@@ -168,6 +168,14 @@ function normalizarNome(nome: string): string {
     .trim();
 }
 
+export function normalizarNicho(nicho: string | null | undefined): string {
+  if (!nicho || nicho.trim() === '') return ''
+  const lower = nicho.toLowerCase().trim()
+  if (lower === 'suplementos' || lower === 'suplementacao') return 'Suplementos / Produtos naturais'
+  const match = NICHOS_OFICIAIS.find(n => n.toLowerCase() === lower)
+  return match ?? 'Outros'
+}
+
 export function classificarProdutoPiuVita(nome: string): string {
   const norm = normalizarNome(nome);
   return PIUVITA_CATEGORIAS_MAP[norm] || 'Outros';
