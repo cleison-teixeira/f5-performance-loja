@@ -10,10 +10,13 @@ export interface LiberacaoRow {
   email: string
   nome: string | null
   status: string
+  tipo: string
+  loja_id: string | null
   loja_nome: string | null
   loja_whatsapp: string | null
   valor_pago: number | null
   prazo_acesso: string | null
+  observacao: string | null
   criado_em: string
 }
 
@@ -61,9 +64,9 @@ export default async function AdminPage() {
       .select('id, nome'),
     admin
       .from('liberacoes_acesso')
-      .select('id, email, nome, status, loja_id, valor_pago, origem, prazo_acesso, criado_em')
+      .select('id, email, nome, status, tipo, loja_id, valor_pago, origem, prazo_acesso, criado_em, observacao')
       .order('criado_em', { ascending: false })
-      .limit(30),
+      .limit(50),
   ])
 
   const empresaMap: Record<string, string> = {}
@@ -108,10 +111,13 @@ export default async function AdminPage() {
     email: l.email as string,
     nome: l.nome as string | null,
     status: l.status as string,
+    tipo: (l.tipo as string | null) ?? 'loja',
+    loja_id: (l.loja_id as string | null) ?? null,
     loja_nome: l.loja_id ? (lojaMap[l.loja_id as string] ?? null) : null,
     loja_whatsapp: l.loja_id ? (lojaWhatsappMap[l.loja_id as string] ?? null) : null,
     valor_pago: l.valor_pago as number | null,
     prazo_acesso: l.prazo_acesso as string | null,
+    observacao: (l.observacao as string | null) ?? null,
     criado_em: l.criado_em as string,
   }))
 

@@ -137,6 +137,7 @@ export async function liberarAcesso(dados: {
       empresa_id,
       loja_id,
       role: 'dono',
+      tipo: 'loja',
       plano_id: dados.plano_id || null,
       status: 'pendente',
       origem: dados.origem.trim() || null,
@@ -518,6 +519,7 @@ export async function liberarRede(dados: {
           empresa_id: empresaMap[loja_id] ?? null,
           loja_id,
           role: 'dono',
+          tipo: 'rede',
           status: 'pendente',
           valor_pago: null,
           observacao: dados.observacao.trim() || null,
@@ -576,11 +578,58 @@ export async function adicionarAcessoLoja(dados: {
       empresa_id: lojaData?.empresa_id ?? null,
       loja_id: dados.loja_id,
       role: dados.role,
+      tipo: 'rede',
       status: 'pendente',
       criado_por: user.id,
     })
 
     return { ok: true, resultado: 'pendente' }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+// ── Editar licença existente ──────────────────────────────────────────────────
+
+export async function editarLicenca(dados: {
+  liberacao_id: string
+  loja_id: string | null
+  loja_nome: string
+  loja_whatsapp: string
+  valor_pago: string
+  status: string
+  observacao: string
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+
+    const admin = createAdminClient()
+
+    const { error: libErr } = await admin
+      .from('liberacoes_acesso')
+      .update({
+        status: dados.status,
+        valor_pago: dados.valor_pago ? parseFloat(dados.valor_pago.replace(',', '.')) : null,
+        observacao: dados.observacao.trim() || null,
+      })
+      .eq('id', dados.liberacao_id)
+
+    if (libErr) return { ok: false, erro: libErr.message }
+
+    if (dados.loja_id && dados.loja_nome.trim()) {
+      const { error: lojaErr } = await admin
+        .from('lojas')
+        .update({
+          nome: dados.loja_nome.trim(),
+          whatsapp: dados.loja_whatsapp.trim() || null,
+        })
+        .eq('id', dados.loja_id)
+
+      if (lojaErr) return { ok: false, erro: lojaErr.message }
+    }
+
+    return { ok: true }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
   }

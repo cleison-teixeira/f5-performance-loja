@@ -3,7 +3,10 @@
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { LiberacaoRow, LojaSimples, AdminStats } from './page'
-import { liberarAcesso, cancelarLiberacao, liberarRede } from './actions'
+import {
+  liberarAcesso, cancelarLiberacao, liberarRede,
+  adicionarAcessoLoja, editarLicenca,
+} from './actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -11,26 +14,31 @@ type Msg = { tipo: 'ok' | 'erro'; texto: string } | null
 type Aba = 'loja' | 'rede'
 
 type LojaForm = {
-  email: string
-  loja_nome: string
-  loja_whatsapp: string
-  valor_mensal: string
-  status: string
-  observacao: string
+  email: string; loja_nome: string; loja_whatsapp: string
+  valor_mensal: string; status: string; observacao: string
 }
 
 type RedeForm = {
-  email: string
-  rede_nome: string
-  whatsapp: string
-  observacao: string
+  email: string; rede_nome: string; whatsapp: string; observacao: string
 }
+
+type EditForm = {
+  nome: string; whatsapp: string; valor: string; status: string; obs: string
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPCOES = [
   { value: 'ativo', label: 'Ativo' },
   { value: 'trial', label: 'Trial (7 dias automático)' },
   { value: 'cortesia', label: 'Cortesia' },
   { value: 'suspenso', label: 'Suspenso' },
+  { value: 'cancelado', label: 'Cancelado' },
+]
+
+const STATUS_LICENCA = [
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'aplicado', label: 'Aplicado' },
   { value: 'cancelado', label: 'Cancelado' },
 ]
 
@@ -43,9 +51,9 @@ const VAZIO_LOJA: LojaForm = {
   valor_mensal: '149,00', status: 'ativo', observacao: '',
 }
 
-const VAZIO_REDE: RedeForm = {
-  email: '', rede_nome: '', whatsapp: '', observacao: '',
-}
+const VAZIO_REDE: RedeForm = { email: '', rede_nome: '', whatsapp: '', observacao: '' }
+
+const VAZIO_EDIT: EditForm = { nome: '', whatsapp: '', valor: '149,00', status: 'aplicado', obs: '' }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -86,8 +94,7 @@ function StatusBadge({ value }: { value: string }) {
 }
 
 function trialAte(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 7)
+  const d = new Date(); d.setDate(d.getDate() + 7)
   return d.toISOString().split('T')[0]
 }
 
@@ -127,11 +134,11 @@ export function AdminClient({
   // Busca global
   const [busca, setBusca] = useState('')
 
-  // Formulário Loja
+  // ── Formulário Liberar Loja ──
   const [lojaForm, setLojaForm] = useState<LojaForm>(VAZIO_LOJA)
   const [resultadoLoja, setResultadoLoja] = useState<{ resultado: 'vinculado' | 'pendente'; nome: string } | null>(null)
 
-  // Formulário Rede
+  // ── Formulário Liberar Rede ──
   const [redeForm, setRedeForm] = useState<RedeForm>(VAZIO_REDE)
   const [lojasRede, setLojasRede] = useState<LojaSimples[]>([])
   const [buscaLoja, setBuscaLoja] = useState('')
@@ -139,12 +146,30 @@ export function AdminClient({
   const [resultadoRede, setResultadoRede] = useState<{ resultado: 'vinculado' | 'pendente'; count: number } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fecha dropdown ao clicar fora
+  // ── Editar licença ──
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<EditForm>(VAZIO_EDIT)
+
+  // ── Adicionar acesso (em Licença de Loja) ──
+  const [adicionandoAcessoId, setAdicionandoAcessoId] = useState<string | null>(null)
+  const [acessoEmail, setAcessoEmail] = useState('')
+  const [resultadoAcesso, setResultadoAcesso] = useState<'vinculado' | 'pendente' | null>(null)
+
+  // ── Anexar loja (em Licença de Rede) ──
+  const [anexandoRedeId, setAnexandoRedeId] = useState<string | null>(null)
+  const [lojasAnexar, setLojasAnexar] = useState<LojaSimples[]>([])
+  const [buscaAnexar, setBuscaAnexar] = useState('')
+  const [showAnexarDropdown, setShowAnexarDropdown] = useState(false)
+  const [resultadoAnexar, setResultadoAnexar] = useState<{ resultado: 'vinculado' | 'pendente'; count: number } | null>(null)
+  const anexarDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fecha dropdowns ao clicar fora
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
         setShowDropdown(false)
-      }
+      if (anexarDropdownRef.current && !anexarDropdownRef.current.contains(e.target as Node))
+        setShowAnexarDropdown(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -155,38 +180,46 @@ export function AdminClient({
     setTimeout(() => setMsg(null), 6000)
   }
 
-  // Filtro da lista de licenças
-  const liberacoesFiltradas = busca.trim()
-    ? liberacoes.filter(l => {
-        const q = busca.toLowerCase()
-        return (
-          l.email.toLowerCase().includes(q) ||
-          (l.loja_nome ?? '').toLowerCase().includes(q) ||
-          (l.loja_whatsapp ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, ''))
-        )
-      })
-    : liberacoes
+  // ── Listas separadas por tipo ──
+  const liberacoesLoja = liberacoes.filter(l => l.tipo === 'loja')
+  const liberacoesRede = liberacoes.filter(l => l.tipo === 'rede')
 
-  // Lojas disponíveis para Rede (excluindo já selecionadas)
+  function filtrar(lista: LiberacaoRow[]) {
+    if (!busca.trim()) return lista
+    const q = busca.toLowerCase()
+    const qd = busca.replace(/\D/g, '')
+    return lista.filter(l =>
+      l.email.toLowerCase().includes(q) ||
+      (l.loja_nome ?? '').toLowerCase().includes(q) ||
+      (qd.length >= 4 && (l.loja_whatsapp ?? '').replace(/\D/g, '').includes(qd))
+    )
+  }
+
   const lojasFiltradas = todasLojas.filter(l => {
     if (lojasRede.some(s => s.id === l.id)) return false
     if (buscaLoja === '') return true
     const q = buscaLoja.toLowerCase()
-    const qDigits = buscaLoja.replace(/\D/g, '')
-    return (
-      l.nome.toLowerCase().includes(q) ||
-      l.empresa_nome.toLowerCase().includes(q) ||
+    const qd = buscaLoja.replace(/\D/g, '')
+    return l.nome.toLowerCase().includes(q) || l.empresa_nome.toLowerCase().includes(q) ||
       (l.email ?? '').toLowerCase().includes(q) ||
-      (qDigits.length >= 4 && (l.whatsapp ?? '').replace(/\D/g, '').includes(qDigits))
-    )
+      (qd.length >= 4 && (l.whatsapp ?? '').replace(/\D/g, '').includes(qd))
   })
 
-  // ── Liberar Loja ─────────────────────────────────────────────────────────
+  const lojasAnexarFiltradas = todasLojas.filter(l => {
+    if (lojasAnexar.some(s => s.id === l.id)) return false
+    if (buscaAnexar === '') return true
+    const q = buscaAnexar.toLowerCase()
+    const qd = buscaAnexar.replace(/\D/g, '')
+    return l.nome.toLowerCase().includes(q) || l.empresa_nome.toLowerCase().includes(q) ||
+      (l.email ?? '').toLowerCase().includes(q) ||
+      (qd.length >= 4 && (l.whatsapp ?? '').replace(/\D/g, '').includes(qd))
+  })
+
+  // ── Handlers: Liberar Loja ──
 
   function submitLoja() {
     if (!lojaForm.email.trim()) return showMsg('erro', 'E-mail da compra obrigatório.')
     if (!lojaForm.loja_nome.trim()) return showMsg('erro', 'Nome da loja obrigatório.')
-
     setResultadoLoja(null)
     startTransition(async () => {
       const res = await liberarAcesso({
@@ -218,23 +251,12 @@ export function AdminClient({
     })
   }
 
-  // ── Liberar Rede ─────────────────────────────────────────────────────────
-
-  function adicionarLojaRede(loja: LojaSimples) {
-    setLojasRede(prev => [...prev, loja])
-    setBuscaLoja('')
-    setShowDropdown(false)
-  }
-
-  function removerLojaRede(id: string) {
-    setLojasRede(prev => prev.filter(l => l.id !== id))
-  }
+  // ── Handlers: Liberar Rede ──
 
   function submitRede() {
     if (!redeForm.email.trim()) return showMsg('erro', 'E-mail do dono obrigatório.')
     if (!redeForm.rede_nome.trim()) return showMsg('erro', 'Nome da rede obrigatório.')
     if (lojasRede.length === 0) return showMsg('erro', 'Selecione ao menos uma loja.')
-
     setResultadoRede(null)
     startTransition(async () => {
       const res = await liberarRede({
@@ -255,6 +277,8 @@ export function AdminClient({
     })
   }
 
+  // ── Handlers: Cancelar ──
+
   function handleCancelar(id: string) {
     startTransition(async () => {
       const res = await cancelarLiberacao(id)
@@ -263,7 +287,107 @@ export function AdminClient({
     })
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Handlers: Editar ──
+
+  function openEdit(l: LiberacaoRow) {
+    if (editandoId === l.id) { setEditandoId(null); return }
+    setEditandoId(l.id)
+    setEditForm({
+      nome: l.loja_nome ?? '',
+      whatsapp: l.loja_whatsapp ?? '',
+      valor: l.valor_pago != null ? String(l.valor_pago).replace('.', ',') : '149,00',
+      status: l.status,
+      obs: l.observacao ?? '',
+    })
+  }
+
+  function submitEdit(l: LiberacaoRow) {
+    startTransition(async () => {
+      const res = await editarLicenca({
+        liberacao_id: l.id,
+        loja_id: l.tipo === 'loja' ? l.loja_id : null,
+        loja_nome: editForm.nome,
+        loja_whatsapp: editForm.whatsapp,
+        valor_pago: editForm.valor,
+        status: editForm.status,
+        observacao: editForm.obs,
+      })
+      if (res.ok) {
+        setEditandoId(null)
+        showMsg('ok', 'Licença atualizada.')
+        router.refresh()
+      } else {
+        showMsg('erro', res.erro ?? 'Erro ao editar.')
+      }
+    })
+  }
+
+  // ── Handlers: Adicionar acesso (em Loja) ──
+
+  function openAdicionarAcesso(id: string) {
+    if (adicionandoAcessoId === id) { setAdicionandoAcessoId(null); return }
+    setAdicionandoAcessoId(id)
+    setAcessoEmail('')
+    setResultadoAcesso(null)
+  }
+
+  function submitAdicionarAcesso(l: LiberacaoRow) {
+    if (!acessoEmail.trim()) return showMsg('erro', 'E-mail obrigatório.')
+    if (!l.loja_id) return showMsg('erro', 'Loja não identificada.')
+    startTransition(async () => {
+      const res = await adicionarAcessoLoja({
+        loja_id: l.loja_id!,
+        email: acessoEmail,
+        nome: '',
+        role: 'dono',
+      })
+      if (res.ok) {
+        setResultadoAcesso(res.resultado!)
+        setAcessoEmail('')
+        router.refresh()
+      } else {
+        showMsg('erro', res.erro ?? 'Erro ao adicionar acesso.')
+      }
+    })
+  }
+
+  // ── Handlers: Anexar loja (em Rede) ──
+
+  function openAnexarLoja(id: string) {
+    if (anexandoRedeId === id) { setAnexandoRedeId(null); return }
+    setAnexandoRedeId(id)
+    setLojasAnexar([])
+    setBuscaAnexar('')
+    setResultadoAnexar(null)
+  }
+
+  function submitAnexarLoja(email: string) {
+    if (lojasAnexar.length === 0) return showMsg('erro', 'Selecione ao menos uma loja.')
+    startTransition(async () => {
+      const res = await liberarRede({
+        email,
+        rede_nome: '',
+        whatsapp: '',
+        observacao: '',
+        loja_ids: lojasAnexar.map(l => l.id),
+      })
+      if (res.ok) {
+        setResultadoAnexar({ resultado: res.resultado!, count: res.lojas_processadas ?? lojasAnexar.length })
+        setLojasAnexar([])
+        router.refresh()
+      } else {
+        showMsg('erro', res.erro ?? 'Erro ao anexar.')
+      }
+    })
+  }
+
+  // ── CSS reutilizável ──
+  const btnSecundario = 'px-3 py-1.5 rounded text-xs font-medium border border-zinc-200 hover:bg-zinc-50 transition-colors'
+  const btnPrimario = 'bg-zinc-900 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors'
+  const formInline = 'bg-zinc-50 rounded-md p-3 space-y-3 border border-zinc-200'
+  const selectCls = 'w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400'
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-zinc-100">
@@ -276,9 +400,7 @@ export function AdminClient({
             <p className="text-xs text-zinc-400 mt-0.5">Gestão de licenças</p>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors">
-              App →
-            </a>
+            <a href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors">App →</a>
             <form action="/api/auth/logout" method="POST">
               <button type="submit" className="text-xs text-zinc-400 hover:text-white transition-colors">Sair</button>
             </form>
@@ -293,13 +415,9 @@ export function AdminClient({
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
           </svg>
-          <input
-            type="text"
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
+          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar por loja, e-mail ou WhatsApp..."
-            className="w-full border border-zinc-200 rounded-lg pl-10 pr-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 shadow-sm"
-          />
+            className="w-full border border-zinc-200 rounded-lg pl-10 pr-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 shadow-sm" />
           {busca && (
             <button onClick={() => setBusca('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 text-lg leading-none">
@@ -333,26 +451,22 @@ export function AdminClient({
           </div>
         )}
 
-        {/* ── Painel principal ── */}
+        {/* ── Painel de liberação ── */}
         <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
 
-          {/* Pills / menu */}
+          {/* Pills */}
           <div className="px-5 pt-4 pb-0">
             <div className="flex gap-1 bg-zinc-100 rounded-lg p-1 w-fit">
-              <button
-                onClick={() => { setAba('loja'); setResultadoRede(null) }}
+              <button onClick={() => { setAba('loja'); setResultadoRede(null) }}
                 className={`text-sm font-medium py-1.5 px-5 rounded-md transition-colors ${
                   aba === 'loja' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                }`}
-              >
+                }`}>
                 Liberar Loja
               </button>
-              <button
-                onClick={() => { setAba('rede'); setResultadoLoja(null) }}
+              <button onClick={() => { setAba('rede'); setResultadoLoja(null) }}
                 className={`text-sm font-medium py-1.5 px-5 rounded-md transition-colors ${
                   aba === 'rede' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                }`}
-              >
+                }`}>
                 Liberar Rede
               </button>
             </div>
@@ -391,19 +505,13 @@ export function AdminClient({
                   <Inp value={lojaForm.loja_nome} onChange={v => setLojaForm(p => ({ ...p, loja_nome: v }))} placeholder="Ex: Cia Cidade Azul Angeloni" />
                 </Field>
                 <Field label="WhatsApp da loja">
-                  <Inp
-                    value={lojaForm.loja_whatsapp}
-                    onChange={v => setLojaForm(p => ({ ...p, loja_whatsapp: maskWhatsApp(v) }))}
-                    type="tel"
-                    placeholder="(48) 99999-9999"
-                  />
+                  <Inp value={lojaForm.loja_whatsapp} onChange={v => setLojaForm(p => ({ ...p, loja_whatsapp: maskWhatsApp(v) }))} type="tel" placeholder="(48) 99999-9999" />
                 </Field>
                 <Field label="Valor mensal (R$)">
                   <Inp value={lojaForm.valor_mensal} onChange={v => setLojaForm(p => ({ ...p, valor_mensal: v }))} placeholder="149,00" />
                 </Field>
                 <Field label="Status">
-                  <select value={lojaForm.status} onChange={e => setLojaForm(p => ({ ...p, status: e.target.value }))}
-                    className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400">
+                  <select value={lojaForm.status} onChange={e => setLojaForm(p => ({ ...p, status: e.target.value }))} className={selectCls}>
                     {STATUS_OPCOES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 </Field>
@@ -417,15 +525,11 @@ export function AdminClient({
 
               <Field label="Observação interna">
                 <textarea value={lojaForm.observacao} onChange={e => setLojaForm(p => ({ ...p, observacao: e.target.value }))}
-                  rows={2}
-                  className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
+                  rows={2} className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
               </Field>
 
-              <button
-                onClick={submitLoja}
-                disabled={pending || !lojaForm.email.trim() || !lojaForm.loja_nome.trim()}
-                className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-              >
+              <button onClick={submitLoja} disabled={pending || !lojaForm.email.trim() || !lojaForm.loja_nome.trim()}
+                className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors">
                 {pending ? 'Liberando...' : 'Liberar acesso'}
               </button>
             </div>
@@ -464,61 +568,38 @@ export function AdminClient({
                   <Inp value={redeForm.rede_nome} onChange={v => setRedeForm(p => ({ ...p, rede_nome: v }))} placeholder="Ex: Cia Cidade Azul" />
                 </Field>
                 <Field label="WhatsApp do dono">
-                  <Inp
-                    value={redeForm.whatsapp}
-                    onChange={v => setRedeForm(p => ({ ...p, whatsapp: maskWhatsApp(v) }))}
-                    type="tel"
-                    placeholder="(48) 99999-9999"
-                  />
+                  <Inp value={redeForm.whatsapp} onChange={v => setRedeForm(p => ({ ...p, whatsapp: maskWhatsApp(v) }))} type="tel" placeholder="(48) 99999-9999" />
                 </Field>
               </div>
 
-              {/* Seletor de lojas */}
               <Field label="Lojas da rede *">
                 <div className="space-y-2">
-                  {/* Chips de lojas selecionadas */}
                   {lojasRede.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {lojasRede.map(l => (
-                        <span key={l.id}
-                          className="inline-flex items-center gap-1 bg-zinc-800 text-white text-xs px-2.5 py-1 rounded-full">
+                        <span key={l.id} className="inline-flex items-center gap-1 bg-zinc-800 text-white text-xs px-2.5 py-1 rounded-full">
                           {l.nome}
-                          <button
-                            type="button"
-                            onClick={() => removerLojaRede(l.id)}
-                            className="opacity-60 hover:opacity-100 leading-none ml-0.5"
-                          >
-                            ×
-                          </button>
+                          <button type="button" onClick={() => setLojasRede(prev => prev.filter(x => x.id !== l.id))}
+                            className="opacity-60 hover:opacity-100 leading-none ml-0.5">×</button>
                         </span>
                       ))}
                     </div>
                   )}
-
-                  {/* Input de busca + dropdown */}
                   <div className="relative" ref={dropdownRef}>
-                    <input
-                      type="text"
-                      value={buscaLoja}
+                    <input type="text" value={buscaLoja}
                       onChange={e => { setBuscaLoja(e.target.value); setShowDropdown(true) }}
                       onFocus={() => setShowDropdown(true)}
                       placeholder="Buscar loja por nome, e-mail ou WhatsApp..."
-                      className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                    />
+                      className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400" />
                     {showDropdown && lojasFiltradas.length > 0 && (
                       <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                         {lojasFiltradas.slice(0, 10).map(l => (
-                          <button
-                            key={l.id}
-                            type="button"
-                            onClick={() => adicionarLojaRede(l)}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 transition-colors"
-                          >
+                          <button key={l.id} type="button"
+                            onClick={() => { setLojasRede(prev => [...prev, l]); setBuscaLoja(''); setShowDropdown(false) }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 transition-colors">
                             <div>
                               <span className="font-medium text-zinc-800">{l.nome}</span>
-                              {l.empresa_nome && (
-                                <span className="text-zinc-400 ml-1.5 text-xs">{l.empresa_nome}</span>
-                              )}
+                              {l.empresa_nome && <span className="text-zinc-400 ml-1.5 text-xs">{l.empresa_nome}</span>}
                             </div>
                             {(l.email || l.whatsapp) && (
                               <div className="text-xs text-zinc-400 mt-0.5">
@@ -535,10 +616,9 @@ export function AdminClient({
                       </div>
                     )}
                   </div>
-
                   {lojasRede.length === 0 && (
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2.5 py-1.5">
-                      Selecione pelo menos uma loja para liberar acesso rede. Clique no item da lista para adicioná-la.
+                      Selecione pelo menos uma loja. Clique no item da lista para adicioná-la.
                     </p>
                   )}
                 </div>
@@ -546,71 +626,306 @@ export function AdminClient({
 
               <Field label="Observação interna">
                 <textarea value={redeForm.observacao} onChange={e => setRedeForm(p => ({ ...p, observacao: e.target.value }))}
-                  rows={2}
-                  className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
+                  rows={2} className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
               </Field>
 
-              <button
-                onClick={submitRede}
+              <button onClick={submitRede}
                 disabled={pending || !redeForm.email.trim() || !redeForm.rede_nome.trim() || lojasRede.length === 0}
-                className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-              >
+                className="bg-zinc-900 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors">
                 {pending ? 'Liberando...' : `Liberar acesso rede${lojasRede.length > 0 ? ` (${lojasRede.length} loja${lojasRede.length > 1 ? 's' : ''})` : ''}`}
               </button>
             </div>
           )}
-
         </div>
 
-        {/* ── Licenças Recentes ── */}
+        {/* ── Licenças de Loja recentes ── */}
         <div className="bg-white rounded-lg border border-zinc-200 p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-800">
-              Licenças recentes
-              {busca && liberacoesFiltradas.length !== liberacoes.length && (
-                <span className="ml-2 text-xs font-normal text-zinc-400">
-                  {liberacoesFiltradas.length} resultado{liberacoesFiltradas.length !== 1 ? 's' : ''}
-                </span>
-              )}
-            </h2>
-            {stats.total_pendentes > 0 && !busca && (
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-800">Licenças de Loja recentes</h2>
+              <p className="text-xs text-zinc-400 mt-0.5">Licenças faturáveis · R$149/mês por loja ativa</p>
+            </div>
+            {stats.total_pendentes > 0 && (
               <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full font-medium">
                 {stats.total_pendentes} pendente{stats.total_pendentes > 1 ? 's' : ''}
               </span>
             )}
           </div>
 
-          {liberacoesFiltradas.length === 0 && (
+          {filtrar(liberacoesLoja).length === 0 && (
             <p className="text-sm text-zinc-400">
-              {busca ? 'Nenhum resultado para a busca.' : 'Nenhuma liberação registrada.'}
+              {busca ? 'Nenhum resultado para a busca.' : 'Nenhuma licença de loja registrada.'}
             </p>
           )}
 
           <div className="divide-y divide-zinc-100">
-            {liberacoesFiltradas.map(l => (
-              <div key={l.id} className="py-3 flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium text-zinc-800 truncate">{l.email}</p>
-                  <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
-                    {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
-                    {l.loja_nome && <span className="text-zinc-300">·</span>}
-                    <span>{l.valor_pago ? `R$${l.valor_pago}/mês` : 'R$149/mês'}</span>
-                    {l.prazo_acesso && (
-                      <><span className="text-zinc-300">·</span><span>trial até {l.prazo_acesso}</span></>
+            {filtrar(liberacoesLoja).map(l => (
+              <div key={l.id} className="py-3 space-y-3">
+
+                {/* Linha principal */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium text-zinc-800 truncate">{l.email}</p>
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
+                      {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
+                      {l.loja_nome && <span className="text-zinc-300">·</span>}
+                      <span>{l.valor_pago ? `R$${l.valor_pago}/mês` : 'R$149/mês'}</span>
+                      {l.prazo_acesso && <><span className="text-zinc-300">·</span><span>trial até {l.prazo_acesso}</span></>}
+                      <span className="text-zinc-300">·</span>
+                      <span>{formatDate(l.criado_em)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <StatusBadge value={l.status} />
+                    <button onClick={() => openEdit(l)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${editandoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                      Editar
+                    </button>
+                    <button onClick={() => openAdicionarAcesso(l.id)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${adicionandoAcessoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                      + Acesso
+                    </button>
+                    {l.status === 'pendente' && (
+                      <button onClick={() => handleCancelar(l.id)} disabled={pending}
+                        className="text-xs text-zinc-400 hover:text-red-600 transition-colors">
+                        Cancelar
+                      </button>
                     )}
-                    <span className="text-zinc-300">·</span>
-                    <span>{formatDate(l.criado_em)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <StatusBadge value={l.status} />
-                  {l.status === 'pendente' && (
-                    <button onClick={() => handleCancelar(l.id)} disabled={pending}
-                      className="text-xs text-zinc-400 hover:text-red-600 transition-colors">
-                      Cancelar
+
+                {/* Formulário: Editar */}
+                {editandoId === l.id && (
+                  <div className={formInline}>
+                    <p className="text-xs font-semibold text-zinc-700">Editar licença</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="Nome da loja">
+                        <Inp value={editForm.nome} onChange={v => setEditForm(p => ({ ...p, nome: v }))} />
+                      </Field>
+                      <Field label="WhatsApp da loja">
+                        <Inp value={editForm.whatsapp} onChange={v => setEditForm(p => ({ ...p, whatsapp: maskWhatsApp(v) }))} type="tel" placeholder="(48) 99999-9999" />
+                      </Field>
+                      <Field label="Valor mensal (R$)">
+                        <Inp value={editForm.valor} onChange={v => setEditForm(p => ({ ...p, valor: v }))} placeholder="149,00" />
+                      </Field>
+                      <Field label="Status">
+                        <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className={selectCls}>
+                          {STATUS_LICENCA.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                    <Field label="Observação interna">
+                      <textarea value={editForm.obs} onChange={e => setEditForm(p => ({ ...p, obs: e.target.value }))}
+                        rows={2} className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
+                    </Field>
+                    <div className="flex gap-2">
+                      <button onClick={() => submitEdit(l)} disabled={pending} className={btnPrimario}>
+                        {pending ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button onClick={() => setEditandoId(null)} className={btnSecundario}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulário: Adicionar acesso */}
+                {adicionandoAcessoId === l.id && (
+                  <div className={formInline}>
+                    <p className="text-xs font-semibold text-zinc-700">Adicionar acesso à loja</p>
+                    <p className="text-xs text-zinc-500">
+                      Loja: <span className="font-medium text-zinc-700">{l.loja_nome ?? '—'}</span>
+                      <span className="ml-2 text-zinc-300">·</span>
+                      <span className="ml-2 text-zinc-400">Acesso brinde — não gera cobrança</span>
+                    </p>
+
+                    {resultadoAcesso !== null ? (
+                      <div className={`rounded-md px-3 py-2 text-xs border ${
+                        resultadoAcesso === 'vinculado'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                      }`}>
+                        {resultadoAcesso === 'vinculado'
+                          ? 'Acesso vinculado. O usuário já pode logar nessa loja.'
+                          : 'Pendência criada. O acesso será ativado quando o usuário criar a conta.'}
+                      </div>
+                    ) : (
+                      <>
+                        <Field label="E-mail do acesso *">
+                          <Inp value={acessoEmail} onChange={v => setAcessoEmail(v)} type="email" placeholder="usuario@email.com" />
+                        </Field>
+                      </>
+                    )}
+
+                    <div className="flex gap-2">
+                      {resultadoAcesso === null && (
+                        <button onClick={() => submitAdicionarAcesso(l)} disabled={pending || !acessoEmail.trim()} className={btnPrimario}>
+                          {pending ? 'Adicionando...' : 'Adicionar acesso'}
+                        </button>
+                      )}
+                      <button onClick={() => { setAdicionandoAcessoId(null); setAcessoEmail(''); setResultadoAcesso(null) }}
+                        className={btnSecundario}>
+                        {resultadoAcesso !== null ? 'Fechar' : 'Cancelar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Licenças de Rede recentes ── */}
+        <div className="bg-white rounded-lg border border-zinc-200 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-800">Licenças de Rede recentes</h2>
+            <p className="text-xs text-zinc-400 mt-0.5">Acessos brinde · vincula dono/rede a lojas existentes sem cobrança</p>
+          </div>
+
+          {filtrar(liberacoesRede).length === 0 && (
+            <p className="text-sm text-zinc-400">
+              {busca ? 'Nenhum resultado para a busca.' : 'Nenhuma licença de rede registrada.'}
+            </p>
+          )}
+
+          <div className="divide-y divide-zinc-100">
+            {filtrar(liberacoesRede).map(l => (
+              <div key={l.id} className="py-3 space-y-3">
+
+                {/* Linha principal */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium text-zinc-800 truncate">{l.email}</p>
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
+                      {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
+                      {l.loja_nome && <span className="text-zinc-300">·</span>}
+                      <span className="bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded text-[10px] font-medium">Rede</span>
+                      <span className="text-zinc-300">·</span>
+                      <span>{formatDate(l.criado_em)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <StatusBadge value={l.status} />
+                    <button onClick={() => openEdit(l)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${editandoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                      Editar
                     </button>
-                  )}
+                    <button onClick={() => openAnexarLoja(l.id)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${anexandoRedeId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                      Anexar loja
+                    </button>
+                    {l.status === 'pendente' && (
+                      <button onClick={() => handleCancelar(l.id)} disabled={pending}
+                        className="text-xs text-zinc-400 hover:text-red-600 transition-colors">
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Formulário: Editar (rede — só status e obs) */}
+                {editandoId === l.id && (
+                  <div className={formInline}>
+                    <p className="text-xs font-semibold text-zinc-700">Editar acesso rede</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="Status">
+                        <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className={selectCls}>
+                          {STATUS_LICENCA.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                    <Field label="Observação interna">
+                      <textarea value={editForm.obs} onChange={e => setEditForm(p => ({ ...p, obs: e.target.value }))}
+                        rows={2} className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
+                    </Field>
+                    <div className="flex gap-2">
+                      <button onClick={() => submitEdit(l)} disabled={pending} className={btnPrimario}>
+                        {pending ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button onClick={() => setEditandoId(null)} className={btnSecundario}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulário: Anexar loja */}
+                {anexandoRedeId === l.id && (
+                  <div className={formInline}>
+                    <p className="text-xs font-semibold text-zinc-700">Anexar loja ao dono</p>
+                    <p className="text-xs text-zinc-500">
+                      Dono: <span className="font-medium text-zinc-700">{l.email}</span>
+                      <span className="ml-2 text-zinc-300">·</span>
+                      <span className="ml-2 text-zinc-400">Acesso brinde — não gera cobrança</span>
+                    </p>
+
+                    {resultadoAnexar !== null ? (
+                      <div className={`rounded-md px-3 py-2 text-xs border ${
+                        resultadoAnexar.resultado === 'vinculado'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                      }`}>
+                        {resultadoAnexar.resultado === 'vinculado'
+                          ? `${resultadoAnexar.count} loja${resultadoAnexar.count > 1 ? 's' : ''} vinculada${resultadoAnexar.count > 1 ? 's' : ''}. O dono já pode ver no app.`
+                          : `${resultadoAnexar.count} pendência${resultadoAnexar.count > 1 ? 's' : ''} criada${resultadoAnexar.count > 1 ? 's' : ''}. Ativará quando o dono criar a conta.`}
+                      </div>
+                    ) : (
+                      <Field label="Lojas a anexar *">
+                        <div className="space-y-2">
+                          {lojasAnexar.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {lojasAnexar.map(lj => (
+                                <span key={lj.id} className="inline-flex items-center gap-1 bg-zinc-800 text-white text-xs px-2.5 py-1 rounded-full">
+                                  {lj.nome}
+                                  <button type="button" onClick={() => setLojasAnexar(prev => prev.filter(x => x.id !== lj.id))}
+                                    className="opacity-60 hover:opacity-100 leading-none ml-0.5">×</button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="relative" ref={anexarDropdownRef}>
+                            <input type="text" value={buscaAnexar}
+                              onChange={e => { setBuscaAnexar(e.target.value); setShowAnexarDropdown(true) }}
+                              onFocus={() => setShowAnexarDropdown(true)}
+                              placeholder="Buscar loja por nome..."
+                              className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+                            {showAnexarDropdown && lojasAnexarFiltradas.length > 0 && (
+                              <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-md shadow-lg max-h-36 overflow-y-auto">
+                                {lojasAnexarFiltradas.slice(0, 8).map(lj => (
+                                  <button key={lj.id} type="button"
+                                    onClick={() => { setLojasAnexar(prev => [...prev, lj]); setBuscaAnexar(''); setShowAnexarDropdown(false) }}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 transition-colors">
+                                    <span className="font-medium text-zinc-800">{lj.nome}</span>
+                                    {lj.empresa_nome && <span className="text-zinc-400 ml-1.5 text-xs">{lj.empresa_nome}</span>}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {showAnexarDropdown && buscaAnexar && lojasAnexarFiltradas.length === 0 && (
+                              <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-md shadow-sm px-3 py-2">
+                                <p className="text-sm text-zinc-400">Nenhuma loja encontrada.</p>
+                              </div>
+                            )}
+                          </div>
+                          {lojasAnexar.length === 0 && (
+                            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2.5 py-1.5">
+                              Selecione ao menos uma loja para anexar.
+                            </p>
+                          )}
+                        </div>
+                      </Field>
+                    )}
+
+                    <div className="flex gap-2">
+                      {resultadoAnexar === null && (
+                        <button onClick={() => submitAnexarLoja(l.email)}
+                          disabled={pending || lojasAnexar.length === 0} className={btnPrimario}>
+                          {pending ? 'Anexando...' : `Anexar${lojasAnexar.length > 0 ? ` (${lojasAnexar.length})` : ''}`}
+                        </button>
+                      )}
+                      <button onClick={() => { setAnexandoRedeId(null); setLojasAnexar([]); setBuscaAnexar(''); setResultadoAnexar(null) }}
+                        className={btnSecundario}>
+                        {resultadoAnexar !== null ? 'Fechar' : 'Cancelar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
