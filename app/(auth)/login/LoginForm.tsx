@@ -8,8 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
-interface LogLine { msg: string; ok: boolean }
-
 function mensagemFriendly(error: { message: string; status?: number }): string {
   if (error.status === 429)
     return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
@@ -35,21 +33,11 @@ export function LoginForm() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
-  const [logs, setLogs] = useState<LogLine[]>([])
-
-  function log(msg: string, ok = true) {
-    setLogs(prev => [...prev, { msg, ok }])
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
-    setLogs([])
     setCarregando(true)
-
-    log(`origin: ${window.location.origin}`)
-    log(`e-mail: ${email.trim()}`)
-    log('chamando signInWithPassword...')
 
     try {
       const supabase = createClient()
@@ -59,36 +47,25 @@ export function LoginForm() {
       })
 
       if (error) {
-        log(`ERRO ${error.status ?? ''}: ${error.message}`, false)
         setErro(mensagemFriendly(error))
         setCarregando(false)
         return
       }
 
-      log('signInWithPassword OK')
-      log('verificando sessão nos cookies...')
-
       const { data: sessionCheck } = await supabase.auth.getSession()
       const sess = sessionCheck.session
 
       if (!sess) {
-        log('ERRO: sessão não encontrada após login — cookie não foi criado', false)
-        log('possível causa: origem IP não confiada, cookie bloqueado', false)
         setErro('Login OK mas sessão não foi salva. Acesse /debug/auth para diagnosticar.')
         setCarregando(false)
         return
       }
 
-      log(`sessão OK — ${sess.user.email}`)
-      log(`expira: ${new Date(sess.expires_at! * 1000).toLocaleString('pt-BR')}`)
       const destino = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard'
-      log(`redirecionando para ${destino}...`)
-
-      // Hard navigation — garante envio correto dos cookies sem race condition
       window.location.href = destino
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      log(`EXCEÇÃO: ${msg}`, false)
+      console.error('[login]', msg)
       setErro('Erro de conexão. Verifique sua internet e tente novamente.')
       setCarregando(false)
     }
@@ -150,18 +127,6 @@ export function LoginForm() {
       <Button type="submit" className="w-full" disabled={carregando}>
         {carregando ? 'Entrando...' : 'Entrar'}
       </Button>
-
-      {/* Painel de diagnóstico — visível na tela, sem precisar de DevTools */}
-      {logs.length > 0 && (
-        <div className="rounded-xl bg-gray-950 p-3 space-y-0.5">
-          <p className="text-[10px] text-gray-500 font-semibold tracking-wide mb-1.5">DIAGNÓSTICO</p>
-          {logs.map((l, i) => (
-            <p key={i} className={`text-[11px] font-mono leading-snug ${l.ok ? 'text-green-400' : 'text-red-400'}`}>
-              {l.ok ? '✓' : '✗'} {l.msg}
-            </p>
-          ))}
-        </div>
-      )}
 
       <p className="text-center text-sm text-muted-foreground">
         Não tem conta?{' '}

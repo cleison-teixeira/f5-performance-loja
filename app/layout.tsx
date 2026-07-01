@@ -12,16 +12,16 @@ export const metadata: Metadata = {
   description: 'Motor de recompra para lojas',
   icons: {
     icon: '/branding/favicon.png',
-    apple: '/branding/app-icon-dark.png',
+    apple: '/branding/apple-icon.png',
   },
   openGraph: {
     title: 'F5 Recompra',
     description: 'Motor de recompra para lojas',
-    images: [{ url: '/branding/og-image.png' }],
+    images: [{ url: '/branding/app-icon.png' }],
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/branding/og-image.png'],
+    images: ['/branding/app-icon.png'],
   },
 }
 

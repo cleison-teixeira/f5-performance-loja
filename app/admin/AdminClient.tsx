@@ -395,9 +395,9 @@ export function AdminClient({
       {/* Header */}
       <header className="bg-zinc-900 text-white">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/branding/logo-horizontal-dark.png" alt="F5 Recompra" className="h-8 w-auto" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-zinc-500 border-l border-zinc-700 pl-3">Admin</span>
+          <div>
+            <h1 className="text-sm font-bold tracking-widest uppercase text-zinc-100">Admin F5</h1>
+            <p className="text-xs text-zinc-400 mt-0.5">Gestão de licenças</p>
           </div>
           <div className="flex items-center gap-4">
             <a href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors">App →</a>
