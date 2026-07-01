@@ -50,6 +50,7 @@ interface Props {
   rankingLojas: RankingLojasItem[]
   subtitulo?: string
   taxaConversao: TaxaConversaoRecompra
+  multiLoja?: boolean
 }
 
 export function DashboardView(props: Props) {
@@ -109,6 +110,7 @@ export function DashboardView(props: Props) {
       rankingLojas={props.rankingLojas}
       subtitulo={props.subtitulo}
       taxaConversao={props.taxaConversao}
+      multiLoja={props.multiLoja}
     />
   )
 }

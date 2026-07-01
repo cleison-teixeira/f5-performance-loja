@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { FormLoja } from './FormLoja'
-import { FormAdicionarLoja } from './FormAdicionarLoja'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 
 type LojaCompleta = {
@@ -134,8 +133,6 @@ export default async function ConfigLojaPage({
   }
 
   // Multi-loja: list + optional edit form
-  const empresa_id_padrao = todasLojas[0]?.empresa.id ?? ''
-
   return (
     <div className="space-y-6 max-w-lg mx-auto">
 
@@ -210,7 +207,6 @@ export default async function ConfigLojaPage({
         ))}
       </div>
 
-      <FormAdicionarLoja empresa_id={empresa_id_padrao} />
     </div>
   )
 }

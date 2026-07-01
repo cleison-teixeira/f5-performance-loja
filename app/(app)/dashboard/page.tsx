@@ -743,6 +743,7 @@ export default async function DashboardPage() {
       rankingLojas={rankingLojas}
       subtitulo={subtitulo}
       taxaConversao={taxaConversao}
+      multiLoja={multiLoja}
     />
   )
 }

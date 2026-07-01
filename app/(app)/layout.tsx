@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar role={role} />
       <div className="flex flex-col flex-1 min-w-0">
         <Header nomeUsuario={perfil?.nome ?? ''} />
-        {ctx && ctx.lojas.length >= 1 && (
+        {ctx && ctx.lojas.length > 1 && (
           <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
         )}
         <main className="flex-1 p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">

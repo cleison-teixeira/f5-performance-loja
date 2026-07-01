@@ -44,6 +44,7 @@ interface Props {
   rankingLojas: RankingLojasItem[]
   subtitulo?: string
   taxaConversao: TaxaConversaoRecompra
+  multiLoja?: boolean
 }
 
 const AVATAR_BG = ['bg-amber-500', 'bg-slate-400', 'bg-orange-400', 'bg-blue-400', 'bg-violet-400']
@@ -69,6 +70,7 @@ export function DashboardDono({
   rankingLojas,
   subtitulo,
   taxaConversao,
+  multiLoja = false,
 }: Props) {
   const { totalPotencial, qtdOportunidades, potencial7Dias, qtdClientes7Dias } = dinheiroMesaInfo
 
@@ -82,9 +84,11 @@ export function DashboardDono({
           <h1 className="text-xl font-semibold tracking-tight">Painel de recompra</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{subtitulo ?? `${loja.nome} · Dinheiro na mesa, recompras em aberto e fila da equipe.`}</p>
         </div>
-        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex-none mt-1">
-          Multi-loja
-        </span>
+        {multiLoja && (
+          <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex-none mt-1">
+            Multi-loja
+          </span>
+        )}
       </div>
 
       {/* ══ 2. DINHEIRO NA MESA ══ */}
