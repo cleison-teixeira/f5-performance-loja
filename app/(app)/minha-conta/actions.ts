@@ -23,7 +23,6 @@ export async function salvarLoja(dados: {
   nome: string
   documento: string
   nicho: string
-  loja_email: string
   loja_whatsapp: string
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -42,7 +41,6 @@ export async function salvarLoja(dados: {
         nome: dados.nome.trim(),
         documento: dados.documento.trim() || null,
         nichos: dados.nicho.trim() ? [dados.nicho.trim()] : [],
-        email: dados.loja_email.trim() || null,
         whatsapp: dados.loja_whatsapp.trim() || null,
       })
       .eq('id', dados.loja_id)
@@ -56,8 +54,13 @@ export async function salvarLoja(dados: {
 
 export async function salvarEndereco(dados: {
   loja_id: string
+  cep: string
+  rua: string
+  numero: string
+  bairro: string
   cidade: string
-  endereco: string
+  estado: string
+  complemento: string
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
     const supabase = await createClient()
@@ -71,8 +74,13 @@ export async function salvarEndereco(dados: {
     const { error } = await admin
       .from('lojas')
       .update({
+        cep: dados.cep.trim() || null,
+        rua: dados.rua.trim() || null,
+        numero: dados.numero.trim() || null,
+        bairro: dados.bairro.trim() || null,
         cidade: dados.cidade.trim() || null,
-        endereco: dados.endereco.trim() || null,
+        estado: dados.estado.trim() || null,
+        complemento: dados.complemento.trim() || null,
       })
       .eq('id', dados.loja_id)
 

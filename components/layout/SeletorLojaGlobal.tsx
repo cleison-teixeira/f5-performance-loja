@@ -1,7 +1,6 @@
 'use client'
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { setLojaContexto } from '@/lib/loja/actions'
 
 interface Props {
@@ -36,14 +35,6 @@ export function SeletorLojaGlobal({ lojas, lojaAtiva }: Props) {
           <option key={l.id} value={l.id}>{l.nome}</option>
         ))}
       </select>
-      {umaLoja && (
-        <Link
-          href="/configuracoes/loja"
-          className="text-xs text-muted-foreground hover:text-primary shrink-0 transition-colors"
-        >
-          + Adicionar loja
-        </Link>
-      )}
     </div>
   )
 }

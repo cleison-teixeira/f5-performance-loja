@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { normalizarNicho } from '@/lib/config/produtos-segmentos'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { FormMinhaConta } from './FormMinhaConta'
 
 export type LojaData = {
@@ -14,6 +15,12 @@ export type LojaData = {
   whatsapp: string | null
   cidade: string | null
   endereco: string | null
+  cep: string | null
+  rua: string | null
+  numero: string | null
+  bairro: string | null
+  estado: string | null
+  complemento: string | null
   nicho: string
 }
 
@@ -44,7 +51,7 @@ export default async function MinhaContaPage() {
 
   const { data: membrosData } = await admin
     .from('membros_loja')
-    .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, nichos)')
+    .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos)')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
 
@@ -56,6 +63,7 @@ export default async function MinhaContaPage() {
   }, membrosData[0].role as string)
 
   const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
+  const isRede = !isAcessoLoja(role)
 
   // Build deduplicated lojas
   const seen = new Set<string>()
@@ -65,6 +73,8 @@ export default async function MinhaContaPage() {
     type LojaRaw = {
       id: string; nome: string; documento: string | null; email: string | null
       whatsapp: string | null; cidade: string | null; endereco: string | null
+      cep: string | null; rua: string | null; numero: string | null
+      bairro: string | null; estado: string | null; complemento: string | null
       nichos: string[] | null
     }
     const lojaRaw = m.lojas as unknown as LojaRaw | LojaRaw[] | null
@@ -82,6 +92,12 @@ export default async function MinhaContaPage() {
       whatsapp: lojaItem.whatsapp,
       cidade: lojaItem.cidade,
       endereco: lojaItem.endereco,
+      cep: lojaItem.cep,
+      rua: lojaItem.rua,
+      numero: lojaItem.numero,
+      bairro: lojaItem.bairro,
+      estado: lojaItem.estado,
+      complemento: lojaItem.complemento,
       nicho: normalizarNicho(rawNicho),
     })
   }
@@ -120,6 +136,7 @@ export default async function MinhaContaPage() {
       podeEditar={podeEditar}
       assinatura={assinatura}
       lojasVinculadas={lojasVinculadas}
+      isRede={isRede}
     />
   )
 }

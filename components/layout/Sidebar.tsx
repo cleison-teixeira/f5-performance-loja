@@ -22,7 +22,7 @@ const operacaoItems = [
 ]
 
 const gestaoItemsBase = [
-  { href: '/configuracoes/loja', label: 'Loja', icon: Building2 },
+  { href: '/minha-conta', label: 'Minha Conta', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
 ]
 
