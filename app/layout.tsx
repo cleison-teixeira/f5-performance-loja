@@ -5,8 +5,24 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+  ),
   title: 'F5 Recompra',
-  description: 'Motor de recompra para lojas. Recupere vendas de clientes que já compraram.',
+  description: 'Motor de recompra para lojas',
+  icons: {
+    icon: '/branding/favicon.png',
+    apple: '/branding/app-icon-dark.png',
+  },
+  openGraph: {
+    title: 'F5 Recompra',
+    description: 'Motor de recompra para lojas',
+    images: [{ url: '/branding/og-image.png' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/branding/og-image.png'],
+  },
 }
 
 export const viewport: Viewport = {
