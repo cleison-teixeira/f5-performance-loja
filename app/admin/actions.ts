@@ -106,15 +106,15 @@ export async function liberarAcesso(dados: {
     }
     const loja_id = lojaData.id as string
 
-    // 3. Buscar usuário pelo e-mail
-    const { data: authData } = await admin.auth.admin.listUsers()
-    const usuarioAuth = authData?.users.find(u => u.email?.toLowerCase() === email)
+    // 3. Buscar usuário pelo e-mail (direto em auth.users via RPC — sem paginação)
+    const { data: authRows } = await admin.rpc('buscar_auth_user_por_email', { p_email: email })
+    const usuarioAuthId = authRows?.[0]?.id ?? null
 
-    if (usuarioAuth) {
+    if (usuarioAuthId) {
       // 4a. Usuário existe → garantir perfil → criar vínculo
       await admin.from('perfis').upsert(
         {
-          id: usuarioAuth.id,
+          id: usuarioAuthId,
           nome: dados.responsavel_nome.trim() || email.split('@')[0],
           whatsapp: dados.responsavel_whatsapp.trim() || null,
         },
@@ -122,7 +122,7 @@ export async function liberarAcesso(dados: {
       )
 
       await admin.from('membros_loja').upsert(
-        { loja_id, perfil_id: usuarioAuth.id, role: 'dono', ativo: true },
+        { loja_id, perfil_id: usuarioAuthId, role: 'dono', ativo: true },
         { onConflict: 'loja_id,perfil_id' }
       )
 
@@ -326,10 +326,8 @@ export async function buscarUsuarioPorEmail(email: string): Promise<{
     if (!user) return { ok: false, erro: 'Sem permissão' }
 
     const admin = createAdminClient()
-    const { data: authData } = await admin.auth.admin.listUsers()
-    const encontrado = authData?.users.find(
-      u => u.email?.toLowerCase() === email.toLowerCase().trim()
-    )
+    const { data: authRows } = await admin.rpc('buscar_auth_user_por_email', { p_email: email.toLowerCase().trim() })
+    const encontrado = authRows?.[0] ?? null
 
     if (!encontrado) return { ok: false, erro: 'Usuário não encontrado no sistema' }
 
@@ -485,17 +483,17 @@ export async function liberarRede(dados: {
     const admin = createAdminClient()
     const email = dados.email.trim().toLowerCase()
 
-    const { data: authData } = await admin.auth.admin.listUsers()
-    const usuarioAuth = authData?.users.find(u => u.email?.toLowerCase() === email)
+    const { data: authRows } = await admin.rpc('buscar_auth_user_por_email', { p_email: email })
+    const usuarioAuthId = authRows?.[0]?.id ?? null
 
-    if (usuarioAuth) {
+    if (usuarioAuthId) {
       if (dados.whatsapp.trim()) {
-        await admin.from('perfis').update({ whatsapp: dados.whatsapp.trim() }).eq('id', usuarioAuth.id)
+        await admin.from('perfis').update({ whatsapp: dados.whatsapp.trim() }).eq('id', usuarioAuthId)
       }
       await Promise.all(
         dados.loja_ids.map(loja_id =>
           admin.from('membros_loja').upsert(
-            { loja_id, perfil_id: usuarioAuth.id, role: 'dono', ativo: true },
+            { loja_id, perfil_id: usuarioAuthId, role: 'dono', ativo: true },
             { onConflict: 'loja_id,perfil_id' }
           )
         )
@@ -551,16 +549,16 @@ export async function adicionarAcessoLoja(dados: {
     const admin = createAdminClient()
     const email = dados.email.trim().toLowerCase()
 
-    const { data: authData } = await admin.auth.admin.listUsers()
-    const usuarioAuth = authData?.users.find(u => u.email?.toLowerCase() === email)
+    const { data: authRows } = await admin.rpc('buscar_auth_user_por_email', { p_email: email })
+    const usuarioAuthId = authRows?.[0]?.id ?? null
 
-    if (usuarioAuth) {
+    if (usuarioAuthId) {
       await admin.from('perfis').upsert(
-        { id: usuarioAuth.id, nome: dados.nome.trim() || email.split('@')[0] },
+        { id: usuarioAuthId, nome: dados.nome.trim() || email.split('@')[0] },
         { onConflict: 'id' }
       )
       await admin.from('membros_loja').upsert(
-        { loja_id: dados.loja_id, perfil_id: usuarioAuth.id, role: dados.role, ativo: true },
+        { loja_id: dados.loja_id, perfil_id: usuarioAuthId, role: dados.role, ativo: true },
         { onConflict: 'loja_id,perfil_id' }
       )
       return { ok: true, resultado: 'vinculado' }
