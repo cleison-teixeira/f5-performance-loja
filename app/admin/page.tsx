@@ -29,8 +29,10 @@ export interface LojaSimples {
 }
 
 export interface AdminStats {
-  total_lojas: number
-  total_pendentes: number
+  lojas_ativas: number
+  lojas_pendentes: number
+  redes_ativas: number
+  redes_pendentes: number
   receita_estimada: number
 }
 
@@ -52,7 +54,7 @@ export default async function AdminPage() {
 
   if (!adminMembro) redirect('/dashboard')
 
-  const [lojasRes, empresasRes, liberacoesRes] = await Promise.all([
+  const [lojasRes, empresasRes, liberacoesRes, statsLibRes] = await Promise.all([
     admin
       .from('lojas')
       .select('id, nome, empresa_id, whatsapp')
@@ -67,6 +69,9 @@ export default async function AdminPage() {
       .select('id, email, nome, status, tipo, loja_id, valor_pago, origem, prazo_acesso, criado_em, observacao')
       .order('criado_em', { ascending: false })
       .limit(50),
+    admin
+      .from('liberacoes_acesso')
+      .select('tipo, status, loja_id, email'),
   ])
 
   const empresaMap: Record<string, string> = {}
@@ -103,8 +108,29 @@ export default async function AdminPage() {
     email: lojaEmailMap[l.id as string] ?? null,
   }))
 
-  const totalLojasAtivas = (lojasRes.data ?? []).length
-  const totalPendentes = (liberacoesRes.data ?? []).filter(l => l.status === 'pendente').length
+  const allLib = statsLibRes.data ?? []
+  const STATUS_ATIVO = ['aplicado', 'ativo']
+
+  const lojasAtivasSet = new Set(
+    allLib
+      .filter(l => l.tipo === 'loja' && STATUS_ATIVO.includes(l.status as string) && l.loja_id)
+      .map(l => l.loja_id as string)
+  )
+  const lojasPendentesSet = new Set(
+    allLib
+      .filter(l => l.tipo === 'loja' && l.status === 'pendente' && l.loja_id)
+      .map(l => l.loja_id as string)
+  )
+  const redesAtivasSet = new Set(
+    allLib
+      .filter(l => l.tipo === 'rede' && STATUS_ATIVO.includes(l.status as string))
+      .map(l => (l.email as string).toLowerCase())
+  )
+  const redesPendentesSet = new Set(
+    allLib
+      .filter(l => l.tipo === 'rede' && l.status === 'pendente')
+      .map(l => (l.email as string).toLowerCase())
+  )
 
   const liberacoes: LiberacaoRow[] = (liberacoesRes.data ?? []).map(l => ({
     id: l.id as string,
@@ -122,9 +148,11 @@ export default async function AdminPage() {
   }))
 
   const stats: AdminStats = {
-    total_lojas: totalLojasAtivas,
-    total_pendentes: totalPendentes,
-    receita_estimada: totalLojasAtivas * 149,
+    lojas_ativas: lojasAtivasSet.size,
+    lojas_pendentes: lojasPendentesSet.size,
+    redes_ativas: redesAtivasSet.size,
+    redes_pendentes: redesPendentesSet.size,
+    receita_estimada: lojasAtivasSet.size * 149,
   }
 
   return (

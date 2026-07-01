@@ -427,18 +427,30 @@ export function AdminClient({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
-            <p className="text-xl font-bold text-zinc-900">{stats.total_lojas}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Lojas ativas</p>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+              <p className="text-xl font-bold text-zinc-900">{stats.lojas_ativas}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Lojas ativas</p>
+            </div>
+            <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+              <p className="text-xl font-bold text-yellow-600">{stats.lojas_pendentes}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Lojas pendentes</p>
+            </div>
+            <div className="bg-white rounded-lg border border-green-200 px-4 py-3">
+              <p className="text-xl font-bold text-green-700">{formatBRL(stats.receita_estimada)}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Receita estimada/mês</p>
+            </div>
           </div>
-          <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
-            <p className="text-xl font-bold text-zinc-900">{stats.total_pendentes}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Acessos pendentes</p>
-          </div>
-          <div className="bg-white rounded-lg border border-green-200 px-4 py-3">
-            <p className="text-xl font-bold text-green-700">{formatBRL(stats.receita_estimada)}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Receita estimada/mês</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+              <p className="text-xl font-bold text-zinc-900">{stats.redes_ativas}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Redes ativas</p>
+            </div>
+            <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+              <p className="text-xl font-bold text-yellow-600">{stats.redes_pendentes}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Redes pendentes</p>
+            </div>
           </div>
         </div>
 
@@ -645,9 +657,9 @@ export function AdminClient({
               <h2 className="text-sm font-semibold text-zinc-800">Licenças de Loja recentes</h2>
               <p className="text-xs text-zinc-400 mt-0.5">Licenças faturáveis · R$149/mês por loja ativa</p>
             </div>
-            {stats.total_pendentes > 0 && (
+            {stats.lojas_pendentes > 0 && (
               <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                {stats.total_pendentes} pendente{stats.total_pendentes > 1 ? 's' : ''}
+                {stats.lojas_pendentes} pendente{stats.lojas_pendentes > 1 ? 's' : ''}
               </span>
             )}
           </div>
