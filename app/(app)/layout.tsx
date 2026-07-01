@@ -15,9 +15,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   const admin = createAdminClient()
-  const [{ data: perfil }, { data: todosMembros }] = await Promise.all([
+  const [{ data: perfil }, { data: todosMembros }, { data: libData }] = await Promise.all([
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
     admin.from('membros_loja').select('role').eq('perfil_id', user.id).eq('ativo', true),
+    admin.from('liberacoes_acesso')
+      .select('tipo, status')
+      .eq('email', (user.email ?? '').toLowerCase())
+      .in('status', ['aplicado', 'ativo']),
   ])
 
   if (!todosMembros || todosMembros.length === 0) redirect('/sem-acesso')
@@ -27,8 +31,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
   }, todosMembros[0].role as string)
 
-  const multiLoja = ['dono', 'admin_f5'].includes(role)
-  const ctx = multiLoja ? await getContextoLoja(user.id, true) : null
+  // Seletor só aparece para usuários com acesso rede/brinde (tipo='rede' aplicado/ativo).
+  // role='dono' via +Acesso a múltiplas lojas NÃO é suficiente para ver o seletor.
+  const isAcessoRede = role === 'admin_f5' || (libData ?? []).some(l => l.tipo === 'rede')
+
+  const ctx = isAcessoRede ? await getContextoLoja(user.id, true) : null
 
   return (
     <div className="flex min-h-screen bg-background">
