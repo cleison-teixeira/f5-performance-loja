@@ -45,9 +45,9 @@ export function UserMenu({ nomeUsuario = '' }: UserMenuProps) {
           <p className="text-sm font-medium truncate">{nomeUsuario || 'Usuário'}</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/perfil')} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => router.push('/minha-conta')} className="gap-2 cursor-pointer">
           <User className="h-4 w-4" />
-          Meu perfil
+          Minha Conta
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

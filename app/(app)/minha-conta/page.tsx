@@ -1,0 +1,133 @@
+export const dynamic = 'force-dynamic'
+
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { redirect } from 'next/navigation'
+import { FormMinhaConta } from './FormMinhaConta'
+
+export type LojaData = {
+  id: string
+  nome: string
+  email: string | null
+  whatsapp: string | null
+  cidade: string | null
+  endereco: string | null
+  nichos: string[]
+}
+
+export type PerfilData = {
+  nome: string
+  whatsapp: string | null
+}
+
+export type AssinaturaItem = {
+  id: string
+  tipo: 'loja' | 'rede'
+  status: string
+  valor_pago: number | null
+  prazo_acesso: string | null
+  criado_em: string
+  aplicado_em: string | null
+  loja_nome: string | null
+}
+
+export type LojaVinculada = {
+  id: string
+  nome: string
+}
+
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+
+export default async function MinhaContaPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const admin = createAdminClient()
+
+  const [perfilRes, membrosRes] = await Promise.all([
+    admin.from('perfis').select('nome, whatsapp').eq('id', user.id).maybeSingle(),
+    admin
+      .from('membros_loja')
+      .select('role, loja_id, lojas(id, nome, email, whatsapp, cidade, endereco, nichos)')
+      .eq('perfil_id', user.id)
+      .eq('ativo', true),
+  ])
+
+  if (!membrosRes.data || membrosRes.data.length === 0) redirect('/sem-acesso')
+
+  const role = membrosRes.data.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, membrosRes.data[0].role as string)
+
+  const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
+
+  // Build deduplicated lojas
+  const seen = new Set<string>()
+  const todasLojas: LojaData[] = []
+
+  for (const m of membrosRes.data) {
+    type LojaRaw = {
+      id: string; nome: string; email: string | null; whatsapp: string | null
+      cidade: string | null; endereco: string | null; nichos: string[] | null
+    }
+    const lojaRaw = m.lojas as unknown as LojaRaw | LojaRaw[] | null
+    const lojaItem = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
+    if (!lojaItem || seen.has(lojaItem.id)) continue
+    seen.add(lojaItem.id)
+    todasLojas.push({
+      id: lojaItem.id,
+      nome: lojaItem.nome,
+      email: lojaItem.email,
+      whatsapp: lojaItem.whatsapp,
+      cidade: lojaItem.cidade,
+      endereco: lojaItem.endereco,
+      nichos: Array.isArray(lojaItem.nichos) ? (lojaItem.nichos as string[]) : [],
+    })
+  }
+
+  // Primary loja for editing
+  const loja = todasLojas[0] ?? null
+
+  // Build loja name map for assinatura display
+  const lojaNameMap: Record<string, string> = {}
+  todasLojas.forEach(l => { lojaNameMap[l.id] = l.nome })
+
+  // Assinatura: fetch records by user's email (owner of the license)
+  const { data: libData } = await admin
+    .from('liberacoes_acesso')
+    .select('id, tipo, status, valor_pago, prazo_acesso, criado_em, aplicado_em, loja_id')
+    .eq('email', (user.email ?? '').toLowerCase())
+    .order('criado_em', { ascending: false })
+
+  const assinatura: AssinaturaItem[] = (libData ?? []).map(l => ({
+    id: l.id as string,
+    tipo: (l.tipo as string) === 'rede' ? 'rede' : 'loja',
+    status: l.status as string,
+    valor_pago: l.valor_pago as number | null,
+    prazo_acesso: l.prazo_acesso as string | null,
+    criado_em: l.criado_em as string,
+    aplicado_em: l.aplicado_em as string | null,
+    loja_nome: l.loja_id ? (lojaNameMap[l.loja_id as string] ?? null) : null,
+  }))
+
+  const lojasVinculadas: LojaVinculada[] = todasLojas.map(l => ({ id: l.id, nome: l.nome }))
+
+  const perfil: PerfilData = {
+    nome: (perfilRes.data?.nome as string) ?? '',
+    whatsapp: (perfilRes.data?.whatsapp as string | null) ?? null,
+  }
+
+  return (
+    <FormMinhaConta
+      emailConta={user.email ?? ''}
+      perfil={perfil}
+      loja={loja}
+      todasLojas={todasLojas}
+      podeEditar={podeEditar}
+      assinatura={assinatura}
+      lojasVinculadas={lojasVinculadas}
+    />
+  )
+}
