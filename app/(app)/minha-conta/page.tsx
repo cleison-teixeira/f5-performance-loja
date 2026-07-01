@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { normalizarNicho } from '@/lib/config/produtos-segmentos'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { FormMinhaConta } from './FormMinhaConta'
 
 export type LojaData = {
@@ -63,7 +62,19 @@ export default async function MinhaContaPage() {
   }, membrosData[0].role as string)
 
   const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
-  const isRede = !isAcessoLoja(role)
+
+  // Fetch liberações before building lojas — isRede depends on this
+  const { data: libData } = await admin
+    .from('liberacoes_acesso')
+    .select('id, tipo, status, valor_pago, prazo_acesso, criado_em, aplicado_em, loja_id')
+    .eq('email', (user.email ?? '').toLowerCase())
+    .order('criado_em', { ascending: false })
+
+  // isRede is determined solely by whether this email has an active tipo='rede' liberação.
+  // Role/multi-loja access is irrelevant here — a dono with +Acesso to extra lojas is still a loja user.
+  const isRede = (libData ?? []).some(
+    l => l.tipo === 'rede' && ['aplicado', 'ativo'].includes(l.status as string)
+  )
 
   // Build deduplicated lojas
   const seen = new Set<string>()
@@ -107,13 +118,6 @@ export default async function MinhaContaPage() {
   // Build name map for assinatura
   const lojaNameMap: Record<string, string> = {}
   todasLojas.forEach(l => { lojaNameMap[l.id] = l.nome })
-
-  // Assinatura by user's email
-  const { data: libData } = await admin
-    .from('liberacoes_acesso')
-    .select('id, tipo, status, valor_pago, prazo_acesso, criado_em, aplicado_em, loja_id')
-    .eq('email', (user.email ?? '').toLowerCase())
-    .order('criado_em', { ascending: false })
 
   const assinatura: AssinaturaItem[] = (libData ?? []).map(l => ({
     id: l.id as string,
