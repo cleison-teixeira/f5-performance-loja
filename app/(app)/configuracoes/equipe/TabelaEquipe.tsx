@@ -51,6 +51,11 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
     return false
   }
 
+  function podePinMembro(_m: MembroExibido) {
+    // dono, gerente, admin_f5 configuram PIN para qualquer membro, inclusive si mesmos
+    return podeEditar
+  }
+
   async function handleDesativar(membro_id: string) {
     setDesativando(membro_id)
     setErro(null)
@@ -163,23 +168,27 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               <div className="flex items-center gap-2">
                 <PinBadge m={m} />
               </div>
-              {podeEditarMembro(m) && (
+              {(podeEditarMembro(m) || podePinMembro(m)) && (
                 <div className="flex items-center gap-3 pt-1 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setEditandoId(m.membro_id)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfigurandoPinId(configurandoPinId === m.membro_id ? null : m.membro_id)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {configurandoPinId === m.membro_id ? 'Fechar PIN' : 'Configurar PIN'}
-                  </button>
-                  {m.ativo && (
+                  {podeEditarMembro(m) && (
+                    <button
+                      type="button"
+                      onClick={() => setEditandoId(m.membro_id)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Editar
+                    </button>
+                  )}
+                  {podePinMembro(m) && (
+                    <button
+                      type="button"
+                      onClick={() => setConfigurandoPinId(configurandoPinId === m.membro_id ? null : m.membro_id)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {configurandoPinId === m.membro_id ? 'Fechar PIN' : 'Configurar PIN'}
+                    </button>
+                  )}
+                  {podeEditarMembro(m) && m.ativo && (
                     <button
                       type="button"
                       onClick={() => handleDesativar(m.membro_id)}
@@ -191,7 +200,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                   )}
                 </div>
               )}
-              {configurandoPinId === m.membro_id && (
+              {configurandoPinId === m.membro_id && podePinMembro(m) && (
                 <FormPinMembro
                   membro_id={m.membro_id}
                   loja_id={loja_id}
@@ -262,8 +271,8 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                     </td>
                     {podeEditar && (
                       <td className="px-4 py-3">
-                        {podeEditarMembro(m) ? (
-                          <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3">
+                          {podeEditarMembro(m) && (
                             <button
                               type="button"
                               onClick={() => setEditandoId(m.membro_id)}
@@ -271,6 +280,8 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                             >
                               Editar
                             </button>
+                          )}
+                          {podePinMembro(m) && (
                             <button
                               type="button"
                               onClick={() => setConfigurandoPinId(configurandoPinId === m.membro_id ? null : m.membro_id)}
@@ -278,24 +289,25 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                             >
                               {configurandoPinId === m.membro_id ? 'Fechar' : 'PIN'}
                             </button>
-                            {m.ativo && (
-                              <button
-                                type="button"
-                                onClick={() => handleDesativar(m.membro_id)}
-                                disabled={desativando === m.membro_id}
-                                className="text-xs text-destructive hover:underline disabled:opacity-50"
-                              >
-                                {desativando === m.membro_id ? 'Desativando…' : 'Desativar'}
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                          )}
+                          {podeEditarMembro(m) && m.ativo && (
+                            <button
+                              type="button"
+                              onClick={() => handleDesativar(m.membro_id)}
+                              disabled={desativando === m.membro_id}
+                              className="text-xs text-destructive hover:underline disabled:opacity-50"
+                            >
+                              {desativando === m.membro_id ? 'Desativando…' : 'Desativar'}
+                            </button>
+                          )}
+                          {!podeEditarMembro(m) && !podePinMembro(m) && (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
-                  {configurandoPinId === m.membro_id && podeEditarMembro(m) && (
+                  {configurandoPinId === m.membro_id && podePinMembro(m) && (
                     <tr key={`${m.membro_id}-pin`} className="border-b last:border-0">
                       <td colSpan={podeEditar ? 6 : 5} className="px-4 pb-3">
                         <FormPinMembro
