@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { getContextoLoja } from '@/lib/loja/contexto'
+import { getOperadorAtual, lojaTemPinAtivo } from '@/lib/operador/contexto'
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
@@ -17,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const admin = createAdminClient()
   const [{ data: perfil }, { data: todosMembros }, { data: libData }] = await Promise.all([
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
-    admin.from('membros_loja').select('role').eq('perfil_id', user.id).eq('ativo', true),
+    admin.from('membros_loja').select('role, loja_id').eq('perfil_id', user.id).eq('ativo', true),
     admin.from('liberacoes_acesso')
       .select('tipo, status')
       .eq('email', (user.email ?? '').toLowerCase())
@@ -32,16 +33,43 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }, todosMembros[0].role as string)
 
   // Seletor só aparece para usuários com acesso rede/brinde (tipo='rede' aplicado/ativo).
-  // role='dono' via +Acesso a múltiplas lojas NÃO é suficiente para ver o seletor.
   const isAcessoRede = role === 'admin_f5' || (libData ?? []).some(l => l.tipo === 'rede')
 
   const ctx = isAcessoRede ? await getContextoLoja(user.id, true) : null
 
+  // ── Operador/PIN — somente Acesso Loja ────────────────────────────────────────
+  // Acesso Dono/multi-lojas (isAcessoRede=true) nunca passa por este bloco.
+  let roleEfetivo = role
+  let nomeEfetivo = perfil?.nome ?? ''
+  let temOperadorPin = false
+
+  if (!isAcessoRede) {
+    const lojaId = (todosMembros[0] as { loja_id?: string }).loja_id ?? null
+
+    if (lojaId) {
+      const operador = await getOperadorAtual(lojaId)
+
+      if (operador) {
+        roleEfetivo = operador.role
+        nomeEfetivo = operador.nome
+        temOperadorPin = true
+      } else {
+        const pinAtivo = await lojaTemPinAtivo(lojaId)
+        if (pinAtivo) redirect('/selecionar-operador')
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar role={roleEfetivo} />
       <div className="flex flex-col flex-1 min-w-0">
-        <Header nomeUsuario={perfil?.nome ?? ''} role={role} />
+        <Header
+          nomeUsuario={nomeEfetivo}
+          role={roleEfetivo}
+          temOperadorPin={temOperadorPin}
+        />
         {ctx && ctx.lojas.length > 1 && (
           <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
         )}
@@ -49,7 +77,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
-      <BottomNav role={role} />
+      <BottomNav role={roleEfetivo} />
     </div>
   )
 }

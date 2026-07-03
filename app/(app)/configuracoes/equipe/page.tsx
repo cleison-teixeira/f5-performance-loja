@@ -15,6 +15,8 @@ export interface MembroExibido {
   role: string
   ativo: boolean
   percentual_comissao: number
+  pin_ativo: boolean
+  tem_pin_hash: boolean
 }
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
@@ -74,14 +76,13 @@ export default async function ConfigEquipePage() {
   const loja_id = ctx.lojaId
   const lojaNome = ctx.lojaNome
 
-  // Members for selected loja
+  // Fetch members including pin_ativo and pin_hash presence (never expose hash value)
   const { data: membros } = await admin
     .from('membros_loja')
-    .select('id, role, ativo, perfil_id, perfis(nome, whatsapp)')
+    .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, perfis(nome, whatsapp)')
     .eq('loja_id', loja_id)
     .order('role')
 
-  // Comissões (kept for data completeness)
   const { data: regrasData } = await admin
     .from('regras_comissao')
     .select('vendedora_id, percentual')
@@ -102,6 +103,8 @@ export default async function ConfigEquipePage() {
       role: m.role as string,
       ativo: m.ativo as boolean,
       percentual_comissao: comissaoPorId[m.perfil_id as string] ?? 0,
+      pin_ativo: (m.pin_ativo as boolean) ?? false,
+      tem_pin_hash: !!(m.pin_hash),  // boolean only — never expose the hash
     }
   })
 

@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { PinEntryClient } from './PinEntryClient'
@@ -11,10 +10,7 @@ interface Props {
 }
 
 export async function PinGuard({ lojaId, role, rotaAtual, children }: Props) {
-  // admin_f5 passa direto
   if (role === 'admin_f5') return <>{children}</>
-
-  // sem loja resolvida: passa (sem contexto para verificar PIN)
   if (!lojaId) return <>{children}</>
 
   const admin = createAdminClient()
@@ -32,11 +28,6 @@ export async function PinGuard({ lojaId, role, rotaAtual, children }: Props) {
     redirect('/minha-conta?aviso=sem-pin')
   }
 
-  // Com PIN: verificar cookie de desbloqueio
-  const cookieStore = await cookies()
-  const desbloqueado = cookieStore.get(`f5_gestao_ok_${lojaId}`)?.value === '1'
-
-  if (desbloqueado) return <>{children}</>
-
-  return <PinEntryClient lojaId={lojaId} />
+  // Com PIN: sempre pede PIN a cada acesso (estado local no PinEntryClient)
+  return <PinEntryClient lojaId={lojaId}>{children}</PinEntryClient>
 }

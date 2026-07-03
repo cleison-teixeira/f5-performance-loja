@@ -2,6 +2,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { toE164 } from '@/lib/whatsapp/mask'
+import { hashPin } from '@/lib/pin/gestao'
+import { canAccessEquipe } from '@/lib/permissoes/roles'
 
 export async function addMembro(dados: {
   loja_id: string
@@ -186,6 +188,101 @@ export async function editarMembro(dados: {
       )
     }
 
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+export async function salvarPinMembro(dados: {
+  membro_id: string
+  loja_id: string
+  pin: string
+  pin_confirma: string
+}): Promise<{ ok: boolean; erro?: string }> {
+  if (dados.pin !== dados.pin_confirma) return { ok: false, erro: 'Os PINs não coincidem.' }
+  if (!/^\d{4,6}$/.test(dados.pin)) return { ok: false, erro: 'PIN deve ter 4 a 6 dígitos numéricos.' }
+
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado.' }
+
+    const admin = createAdminClient()
+
+    const { data: callerMembro } = await admin
+      .from('membros_loja')
+      .select('role')
+      .eq('loja_id', dados.loja_id)
+      .eq('perfil_id', user.id)
+      .eq('ativo', true)
+      .maybeSingle()
+
+    const callerRole = callerMembro?.role as string | undefined
+    if (!callerRole || !canAccessEquipe(callerRole)) {
+      return { ok: false, erro: 'Sem permissão para configurar PIN.' }
+    }
+
+    const { data: alvo } = await admin
+      .from('membros_loja')
+      .select('id')
+      .eq('id', dados.membro_id)
+      .eq('loja_id', dados.loja_id)
+      .maybeSingle()
+    if (!alvo) return { ok: false, erro: 'Membro não encontrado.' }
+
+    const pin_hash = hashPin(dados.pin)
+    const { error } = await admin
+      .from('membros_loja')
+      .update({ pin_hash, pin_ativo: true })
+      .eq('id', dados.membro_id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+export async function togglePinMembro(dados: {
+  membro_id: string
+  loja_id: string
+  ativo: boolean
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado.' }
+
+    const admin = createAdminClient()
+
+    const { data: callerMembro } = await admin
+      .from('membros_loja')
+      .select('role')
+      .eq('loja_id', dados.loja_id)
+      .eq('perfil_id', user.id)
+      .eq('ativo', true)
+      .maybeSingle()
+
+    const callerRole = callerMembro?.role as string | undefined
+    if (!callerRole || !canAccessEquipe(callerRole)) {
+      return { ok: false, erro: 'Sem permissão.' }
+    }
+
+    const { data: alvo } = await admin
+      .from('membros_loja')
+      .select('id')
+      .eq('id', dados.membro_id)
+      .eq('loja_id', dados.loja_id)
+      .maybeSingle()
+    if (!alvo) return { ok: false, erro: 'Membro não encontrado.' }
+
+    const { error } = await admin
+      .from('membros_loja')
+      .update({ pin_ativo: dados.ativo })
+      .eq('id', dados.membro_id)
+
+    if (error) return { ok: false, erro: error.message }
     return { ok: true }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }

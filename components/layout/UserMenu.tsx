@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { limparOperador } from '@/lib/operador/actions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -10,14 +11,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, User, RefreshCw } from 'lucide-react'
 
 interface UserMenuProps {
   nomeUsuario?: string
   role?: string
+  temOperadorPin?: boolean
 }
 
-export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
+export function UserMenu({ nomeUsuario = '', role = '', temOperadorPin = false }: UserMenuProps) {
   const router = useRouter()
 
   const iniciais = nomeUsuario
@@ -34,6 +36,12 @@ export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
     router.refresh()
   }
 
+  async function handleTrocarOperador() {
+    await limparOperador()
+    router.push('/selecionar-operador')
+    router.refresh()
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -45,6 +53,7 @@ export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium truncate">{nomeUsuario || 'Usuário'}</p>
         </div>
+
         {role !== 'vendedora' && (
           <>
             <DropdownMenuSeparator />
@@ -54,6 +63,17 @@ export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
             </DropdownMenuItem>
           </>
         )}
+
+        {temOperadorPin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleTrocarOperador} className="gap-2 cursor-pointer">
+              <RefreshCw className="h-4 w-4" />
+              Trocar operador
+            </DropdownMenuItem>
+          </>
+        )}
+
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleLogout}

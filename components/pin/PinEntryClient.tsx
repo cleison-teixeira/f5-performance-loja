@@ -1,17 +1,20 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { verificarPinGestaoAction } from '@/lib/pin/actions'
 
 interface Props {
   lojaId: string
+  children: React.ReactNode
 }
 
-export function PinEntryClient({ lojaId }: Props) {
-  const router = useRouter()
+export function PinEntryClient({ lojaId, children }: Props) {
+  const [desbloqueado, setDesbloqueado] = useState(false)
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
+
+  // PIN correto: mostra conteúdo protegido via estado local (some ao navegar)
+  if (desbloqueado) return <>{children}</>
 
   async function handleDesbloquear(e: React.FormEvent) {
     e.preventDefault()
@@ -24,7 +27,7 @@ export function PinEntryClient({ lojaId }: Props) {
     const res = await verificarPinGestaoAction(lojaId, pin)
     setCarregando(false)
     if (res.ok) {
-      router.refresh()
+      setDesbloqueado(true)
     } else {
       setErro(res.erro ?? 'PIN inválido.')
       setPin('')

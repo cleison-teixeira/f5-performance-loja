@@ -1,10 +1,7 @@
 'use server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { hashPin, verificarPinHash } from './gestao'
-
-const COOKIE_DURATION = 8 * 60 * 60 // 8 horas em segundos
 
 export async function salvarPinGestao(
   lojaId: string,
@@ -41,15 +38,6 @@ export async function salvarPinGestao(
 
   if (error) return { ok: false, erro: error.message }
 
-  const cookieStore = await cookies()
-  cookieStore.set(`f5_gestao_ok_${lojaId}`, '1', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: COOKIE_DURATION,
-    path: '/',
-    sameSite: 'lax',
-  })
-
   return { ok: true }
 }
 
@@ -70,15 +58,6 @@ export async function verificarPinGestaoAction(
 
   const valido = verificarPinHash(pin, loja.pin_gestao_hash as string)
   if (!valido) return { ok: false, erro: 'PIN inválido.' }
-
-  const cookieStore = await cookies()
-  cookieStore.set(`f5_gestao_ok_${lojaId}`, '1', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: COOKIE_DURATION,
-    path: '/',
-    sameSite: 'lax',
-  })
 
   return { ok: true }
 }
