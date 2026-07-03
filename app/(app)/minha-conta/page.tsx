@@ -61,6 +61,8 @@ export default async function MinhaContaPage() {
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
   }, membrosData[0].role as string)
 
+  if (role === 'vendedora') redirect('/dashboard')
+
   const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
 
   // Fetch liberações before building lojas — isRede depends on this

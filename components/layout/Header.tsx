@@ -5,9 +5,10 @@ import { UserMenu } from './UserMenu'
 interface HeaderProps {
   nomeUsuario?: string
   nomeLoja?: string
+  role?: string
 }
 
-export function Header({ nomeUsuario = '', nomeLoja = '' }: HeaderProps) {
+export function Header({ nomeUsuario = '', nomeLoja = '', role = '' }: HeaderProps) {
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b bg-background sticky top-0 z-40">
       <div className="md:hidden font-semibold text-base tracking-tight">F5 Recompra</div>
@@ -16,7 +17,7 @@ export function Header({ nomeUsuario = '', nomeLoja = '' }: HeaderProps) {
         <Button variant="ghost" size="icon">
           <Bell className="h-4 w-4" />
         </Button>
-        <UserMenu nomeUsuario={nomeUsuario} />
+        <UserMenu nomeUsuario={nomeUsuario} role={role} />
       </div>
     </header>
   )

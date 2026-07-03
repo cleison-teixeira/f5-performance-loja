@@ -45,6 +45,8 @@ export default async function ConfigEquipePage() {
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
   }, todosMembros[0].role as string)
 
+  if (userRole === 'vendedora') redirect('/dashboard')
+
   const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)

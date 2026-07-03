@@ -14,9 +14,10 @@ import { LogOut, User } from 'lucide-react'
 
 interface UserMenuProps {
   nomeUsuario?: string
+  role?: string
 }
 
-export function UserMenu({ nomeUsuario = '' }: UserMenuProps) {
+export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
   const router = useRouter()
 
   const iniciais = nomeUsuario
@@ -44,11 +45,15 @@ export function UserMenu({ nomeUsuario = '' }: UserMenuProps) {
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium truncate">{nomeUsuario || 'Usuário'}</p>
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/minha-conta')} className="gap-2 cursor-pointer">
-          <User className="h-4 w-4" />
-          Minha Conta
-        </DropdownMenuItem>
+        {role !== 'vendedora' && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push('/minha-conta')} className="gap-2 cursor-pointer">
+              <User className="h-4 w-4" />
+              Minha Conta
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleLogout}
