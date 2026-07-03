@@ -22,9 +22,16 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) return
+
+    const digits = normalizarWhatsapp(telefone)
+    if (digits.length < 10 || digits.length > 11) {
+      setErro('Informe um WhatsApp válido para cadastrar o membro.')
+      return
+    }
+
     setSalvando(true)
     setErro(null)
-    const res = await addMembro({ loja_id, nome, telefone: normalizarWhatsapp(telefone), role, comissao: 0 })
+    const res = await addMembro({ loja_id, nome: nome.trim(), telefone: digits, role, comissao: 0 })
     setSalvando(false)
     if (res.ok) {
       onSucesso()
@@ -51,7 +58,7 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="add-telefone">Telefone (WhatsApp)</label>
+        <label className="text-sm font-medium" htmlFor="add-telefone">WhatsApp *</label>
         <input
           id="add-telefone"
           type="tel"
@@ -59,7 +66,7 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
           value={formatarWhatsapp(normalizarWhatsapp(telefone))}
           onChange={e => setTelefone(normalizarWhatsapp(e.target.value))}
           className={inputClass}
-          placeholder="(48) 98837-1216"
+          placeholder="(48) 99999-9999"
         />
       </div>
 

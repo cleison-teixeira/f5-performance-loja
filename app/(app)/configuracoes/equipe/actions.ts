@@ -1,6 +1,7 @@
 'use server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { toE164 } from '@/lib/whatsapp/mask'
 
 export async function addMembro(dados: {
   loja_id: string
@@ -28,13 +29,27 @@ export async function addMembro(dados: {
       return { ok: false, erro: 'Sem permissão para adicionar membros a esta loja' }
     }
 
-    // Cria usuário operacional sem email (acesso via convite posterior, se necessário)
+    // Cria usuário operacional usando phone como identificador (sem email)
+    const phoneE164 = toE164(dados.telefone)
     const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
-      user_metadata: { nome: dados.nome },
+      phone: phoneE164,
+      phone_confirm: true,
+      user_metadata: {
+        name: dados.nome,
+        nome: dados.nome,
+        telefone: dados.telefone,
+        origem: 'equipe_operacional',
+      },
     })
-    if (createErr || !newUser.user) {
-      return { ok: false, erro: createErr?.message ?? 'Erro ao criar perfil do membro' }
+
+    if (createErr) {
+      const msg = createErr.message.toLowerCase()
+      if (msg.includes('already') || msg.includes('registered') || msg.includes('phone')) {
+        return { ok: false, erro: 'Já existe um membro cadastrado com este WhatsApp.' }
+      }
+      return { ok: false, erro: createErr.message }
     }
+    if (!newUser.user) return { ok: false, erro: 'Erro ao criar perfil do membro' }
     const perfil_id = newUser.user.id
 
     await admin.from('perfis').upsert(
