@@ -138,7 +138,7 @@ export default async function MinhaContaPage() {
   const guardLojaId = (role === 'admin_f5' || isRede) ? null : (loja?.id ?? null)
 
   return (
-    <PinGestaoGuard lojaId={guardLojaId}>
+    <PinGestaoGuard lojaId={guardLojaId} scope="minha_conta">
       <FormMinhaConta
         emailConta={user.email ?? ''}
         loja={loja}

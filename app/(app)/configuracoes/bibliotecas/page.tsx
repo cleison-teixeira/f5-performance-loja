@@ -135,7 +135,7 @@ export default async function ConfigBibliotecasPage() {
   }))
 
   return (
-    <PinGestaoGuard lojaId={guardLojaId}>
+    <PinGestaoGuard lojaId={guardLojaId} scope="bibliotecas">
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-semibold">Bibliotecas</h1>

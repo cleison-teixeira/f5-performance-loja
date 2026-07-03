@@ -1,24 +1,31 @@
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PinGestaoClient } from './PinGestaoClient'
-
-const COOKIE_GESTAO = 'f5_gestao_unlock'
+import { PinGestaoUnlockWatcher } from './PinGestaoUnlockWatcher'
 
 interface Props {
   children: React.ReactNode
-  lojaId: string | null
+  lojaId: string | null  // null = Acesso Rede / admin_f5: sem guarda
+  scope: string          // identificador da rota: 'equipe' | 'minha_conta' | 'bibliotecas'
 }
 
-export async function PinGestaoGuard({ children, lojaId }: Props) {
-  // null = Acesso Rede ou admin_f5: sem guarda
+export async function PinGestaoGuard({ children, lojaId, scope }: Props) {
   if (!lojaId) return <>{children}</>
 
   const cookieStore = await cookies()
-  const unlockValue = cookieStore.get(COOKIE_GESTAO)?.value
-  // Cookie válido: acesso liberado
-  if (unlockValue === lojaId) return <>{children}</>
+  const unlockValue = cookieStore.get(`f5_gestao_unlock_${scope}`)?.value
 
-  // Verificar se há PINs de gestão ativos — sem PIN configurado, acesso direto
+  // Cookie válido para este escopo: libera conteúdo + monta o watcher de cleanup
+  if (unlockValue === lojaId) {
+    return (
+      <>
+        <PinGestaoUnlockWatcher scope={scope} />
+        {children}
+      </>
+    )
+  }
+
+  // Sem cookie: verificar se há PINs de gestão ativos — sem PIN = acesso direto
   const admin = createAdminClient()
   const { count } = await admin
     .from('membros_loja')
@@ -30,5 +37,5 @@ export async function PinGestaoGuard({ children, lojaId }: Props) {
 
   if (!count || count === 0) return <>{children}</>
 
-  return <PinGestaoClient lojaId={lojaId} />
+  return <PinGestaoClient lojaId={lojaId} scope={scope} />
 }

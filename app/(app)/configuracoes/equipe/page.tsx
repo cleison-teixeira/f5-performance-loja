@@ -128,7 +128,7 @@ export default async function ConfigEquipePage() {
   })
 
   return (
-    <PinGestaoGuard lojaId={guardLojaId}>
+    <PinGestaoGuard lojaId={guardLojaId} scope="equipe">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>

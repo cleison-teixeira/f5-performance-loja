@@ -6,9 +6,10 @@ import { Lock } from 'lucide-react'
 
 interface Props {
   lojaId: string
+  scope: string
 }
 
-export function PinGestaoClient({ lojaId }: Props) {
+export function PinGestaoClient({ lojaId, scope }: Props) {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -18,7 +19,7 @@ export function PinGestaoClient({ lojaId }: Props) {
     e.preventDefault()
     setErro(null)
     startTransition(async () => {
-      const res = await verificarPinGestaoMembro(lojaId, pin)
+      const res = await verificarPinGestaoMembro(lojaId, scope, pin)
       if (res.ok) {
         router.refresh()
       } else {
