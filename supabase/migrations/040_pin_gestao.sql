@@ -1,0 +1,3 @@
+ALTER TABLE lojas
+  ADD COLUMN IF NOT EXISTS pin_gestao_hash TEXT NULL,
+  ADD COLUMN IF NOT EXISTS pin_gestao_atualizado_em TIMESTAMPTZ NULL;
