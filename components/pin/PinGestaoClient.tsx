@@ -50,7 +50,7 @@ export function PinGestaoClient({ lojaId, scope }: Props) {
             inputMode="numeric"
             maxLength={6}
             value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="••••"
             autoFocus
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-center text-xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-ring/50"
@@ -60,7 +60,7 @@ export function PinGestaoClient({ lojaId, scope }: Props) {
           )}
           <button
             type="submit"
-            disabled={pending || pin.length < 4}
+            disabled={pending || pin.length !== 4}
             className="w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
           >
             {pending ? 'Verificando…' : 'Desbloquear'}

@@ -14,7 +14,7 @@ export async function verificarPinGestaoMembro(
   scope: string,
   pin: string
 ): Promise<{ ok: boolean; erro?: string }> {
-  if (!/^\d{4,6}$/.test(pin)) return { ok: false, erro: 'PIN deve ter 4 a 6 dígitos.' }
+  if (!/^\d{4}$/.test(pin)) return { ok: false, erro: 'PIN deve ter exatamente 4 dígitos.' }
 
   try {
     const supabase = await createClient()

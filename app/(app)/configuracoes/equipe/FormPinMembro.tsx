@@ -51,9 +51,9 @@ export function FormPinMembro({ membro_id, loja_id, pin_ativo, tem_pin_hash, onC
             <input
               type="password"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={4}
               value={pin}
-              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="••••"
               className={inputCls}
             />
@@ -63,15 +63,15 @@ export function FormPinMembro({ membro_id, loja_id, pin_ativo, tem_pin_hash, onC
             <input
               type="password"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={4}
               value={pinConfirma}
-              onChange={e => setPinConfirma(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={e => setPinConfirma(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="••••"
               className={inputCls}
             />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">4 a 6 dígitos. Salvar ativa o PIN automaticamente.</p>
+        <p className="text-xs text-muted-foreground">4 dígitos. Salvar ativa o PIN automaticamente.</p>
 
         <div className="flex items-center gap-2 flex-wrap">
           <button

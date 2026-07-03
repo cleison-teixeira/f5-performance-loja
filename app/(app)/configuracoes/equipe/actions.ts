@@ -201,7 +201,7 @@ export async function salvarPinMembro(dados: {
   pin_confirma: string
 }): Promise<{ ok: boolean; erro?: string }> {
   if (dados.pin !== dados.pin_confirma) return { ok: false, erro: 'Os PINs não coincidem.' }
-  if (!/^\d{4,6}$/.test(dados.pin)) return { ok: false, erro: 'PIN deve ter 4 a 6 dígitos numéricos.' }
+  if (!/^\d{4}$/.test(dados.pin)) return { ok: false, erro: 'PIN deve ter exatamente 4 dígitos.' }
 
   try {
     const supabase = await createClient()
