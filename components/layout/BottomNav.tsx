@@ -32,9 +32,13 @@ const gestaoDrawerBase = [
 
 const gestaoDrawerVendedora: typeof gestaoDrawerBase = []
 
-const configuracaoDrawer = [
+const configuracaoDrawerBase = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
   { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
+]
+
+const configuracaoDrawerVendedora = [
+  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
 ]
 
 const aprenderDrawer = [
@@ -51,6 +55,7 @@ export function BottomNav({ role }: Props) {
   const hideGestao = role === 'vendedora'
 
   const gestaoDrawer = hideGestao ? gestaoDrawerVendedora : gestaoDrawerBase
+  const configuracaoDrawer = hideGestao ? configuracaoDrawerVendedora : configuracaoDrawerBase
 
   const drawerSections = [
     { label: 'Operação', items: operacaoDrawer },

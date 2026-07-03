@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizarNome } from '@/lib/normalizar-nome'
 import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
+import { canAccessBibliotecas } from '@/lib/permissoes/roles'
 import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
 
 const TIPO_POR_ORDEM: Record<number, string> = {
@@ -55,10 +56,10 @@ export async function instalarBiblioteca(dados: {
 
     const admin = createAdminClient()
 
-    // Validate user has active membership in ALL requested lojas
+    // Validate user has active membership in ALL requested lojas and has permission
     const { data: membros } = await admin
       .from('membros_loja')
-      .select('loja_id')
+      .select('loja_id, role')
       .eq('perfil_id', user.id)
       .eq('ativo', true)
       .in('loja_id', dados.loja_ids)
@@ -66,6 +67,11 @@ export async function instalarBiblioteca(dados: {
     const lojasPermitidas = new Set((membros ?? []).map(m => m.loja_id as string))
     const invalidas = dados.loja_ids.filter(id => !lojasPermitidas.has(id))
     if (invalidas.length > 0) return { ...zero, erro: 'Acesso negado a uma ou mais lojas selecionadas' }
+
+    const userRole = (membros ?? [])[0]?.role as string | undefined
+    if (!userRole || !canAccessBibliotecas(userRole)) {
+      return { ...zero, erro: 'Sem permissão para instalar bibliotecas' }
+    }
 
     // Fetch biblioteca details to get its nicho
     const { data: bibData } = await admin

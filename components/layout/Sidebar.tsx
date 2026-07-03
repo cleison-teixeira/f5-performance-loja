@@ -28,9 +28,13 @@ const gestaoItemsBase = [
 
 const gestaoItemsVendedora: typeof gestaoItemsBase = []
 
-const configuracaoItems = [
+const configuracaoItemsBase = [
   { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
   { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
+]
+
+const configuracaoItemsVendedora = [
+  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
 ]
 
 const aprenderItems = [
@@ -84,6 +88,7 @@ export function Sidebar({ role }: Props) {
   }
 
   const gestaoItems = hideGestao ? gestaoItemsVendedora : gestaoItemsBase
+  const configuracaoItems = hideGestao ? configuracaoItemsVendedora : configuracaoItemsBase
 
   return (
     <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
