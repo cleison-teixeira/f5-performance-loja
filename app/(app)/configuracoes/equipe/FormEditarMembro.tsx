@@ -29,9 +29,8 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  const rolesDisponiveis = callerRole === 'gerente'
-    ? ROLES.filter(r => r.value === 'vendedora')
-    : ROLES
+  // gerente tem as mesmas permissões do dono na loja — todas as funções disponíveis
+  const rolesDisponiveis = ROLES
 
   async function handleSalvar() {
     if (!nome.trim()) {

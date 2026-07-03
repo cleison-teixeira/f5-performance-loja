@@ -132,16 +132,6 @@ export async function editarMembro(dados: {
 
     if (!membroAtual) return { ok: false, erro: 'Membro não encontrado' }
 
-    // Gerente só pode editar vendedoras e manter como vendedora
-    if (callerRole === 'gerente') {
-      if (membroAtual.role !== 'vendedora') {
-        return { ok: false, erro: 'Gerente só pode editar vendedoras' }
-      }
-      if (dados.role !== 'vendedora') {
-        return { ok: false, erro: 'Gerente não pode alterar função para gerente ou dono' }
-      }
-    }
-
     // Proteção: não remover o último dono ativo
     if (membroAtual.role === 'dono') {
       const seráDemovido = dados.role !== 'dono'

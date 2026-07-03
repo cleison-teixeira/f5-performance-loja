@@ -43,12 +43,11 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
     setMembros(membrosIniciais)
   }, [membrosIniciais])
 
-  function podeEditarMembro(m: MembroExibido) {
+  function podeEditarMembro(_m: MembroExibido) {
     if (!podeEditar) return false
-    if (m.perfil_id === currentUserId) return false
-    if (userRole === 'dono' || userRole === 'admin_f5') return true
-    if (userRole === 'gerente') return m.role === 'vendedora'
-    return false
+    // dono, gerente e admin_f5 editam qualquer membro (inclusive a si mesmos)
+    // proteção contra remover último dono fica no backend
+    return userRole === 'dono' || userRole === 'gerente' || userRole === 'admin_f5'
   }
 
   function podePinMembro(_m: MembroExibido) {
