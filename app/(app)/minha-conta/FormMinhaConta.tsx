@@ -121,6 +121,7 @@ export function FormMinhaConta({
   assinatura,
   lojasVinculadas,
   isRede,
+  pinSlot,
 }: {
   emailConta: string
   loja: LojaData | null
@@ -129,6 +130,7 @@ export function FormMinhaConta({
   assinatura: AssinaturaItem[]
   lojasVinculadas: LojaVinculada[]
   isRede: boolean
+  pinSlot?: React.ReactNode
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -237,7 +239,7 @@ export function FormMinhaConta({
   // ── Loja View ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 max-w-lg mx-auto pb-8">
+    <div className="max-w-4xl mx-auto pb-8 space-y-5">
 
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Minha Conta</h1>
@@ -251,113 +253,122 @@ export function FormMinhaConta({
       )}
 
       {loja && (
-        <>
-          {/* 1. Dados da loja */}
-          <section className={card}>
-            <h2 className="text-sm font-semibold text-foreground">Dados da loja</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 md:items-start gap-5">
 
-            <div className="space-y-4">
-              <Field label="Nome da loja">
-                <Inp value={nomeLoja} onChange={setNomeLoja} placeholder="Nome da loja" disabled={!podeEditar || pending} />
-              </Field>
+          {/* Coluna esquerda: Dados + Endereço */}
+          <div className="space-y-5">
+            {/* 1. Dados da loja */}
+            <section className={card}>
+              <h2 className="text-sm font-semibold text-foreground">Dados da loja</h2>
 
-              <Field label="CNPJ / CPF" hint="CPF: 000.000.000-00 · CNPJ: 00.000.000/0000-00">
-                <Inp
-                  value={documento}
-                  onChange={v => setDocumento(maskDocumento(v))}
-                  placeholder="000.000.000-00"
-                  disabled={!podeEditar || pending}
-                />
-              </Field>
-
-              <Field label="Nicho / Segmento">
-                <select
-                  value={nicho}
-                  onChange={e => setNicho(e.target.value)}
-                  disabled={!podeEditar || pending}
-                  className={selectCls}
-                >
-                  <option value="">Selecionar nicho...</option>
-                  {NICHOS_OFICIAIS.map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </Field>
-
-              <div className="border-t border-border/50 pt-4 space-y-4">
-                <Field label="E-mail da conta" hint="Não é possível alterar o e-mail de login por aqui.">
-                  <Inp value={emailConta} readOnly />
+              <div className="space-y-4">
+                <Field label="Nome da loja">
+                  <Inp value={nomeLoja} onChange={setNomeLoja} placeholder="Nome da loja" disabled={!podeEditar || pending} />
                 </Field>
 
-                <Field label="WhatsApp da loja">
-                  <Inp value={whatsappLoja} onChange={v => setWhatsappLoja(maskWpp(v))} type="tel" placeholder="(48) 99999-9999" disabled={!podeEditar || pending} />
+                <Field label="CNPJ / CPF" hint="CPF: 000.000.000-00 · CNPJ: 00.000.000/0000-00">
+                  <Inp
+                    value={documento}
+                    onChange={v => setDocumento(maskDocumento(v))}
+                    placeholder="000.000.000-00"
+                    disabled={!podeEditar || pending}
+                  />
                 </Field>
-              </div>
-            </div>
 
-            {podeEditar && (
-              <div className="flex items-center gap-3">
-                <button onClick={handleSalvarLoja} disabled={pending} className={btnPrimary}>
-                  {pending ? 'Salvando...' : 'Salvar dados'}
-                </button>
-                <SectionMsg msg={msgLoja} />
-              </div>
-            )}
-          </section>
-
-          {/* 2. Endereço */}
-          <section className={card}>
-            <h2 className="text-sm font-semibold text-foreground">Endereço</h2>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="CEP">
-                  <Inp value={cep} onChange={v => setCep(maskCep(v))} placeholder="00000-000" disabled={!podeEditar || pending} />
+                <Field label="Nicho / Segmento">
+                  <select
+                    value={nicho}
+                    onChange={e => setNicho(e.target.value)}
+                    disabled={!podeEditar || pending}
+                    className={selectCls}
+                  >
+                    <option value="">Selecionar nicho...</option>
+                    {NICHOS_OFICIAIS.map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
                 </Field>
-                <Field label="Estado">
-                  <Inp value={estado} onChange={setEstado} placeholder="SC" disabled={!podeEditar || pending} />
-                </Field>
+
+                <div className="border-t border-border/50 pt-4 space-y-4">
+                  <Field label="E-mail da conta" hint="Não é possível alterar o e-mail de login por aqui.">
+                    <Inp value={emailConta} readOnly />
+                  </Field>
+
+                  <Field label="WhatsApp da loja">
+                    <Inp value={whatsappLoja} onChange={v => setWhatsappLoja(maskWpp(v))} type="tel" placeholder="(48) 99999-9999" disabled={!podeEditar || pending} />
+                  </Field>
+                </div>
               </div>
 
-              <Field label="Rua">
-                <Inp value={rua} onChange={setRua} placeholder="Rua das Flores" disabled={!podeEditar || pending} />
-              </Field>
+              {podeEditar && (
+                <div className="flex items-center gap-3">
+                  <button onClick={handleSalvarLoja} disabled={pending} className={btnPrimary}>
+                    {pending ? 'Salvando...' : 'Salvar dados'}
+                  </button>
+                  <SectionMsg msg={msgLoja} />
+                </div>
+              )}
+            </section>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Número">
-                  <Inp value={numero} onChange={setNumero} placeholder="123" disabled={!podeEditar || pending} />
+            {/* 2. Endereço */}
+            <section className={card}>
+              <h2 className="text-sm font-semibold text-foreground">Endereço</h2>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="CEP">
+                    <Inp value={cep} onChange={v => setCep(maskCep(v))} placeholder="00000-000" disabled={!podeEditar || pending} />
+                  </Field>
+                  <Field label="Estado">
+                    <Inp value={estado} onChange={setEstado} placeholder="SC" disabled={!podeEditar || pending} />
+                  </Field>
+                </div>
+
+                <Field label="Rua">
+                  <Inp value={rua} onChange={setRua} placeholder="Rua das Flores" disabled={!podeEditar || pending} />
                 </Field>
-                <Field label="Complemento">
-                  <Inp value={complemento} onChange={setComplemento} placeholder="Sala 2" disabled={!podeEditar || pending} />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Número">
+                    <Inp value={numero} onChange={setNumero} placeholder="123" disabled={!podeEditar || pending} />
+                  </Field>
+                  <Field label="Complemento">
+                    <Inp value={complemento} onChange={setComplemento} placeholder="Sala 2" disabled={!podeEditar || pending} />
+                  </Field>
+                </div>
+
+                <Field label="Bairro">
+                  <Inp value={bairro} onChange={setBairro} placeholder="Centro" disabled={!podeEditar || pending} />
+                </Field>
+
+                <Field label="Cidade">
+                  <Inp value={cidade} onChange={setCidade} placeholder="Florianópolis" disabled={!podeEditar || pending} />
                 </Field>
               </div>
 
-              <Field label="Bairro">
-                <Inp value={bairro} onChange={setBairro} placeholder="Centro" disabled={!podeEditar || pending} />
-              </Field>
+              {podeEditar && (
+                <div className="flex items-center gap-3">
+                  <button onClick={handleSalvarEndereco} disabled={pending} className={btnPrimary}>
+                    {pending ? 'Salvando...' : 'Salvar endereço'}
+                  </button>
+                  <SectionMsg msg={msgEndereco} />
+                </div>
+              )}
+            </section>
+          </div>
 
-              <Field label="Cidade">
-                <Inp value={cidade} onChange={setCidade} placeholder="Florianópolis" disabled={!podeEditar || pending} />
-              </Field>
-            </div>
+          {/* Coluna direita: Assinatura + PIN + Sessão */}
+          <div className="space-y-5">
+            <AssinaturaCard assinatura={assinatura} lojasVinculadas={lojasVinculadas} card={card} />
+            {pinSlot}
+            <SessaoCard card={card} onLogout={handleLogout} />
+          </div>
 
-            {podeEditar && (
-              <div className="flex items-center gap-3">
-                <button onClick={handleSalvarEndereco} disabled={pending} className={btnPrimary}>
-                  {pending ? 'Salvando...' : 'Salvar endereço'}
-                </button>
-                <SectionMsg msg={msgEndereco} />
-              </div>
-            )}
-          </section>
-
-          {/* 3. Assinatura */}
-          <AssinaturaCard assinatura={assinatura} lojasVinculadas={lojasVinculadas} card={card} />
-        </>
+        </div>
       )}
 
-      {/* Sessão */}
-      <SessaoCard card={card} onLogout={handleLogout} />
+      {/* Sessão (quando sem loja) */}
+      {!loja && <SessaoCard card={card} onLogout={handleLogout} />}
     </div>
   )
 }

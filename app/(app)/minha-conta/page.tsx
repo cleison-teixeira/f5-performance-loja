@@ -160,6 +160,8 @@ export default async function MinhaContaPage({ searchParams }: { searchParams: P
 
   const lojasVinculadas: LojaVinculada[] = todasLojas.map(l => ({ id: l.id, nome: l.nome }))
 
+  const pinSlot = lojaId ? <FormPinGestao lojaId={lojaId} temPin={temPin} /> : undefined
+
   return (
     <PinGuard lojaId={lojaId} role={role} rotaAtual="/minha-conta">
       {aviso === 'sem-pin' && (
@@ -175,8 +177,8 @@ export default async function MinhaContaPage({ searchParams }: { searchParams: P
         assinatura={assinatura}
         lojasVinculadas={lojasVinculadas}
         isRede={isRede}
+        pinSlot={pinSlot}
       />
-      {lojaId && <FormPinGestao lojaId={lojaId} temPin={temPin} />}
     </PinGuard>
   )
 }
