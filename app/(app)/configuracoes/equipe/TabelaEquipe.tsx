@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { desativarMembro } from './actions'
 import { FormAddMembro } from './FormAddMembro'
@@ -33,6 +33,10 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
   const router = useRouter()
   const [membros, setMembros] = useState<MembroExibido[]>(membrosIniciais)
   const [mostraForm, setMostraForm] = useState(false)
+
+  useEffect(() => {
+    setMembros(membrosIniciais)
+  }, [membrosIniciais])
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [desativando, setDesativando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -116,7 +120,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-medium">{m.nome || '—'}</p>
-                  <p className="text-xs text-muted-foreground">{m.email}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
@@ -162,7 +165,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
           <thead>
             <tr className="border-b bg-muted/50">
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">E-mail</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefone</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Função</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
@@ -172,7 +174,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
           <tbody>
             {membros.length === 0 && (
               <tr>
-                <td colSpan={podeEditar ? 6 : 5} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={podeEditar ? 5 : 4} className="px-4 py-6 text-center text-muted-foreground">
                   Nenhum membro cadastrado.
                 </td>
               </tr>
@@ -181,7 +183,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               if (editandoId === m.membro_id) {
                 return (
                   <tr key={m.membro_id}>
-                    <td colSpan={podeEditar ? 6 : 5} className="px-4 py-3">
+                    <td colSpan={podeEditar ? 5 : 4} className="px-4 py-3">
                       <FormEditarMembro
                         membro={m}
                         loja_id={loja_id}
@@ -196,7 +198,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
               return (
                 <tr key={m.membro_id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 font-medium">{m.nome || '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{m.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{m.telefone ? formatarWhatsapp(m.telefone) : '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>

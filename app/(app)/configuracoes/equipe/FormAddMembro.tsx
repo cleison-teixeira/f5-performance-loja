@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { addMembro } from './actions'
+import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 
 interface Props {
   loja_id: string
@@ -13,7 +14,6 @@ const inputClass =
 
 export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
   const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [role, setRole] = useState<'dono' | 'gerente' | 'vendedora'>('vendedora')
   const [salvando, setSalvando] = useState(false)
@@ -21,10 +21,10 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!nome.trim() || !email.trim()) return
+    if (!nome.trim()) return
     setSalvando(true)
     setErro(null)
-    const res = await addMembro({ loja_id, nome, email, telefone, role, comissao: 0 })
+    const res = await addMembro({ loja_id, nome, telefone: normalizarWhatsapp(telefone), role, comissao: 0 })
     setSalvando(false)
     if (res.ok) {
       onSucesso()
@@ -51,27 +51,15 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="add-email">E-mail *</label>
-        <input
-          id="add-email"
-          type="email"
-          required
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          className={inputClass}
-          placeholder="email@exemplo.com"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="add-telefone">Telefone</label>
+        <label className="text-sm font-medium" htmlFor="add-telefone">Telefone (WhatsApp)</label>
         <input
           id="add-telefone"
-          type="text"
-          value={telefone}
-          onChange={e => setTelefone(e.target.value)}
+          type="tel"
+          inputMode="numeric"
+          value={formatarWhatsapp(normalizarWhatsapp(telefone))}
+          onChange={e => setTelefone(normalizarWhatsapp(e.target.value))}
           className={inputClass}
-          placeholder="(11) 99999-9999"
+          placeholder="(48) 98837-1216"
         />
       </div>
 

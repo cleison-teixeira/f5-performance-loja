@@ -68,20 +68,6 @@ export function FormEditarMembro({ membro, loja_id, callerRole, onSalvo, onCance
       <p className="text-sm font-semibold">Editar membro</p>
 
       <div className="space-y-3">
-        {/* E-mail (leitura) */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">E-mail</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="email"
-              value={membro.email}
-              disabled
-              className={`${inputClass} opacity-60 cursor-not-allowed`}
-            />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">somente leitura</span>
-          </div>
-        </div>
-
         {/* Nome */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Nome</label>

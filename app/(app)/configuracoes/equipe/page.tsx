@@ -11,7 +11,6 @@ export interface MembroExibido {
   membro_id: string
   perfil_id: string
   nome: string
-  email: string
   telefone: string
   role: string
   ativo: boolean
@@ -80,13 +79,6 @@ export default async function ConfigEquipePage() {
     .eq('loja_id', loja_id)
     .order('role')
 
-  // Emails from Auth
-  const { data: authData } = await admin.auth.admin.listUsers()
-  const emailPorId: Record<string, string> = {}
-  for (const u of authData?.users ?? []) {
-    emailPorId[u.id] = u.email ?? ''
-  }
-
   // Comissões (kept for data completeness)
   const { data: regrasData } = await admin
     .from('regras_comissao')
@@ -104,7 +96,6 @@ export default async function ConfigEquipePage() {
       membro_id: m.id as string,
       perfil_id: m.perfil_id as string,
       nome: perfil?.nome ?? '',
-      email: emailPorId[m.perfil_id as string] ?? '',
       telefone: perfil?.whatsapp ?? '',
       role: m.role as string,
       ativo: m.ativo as boolean,
