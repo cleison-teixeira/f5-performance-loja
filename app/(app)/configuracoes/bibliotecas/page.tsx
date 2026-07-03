@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { BibliotecasClient } from './BibliotecasClient'
-import { PinGuard } from '@/components/pin/PinGuard'
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
@@ -47,6 +46,8 @@ export default async function ConfigBibliotecasPage() {
     const mRole = m.role as string
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
   }, todosMembros[0].role as string)
+
+  if (userRole === 'vendedora') redirect('/dashboard')
 
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
@@ -116,25 +117,21 @@ export default async function ConfigBibliotecasPage() {
     qtd_itens: contagemPorBiblioteca[b.id as string] ?? 0,
   }))
 
-  const pinLojaId = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
-
   return (
-    <PinGuard lojaId={pinLojaId} role={userRole} rotaAtual="/configuracoes/bibliotecas">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Bibliotecas</h1>
-          <p className="text-sm text-muted-foreground">
-            Instale produtos prontos e libere treinamentos para acelerar a recompra na sua loja.
-          </p>
-        </div>
-        <BibliotecasClient
-          bibliotecas={bibliotecas}
-          lojas={ctx.lojas}
-          lojaId={ctx.lojaId}
-          instalados={[...instaladosSet]}
-          multiLoja={multiLoja}
-        />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Bibliotecas</h1>
+        <p className="text-sm text-muted-foreground">
+          Instale produtos prontos e libere treinamentos para acelerar a recompra na sua loja.
+        </p>
       </div>
-    </PinGuard>
+      <BibliotecasClient
+        bibliotecas={bibliotecas}
+        lojas={ctx.lojas}
+        lojaId={ctx.lojaId}
+        instalados={[...instaladosSet]}
+        multiLoja={multiLoja}
+      />
+    </div>
   )
 }

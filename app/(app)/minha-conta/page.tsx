@@ -5,10 +5,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { normalizarNicho } from '@/lib/config/produtos-segmentos'
 import { FormMinhaConta } from './FormMinhaConta'
-import { COOKIE_LOJA } from '@/lib/loja/contexto'
-import { cookies } from 'next/headers'
-import { PinGuard } from '@/components/pin/PinGuard'
-import { FormPinGestao } from './FormPinGestao'
 
 export type LojaData = {
   id: string
@@ -45,13 +41,10 @@ export type LojaVinculada = {
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
-export default async function MinhaContaPage({ searchParams }: { searchParams: Promise<{ aviso?: string }> }) {
+export default async function MinhaContaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-
-  const params = await searchParams
-  const aviso = params.aviso
 
   const admin = createAdminClient()
 
@@ -68,6 +61,8 @@ export default async function MinhaContaPage({ searchParams }: { searchParams: P
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
   }, membrosData[0].role as string)
 
+  if (role === 'vendedora') redirect('/dashboard')
+
   const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
 
   // Fetch liberações before building lojas — isRede depends on this
@@ -78,7 +73,6 @@ export default async function MinhaContaPage({ searchParams }: { searchParams: P
     .order('criado_em', { ascending: false })
 
   // isRede is determined solely by whether this email has an active tipo='rede' liberação.
-  // Role/multi-loja access is irrelevant here — a dono with +Acesso to extra lojas is still a loja user.
   const isRede = (libData ?? []).some(
     l => l.tipo === 'rede' && ['aplicado', 'ativo'].includes(l.status as string)
   )
@@ -122,27 +116,6 @@ export default async function MinhaContaPage({ searchParams }: { searchParams: P
 
   const loja = todasLojas[0] ?? null
 
-  // Determinar lojaId ativa para PIN (considera cookie de seleção multi-loja)
-  let lojaId: string | null = null
-  if (todasLojas.length === 1) {
-    lojaId = todasLojas[0].id
-  } else if (todasLojas.length > 1) {
-    const jar = await cookies()
-    const cookieVal = jar.get(COOKIE_LOJA)?.value ?? ''
-    lojaId = todasLojas.find(l => l.id === cookieVal)?.id ?? todasLojas[0]?.id ?? null
-  }
-
-  // Verificar se loja já tem PIN configurado (para FormPinGestao)
-  let temPin = false
-  if (lojaId) {
-    const { data: lojaPin } = await admin
-      .from('lojas')
-      .select('pin_gestao_hash')
-      .eq('id', lojaId)
-      .single()
-    temPin = !!(lojaPin as { pin_gestao_hash?: string | null } | null)?.pin_gestao_hash
-  }
-
   // Build name map for assinatura
   const lojaNameMap: Record<string, string> = {}
   todasLojas.forEach(l => { lojaNameMap[l.id] = l.nome })
@@ -160,25 +133,15 @@ export default async function MinhaContaPage({ searchParams }: { searchParams: P
 
   const lojasVinculadas: LojaVinculada[] = todasLojas.map(l => ({ id: l.id, nome: l.nome }))
 
-  const pinSlot = lojaId ? <FormPinGestao lojaId={lojaId} temPin={temPin} /> : undefined
-
   return (
-    <PinGuard lojaId={lojaId} role={role} rotaAtual="/minha-conta">
-      {aviso === 'sem-pin' && (
-        <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-300">
-          Configure o PIN gerencial abaixo para acessar Equipe e Bibliotecas.
-        </div>
-      )}
-      <FormMinhaConta
-        emailConta={user.email ?? ''}
-        loja={loja}
-        todasLojas={todasLojas}
-        podeEditar={podeEditar}
-        assinatura={assinatura}
-        lojasVinculadas={lojasVinculadas}
-        isRede={isRede}
-        pinSlot={pinSlot}
-      />
-    </PinGuard>
+    <FormMinhaConta
+      emailConta={user.email ?? ''}
+      loja={loja}
+      todasLojas={todasLojas}
+      podeEditar={podeEditar}
+      assinatura={assinatura}
+      lojasVinculadas={lojasVinculadas}
+      isRede={isRede}
+    />
   )
 }

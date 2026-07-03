@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { TabelaEquipe } from './TabelaEquipe'
-import { PinGuard } from '@/components/pin/PinGuard'
 
 export interface MembroExibido {
   membro_id: string
@@ -45,6 +44,8 @@ export default async function ConfigEquipePage() {
     const mRole = m.role as string
     return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
   }, todosMembros[0].role as string)
+
+  if (userRole === 'vendedora') redirect('/dashboard')
 
   const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
   const multiLoja = !isAcessoLoja(userRole)
@@ -105,23 +106,21 @@ export default async function ConfigEquipePage() {
   })
 
   return (
-    <PinGuard lojaId={loja_id} role={userRole} rotaAtual="/configuracoes/equipe">
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-xl font-semibold">Equipe</h1>
-            <p className="text-sm text-muted-foreground">{lojaNome}</p>
-          </div>
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold">Equipe</h1>
+          <p className="text-sm text-muted-foreground">{lojaNome}</p>
         </div>
-        <TabelaEquipe
-          key={loja_id}
-          membros={membrosExibidos}
-          loja_id={loja_id}
-          podeEditar={podeEditar}
-          userRole={userRole}
-          currentUserId={user.id}
-        />
       </div>
-    </PinGuard>
+      <TabelaEquipe
+        key={loja_id}
+        membros={membrosExibidos}
+        loja_id={loja_id}
+        podeEditar={podeEditar}
+        userRole={userRole}
+        currentUserId={user.id}
+      />
+    </div>
   )
 }
