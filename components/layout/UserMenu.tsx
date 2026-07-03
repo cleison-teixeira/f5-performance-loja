@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { limparOperador } from '@/lib/operador/actions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -11,15 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut, User, RefreshCw } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 
 interface UserMenuProps {
   nomeUsuario?: string
   role?: string
-  temOperadorPin?: boolean
 }
 
-export function UserMenu({ nomeUsuario = '', role = '', temOperadorPin = false }: UserMenuProps) {
+export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
   const router = useRouter()
 
   const iniciais = nomeUsuario
@@ -33,12 +31,6 @@ export function UserMenu({ nomeUsuario = '', role = '', temOperadorPin = false }
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
-    router.refresh()
-  }
-
-  async function handleTrocarOperador() {
-    await limparOperador()
-    router.push('/selecionar-operador')
     router.refresh()
   }
 
@@ -60,16 +52,6 @@ export function UserMenu({ nomeUsuario = '', role = '', temOperadorPin = false }
             <DropdownMenuItem onClick={() => router.push('/minha-conta')} className="gap-2 cursor-pointer">
               <User className="h-4 w-4" />
               Minha Conta
-            </DropdownMenuItem>
-          </>
-        )}
-
-        {temOperadorPin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleTrocarOperador} className="gap-2 cursor-pointer">
-              <RefreshCw className="h-4 w-4" />
-              Trocar operador
             </DropdownMenuItem>
           </>
         )}

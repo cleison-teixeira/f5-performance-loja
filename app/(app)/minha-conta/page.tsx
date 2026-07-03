@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { normalizarNicho } from '@/lib/config/produtos-segmentos'
 import { FormMinhaConta } from './FormMinhaConta'
+import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
 
 export type LojaData = {
   id: string
@@ -133,15 +134,20 @@ export default async function MinhaContaPage() {
 
   const lojasVinculadas: LojaVinculada[] = todasLojas.map(l => ({ id: l.id, nome: l.nome }))
 
+  // Guard: somente Acesso Loja (single-loja). Rede e admin_f5 passam direto.
+  const guardLojaId = (role === 'admin_f5' || isRede) ? null : (loja?.id ?? null)
+
   return (
-    <FormMinhaConta
-      emailConta={user.email ?? ''}
-      loja={loja}
-      todasLojas={todasLojas}
-      podeEditar={podeEditar}
-      assinatura={assinatura}
-      lojasVinculadas={lojasVinculadas}
-      isRede={isRede}
-    />
+    <PinGestaoGuard lojaId={guardLojaId}>
+      <FormMinhaConta
+        emailConta={user.email ?? ''}
+        loja={loja}
+        todasLojas={todasLojas}
+        podeEditar={podeEditar}
+        assinatura={assinatura}
+        lojasVinculadas={lojasVinculadas}
+        isRede={isRede}
+      />
+    </PinGestaoGuard>
   )
 }

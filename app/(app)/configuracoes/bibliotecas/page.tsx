@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { BibliotecasClient } from './BibliotecasClient'
+import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
@@ -59,6 +60,22 @@ export default async function ConfigBibliotecasPage() {
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
+  }
+
+  // Guard PIN: somente Acesso Loja. admin_f5 e dono com rede passam direto.
+  let guardLojaId: string | null = null
+  if (userRole !== 'admin_f5') {
+    if (!multiLoja) {
+      guardLojaId = ctx.lojaId ?? null
+    } else {
+      const { data: libCheck } = await admin
+        .from('liberacoes_acesso')
+        .select('tipo, status')
+        .eq('email', (user.email ?? '').toLowerCase())
+        .in('status', ['aplicado', 'ativo'])
+      const isRede = (libCheck ?? []).some(l => l.tipo === 'rede')
+      if (!isRede) guardLojaId = ctx.lojaId ?? null
+    }
   }
 
   // Fetch apenas bibliotecas de parceiros (exclui F5 Geral que tem parceiro_id NULL)
@@ -118,20 +135,22 @@ export default async function ConfigBibliotecasPage() {
   }))
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Bibliotecas</h1>
-        <p className="text-sm text-muted-foreground">
-          Instale produtos prontos e libere treinamentos para acelerar a recompra na sua loja.
-        </p>
+    <PinGestaoGuard lojaId={guardLojaId}>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold">Bibliotecas</h1>
+          <p className="text-sm text-muted-foreground">
+            Instale produtos prontos e libere treinamentos para acelerar a recompra na sua loja.
+          </p>
+        </div>
+        <BibliotecasClient
+          bibliotecas={bibliotecas}
+          lojas={ctx.lojas}
+          lojaId={ctx.lojaId}
+          instalados={[...instaladosSet]}
+          multiLoja={multiLoja}
+        />
       </div>
-      <BibliotecasClient
-        bibliotecas={bibliotecas}
-        lojas={ctx.lojas}
-        lojaId={ctx.lojaId}
-        instalados={[...instaladosSet]}
-        multiLoja={multiLoja}
-      />
-    </div>
+    </PinGestaoGuard>
   )
 }

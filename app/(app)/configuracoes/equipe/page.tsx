@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { TabelaEquipe } from './TabelaEquipe'
+import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
 
 export interface MembroExibido {
   membro_id: string
@@ -76,6 +77,24 @@ export default async function ConfigEquipePage() {
   const loja_id = ctx.lojaId
   const lojaNome = ctx.lojaNome
 
+  // Guard PIN: somente Acesso Loja. admin_f5 e dono com rede passam direto.
+  let guardLojaId: string | null = null
+  if (userRole !== 'admin_f5') {
+    if (!multiLoja) {
+      // gerente: sempre Acesso Loja
+      guardLojaId = loja_id
+    } else {
+      // dono: verificar se tem acesso rede (multi-loja)
+      const { data: libCheck } = await admin
+        .from('liberacoes_acesso')
+        .select('tipo, status')
+        .eq('email', (user.email ?? '').toLowerCase())
+        .in('status', ['aplicado', 'ativo'])
+      const isRede = (libCheck ?? []).some(l => l.tipo === 'rede')
+      if (!isRede) guardLojaId = loja_id
+    }
+  }
+
   // Fetch members including pin_ativo and pin_hash presence (never expose hash value)
   const { data: membros } = await admin
     .from('membros_loja')
@@ -109,21 +128,23 @@ export default async function ConfigEquipePage() {
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold">Equipe</h1>
-          <p className="text-sm text-muted-foreground">{lojaNome}</p>
+    <PinGestaoGuard lojaId={guardLojaId}>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold">Equipe</h1>
+            <p className="text-sm text-muted-foreground">{lojaNome}</p>
+          </div>
         </div>
+        <TabelaEquipe
+          key={loja_id}
+          membros={membrosExibidos}
+          loja_id={loja_id}
+          podeEditar={podeEditar}
+          userRole={userRole}
+          currentUserId={user.id}
+        />
       </div>
-      <TabelaEquipe
-        key={loja_id}
-        membros={membrosExibidos}
-        loja_id={loja_id}
-        podeEditar={podeEditar}
-        userRole={userRole}
-        currentUserId={user.id}
-      />
-    </div>
+    </PinGestaoGuard>
   )
 }
