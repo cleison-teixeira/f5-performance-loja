@@ -1,11 +1,9 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { Package } from 'lucide-react'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
-import { getContextoLoja } from '@/lib/loja/contexto'
+import { getAppContext } from '@/lib/app/contexto'
 import { ListaEsperaForm } from './ListaEsperaForm'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 
@@ -13,46 +11,22 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
-
 export default async function ListaEsperaPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const appCtx = await getAppContext()
+  if (!appCtx) redirect('/login')
+
+  const { user, role: userRole, ctx } = appCtx
+
+  if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Lista de Espera</h1>
+        <p className="text-sm text-muted-foreground">Voce ainda nao pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
 
   const admin = createAdminClient()
-
-  const { data: todosMembros } = await admin
-    .from('membros_loja')
-    .select('role')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
-
-  if (!todosMembros || todosMembros.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Lista de Espera</h1>
-        <p className="text-sm text-muted-foreground">Voce ainda nao pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
-
-  const userRole = todosMembros.reduce((best: string, m) => {
-    const mRole = m.role as string
-    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-  }, todosMembros[0].role as string)
-
-  const multiLoja = !isAcessoLoja(userRole)
-  const ctx = await getContextoLoja(user.id, multiLoja)
-
-  if (ctx.lojaIds.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Lista de Espera</h1>
-        <p className="text-sm text-muted-foreground">Voce ainda nao pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
 
   const isVendedora = userRole === 'vendedora'
   const mostrarLoja = ctx.escopo === 'rede'
@@ -105,14 +79,12 @@ export default async function ListaEsperaPage() {
 
   const nomeMap: Record<string, string> = {}
 
-  // Preencher nomeMap com vendedoras já carregadas (evita query extra no caso mais comum)
   for (const m of vendedorasRes.data ?? []) {
     const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }> | null
     const perfil = Array.isArray(p) ? p[0] : p
     if (perfil?.nome) nomeMap[m.perfil_id as string] = perfil.nome
   }
 
-  // Lookup apenas para IDs não cobertos pelo vendedorasRes (rede mode ou histórico)
   const allVendedoraIds = [...new Set((registrosRes.data ?? []).map(r => r.vendedora_id as string).filter(Boolean))]
   const missingIds = allVendedoraIds.filter(id => !nomeMap[id])
   if (missingIds.length > 0) {
@@ -163,7 +135,6 @@ export default async function ListaEsperaPage() {
     ? (produtosRes.data ?? []).map(p => ({ id: p.id as string, nome: p.nome as string }))
     : []
 
-  // Métricas separadas por status
   const total = registros.length
   const qtdAguardando = registros.filter(r => r.status === 'aguardando').length
   const qtdAvisados = registros.filter(r => r.status === 'avisado').length

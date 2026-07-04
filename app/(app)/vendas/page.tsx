@@ -1,10 +1,8 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
-import { getContextoLoja } from '@/lib/loja/contexto'
+import { getAppContext } from '@/lib/app/contexto'
 import { VendasLista } from './VendasLista'
 
 export interface VendaItemExtrato {
@@ -32,46 +30,22 @@ export interface VendaExtrato {
   loja_nome?: string
 }
 
-const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
-
 export default async function VendasPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const appCtx = await getAppContext()
+  if (!appCtx) redirect('/login')
+
+  const { user, role: userRole, ctx } = appCtx
+
+  if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Extrato de vendas</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
 
   const admin = createAdminClient()
-
-  const { data: todosMembros } = await admin
-    .from('membros_loja')
-    .select('role')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
-
-  if (!todosMembros || todosMembros.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Extrato de vendas</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
-
-  const userRole = todosMembros.reduce((best: string, m) => {
-    const mRole = m.role as string
-    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-  }, todosMembros[0].role as string)
-
-  const multiLoja = !isAcessoLoja(userRole)
-  const ctx = await getContextoLoja(user.id, multiLoja)
-
-  if (ctx.lojaIds.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Extrato de vendas</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
 
   const isVendedora = userRole === 'vendedora'
   const mostrarLoja = ctx.escopo === 'rede'
@@ -81,7 +55,7 @@ export default async function VendasPage() {
     ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
     : ctx.lojaNome
 
-  let baseQuery = admin
+  let vendasQuery = admin
     .from('vendas')
     .select(`
       id, valor, criado_em, data_compra, vendedora_id, origem, loja_id,
@@ -94,24 +68,29 @@ export default async function VendasPage() {
     .in('loja_id', ctx.lojaIds)
     .order('data_compra', { ascending: false })
     .order('criado_em', { ascending: false })
-    .limit(500)
+    .limit(100)
 
   if (isVendedora) {
-    baseQuery = baseQuery.eq('vendedora_id', user.id)
+    vendasQuery = vendasQuery.eq('vendedora_id', user.id)
   }
 
-  const { data: vendasRaw } = await baseQuery
+  const [vendasRes, membrosRes] = await Promise.all([
+    vendasQuery,
+    isVendedora
+      ? Promise.resolve({ data: null })
+      : admin
+          .from('membros_loja')
+          .select('perfil_id, perfis(nome)')
+          .in('loja_id', ctx.lojaIds)
+          .eq('ativo', true),
+  ])
+
+  const vendasRaw = vendasRes.data
 
   let vendedoras: { id: string; nome: string }[] = []
-  if (!isVendedora) {
-    const { data: membros } = await admin
-      .from('membros_loja')
-      .select('perfil_id, perfis(nome)')
-      .in('loja_id', ctx.lojaIds)
-      .eq('ativo', true)
-
+  if (!isVendedora && membrosRes.data) {
     const seen = new Set<string>()
-    vendedoras = (membros ?? []).flatMap(m => {
+    vendedoras = (membrosRes.data ?? []).flatMap(m => {
       const pid = m.perfil_id as string
       if (seen.has(pid)) return []
       seen.add(pid)

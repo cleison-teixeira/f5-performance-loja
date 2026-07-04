@@ -43,6 +43,9 @@ export default async function AvisosPage() {
   const lojaIdFallback = ctx.lojaId ?? ctx.lojaIds[0]
 
   const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
+  const data90DaysAgo = new Date()
+  data90DaysAgo.setDate(data90DaysAgo.getDate() - 90)
+  const dataInicio90 = data90DaysAgo.toISOString().split('T')[0]
 
   // Parallelizar: avisos + catalogo + recompras + membros em um único batch
   const [avisosRes, catalogoRes, recomprasRes, membrosRes] = await Promise.all([
@@ -57,8 +60,9 @@ export default async function AvisosPage() {
       `)
       .in('loja_id', ctx.lojaIds)
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
+      .gte('data_aviso', dataInicio90)
       .order('data_aviso', { ascending: true })
-      .limit(200),
+      .limit(100),
     supabase
       .from('produtos')
       .select('id, nome, preco_sugerido, comissionavel_recompra')

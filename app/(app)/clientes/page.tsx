@@ -30,18 +30,22 @@ export default async function ClientesPage() {
     ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
     : ctx.lojaNome
 
-  const [clientesRes, vendasRes] = await Promise.all([
-    admin
-      .from('clientes')
-      .select('id, nome, whatsapp, criado_em, loja_id')
-      .in('loja_id', ctx.lojaIds)
-      .order('nome'),
-    admin
-      .from('vendas')
-      .select('cliente_id, valor, data_compra')
-      .in('loja_id', ctx.lojaIds)
-      .order('data_compra', { ascending: false }),
-  ])
+  const clientesRes = await admin
+    .from('clientes')
+    .select('id, nome, whatsapp, criado_em, loja_id')
+    .in('loja_id', ctx.lojaIds)
+    .order('nome')
+    .limit(50)
+
+  const clienteIds = (clientesRes.data ?? []).map(c => c.id as string)
+
+  const vendasRes = clienteIds.length > 0
+    ? await admin
+        .from('vendas')
+        .select('cliente_id, valor, data_compra')
+        .in('cliente_id', clienteIds)
+        .order('data_compra', { ascending: false })
+    : { data: [] }
 
   type VendaStats = { qtd: number; total: number; ultima: string }
   const vendasPorCliente: Record<string, VendaStats> = {}
