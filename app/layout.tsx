@@ -12,10 +12,10 @@ export const metadata: Metadata = {
   description: 'Motor de recompra para lojas',
   icons: {
     icon: [
-      { url: '/favicon.ico?v=5', sizes: 'any' },
-      { url: '/favicon.png?v=5', type: 'image/png' },
+      { url: '/favicon.ico?v=6', sizes: 'any' },
+      { url: '/favicon.png?v=6', type: 'image/png' },
     ],
-    shortcut: '/favicon.ico?v=5',
+    shortcut: '/favicon.ico?v=6',
     apple: '/apple-touch-icon.png?v=5',
   },
   manifest: '/site.webmanifest?v=5',
