@@ -92,9 +92,8 @@ export function Sidebar({ role }: Props) {
 
   return (
     <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
-      <div className="flex items-center gap-2.5 h-14 px-4 border-b">
-        <img src="/branding/f5-icon-transparent.png" alt="" className="h-7 w-7 object-contain shrink-0" />
-        <span className="font-semibold text-base tracking-tight">F5 Recompra</span>
+      <div className="flex items-center h-14 px-4 border-b">
+        <img src="/branding/logo-f5-recompra.png" alt="F5 Recompra" className="h-7 w-auto object-contain" />
       </div>
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />

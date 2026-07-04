@@ -12,21 +12,21 @@ export const metadata: Metadata = {
   description: 'Motor de recompra para lojas',
   icons: {
     icon: [
-      { url: '/favicon.ico?v=4', sizes: 'any' },
-      { url: '/favicon.png?v=4', type: 'image/png' },
+      { url: '/favicon.ico?v=5', sizes: 'any' },
+      { url: '/favicon.png?v=5', type: 'image/png' },
     ],
-    shortcut: '/favicon.ico?v=4',
-    apple: '/apple-touch-icon.png?v=4',
+    shortcut: '/favicon.ico?v=5',
+    apple: '/apple-touch-icon.png?v=5',
   },
-  manifest: '/site.webmanifest?v=4',
+  manifest: '/site.webmanifest?v=5',
   openGraph: {
     title: 'F5 Recompra',
     description: 'Motor de recompra para lojas',
-    images: [{ url: '/branding/app-icon.png' }],
+    images: [{ url: '/branding/logo-icone-f5.png' }],
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/branding/app-icon.png'],
+    images: ['/branding/logo-icone-f5.png'],
   },
 }
 

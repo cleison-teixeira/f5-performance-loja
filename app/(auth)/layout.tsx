@@ -4,9 +4,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <img
-            src="/branding/logo-auth-dia.png"
+            src="/branding/logo-f5-sem-fundo.png"
             alt="F5 Recompra"
-            className="w-24 h-auto mx-auto object-contain"
+            className="w-20 h-20 mx-auto object-contain"
           />
           <h1 className="text-xl font-bold tracking-tight mt-3">F5 Recompra</h1>
           <p className="text-sm text-muted-foreground mt-1">
