@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { measureAsync } from '@/lib/performance/timing'
@@ -43,7 +44,7 @@ export async function getLojasDoUsuario(userId: string): Promise<{ id: string; n
   return (lojas ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))
 }
 
-export async function getContextoLoja(userId: string, multiLoja: boolean): Promise<ContextoLoja> {
+const _getContextoLojaImpl = async (userId: string, multiLoja: boolean): Promise<ContextoLoja> => {
   const lojas = await measureAsync('getContextoLoja:total', () => getLojasDoUsuario(userId))
 
   if (!multiLoja) {
@@ -91,6 +92,9 @@ export async function getContextoLoja(userId: string, multiLoja: boolean): Promi
     lojaNome: 'Toda a rede',
   }
 }
+
+// cache() do React deduplica chamadas com mesmos args dentro do mesmo request
+export const getContextoLoja = cache(_getContextoLojaImpl)
 
 export async function validarLojaDoUsuario(userId: string, lojaId: string): Promise<boolean> {
   const admin = createAdminClient()

@@ -4,9 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { DashboardView } from './DashboardView'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
-import { getContextoLoja } from '@/lib/loja/contexto'
 import { calcularTaxaRecompraGeral } from '@/lib/metricas/taxa-conversao'
+import { getAppContext } from '@/lib/app/contexto'
 
 export interface DashboardAviso {
   id: string
@@ -129,19 +128,10 @@ function addDias(base: string, n: number): string {
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const appCtx = await getAppContext()
+  if (!appCtx) redirect('/login')
 
-  const admin = createAdminClient()
-
-  const { data: membrosRaw } = await admin
-    .from('membros_loja')
-    .select('loja_id, role, lojas(id, nome)')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
-
-  if (!membrosRaw || membrosRaw.length === 0) {
+  if (!appCtx.hasMembros) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Dashboard</h1>
@@ -150,30 +140,21 @@ export default async function DashboardPage() {
     )
   }
 
-  const role = membrosRaw.reduce((best: string, m) => {
-    const mRole = m.role as string
-    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-  }, membrosRaw[0].role as string)
+  const { user, role, ctx } = appCtx
+  const admin = createAdminClient()
+  // supabase (RLS) ainda necessário para perfilRes e metasRes no Promise.all
+  const supabase = await createClient()
 
   const isVendedora = false
   const vidFilter: string | null = null
 
-  // Global loja context
-  const multiLojaUser = !isAcessoLoja(role)
-  const ctx = await getContextoLoja(user.id, multiLojaUser)
-
-  // In rede mode: all lojas. In loja mode: selected loja only.
   const multiLoja = ctx.escopo === 'rede'
-  const lojaIds = ctx.lojaIds.length > 0 ? ctx.lojaIds : [membrosRaw[0].loja_id as string]
-
-  // loja_id for queries (first in list or selected)
+  const lojaIds = ctx.lojaIds.length > 0 ? ctx.lojaIds : []
   const loja_id = ctx.lojaId ?? lojaIds[0]
 
-  // Display loja: selected or fallback to first
   const lojaDisplay = ctx.lojas.find(l => l.id === loja_id) ?? ctx.lojas[0] ?? null
   const lojaFallbackNome = lojaDisplay?.nome ?? ''
 
-  // Subtitle and loja.nome vary by escopo
   const qtdLojas = ctx.lojas.length
   const subtitulo = ctx.escopo === 'rede'
     ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'} · Dinheiro na mesa, recompras em aberto e fila da equipe.`

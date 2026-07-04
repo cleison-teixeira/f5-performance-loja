@@ -3,9 +3,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
-import { getContextoLoja } from '@/lib/loja/contexto'
 import { AvisosLista } from './AvisosLista'
+import { getAppContext } from '@/lib/app/contexto'
 import type { AvisoDetalhado, ItemVendaGrupo } from './types'
 import { calcularTaxaRecompraMes } from '@/lib/metricas/taxa-conversao'
 
@@ -16,46 +15,24 @@ export interface CatalogoProduto {
   comissionavel_recompra: boolean
 }
 
-const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
-
 export default async function AvisosPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const appCtx = await getAppContext()
+  if (!appCtx) redirect('/login')
+
+  const { user, role: userRole, ctx } = appCtx
+
+  if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Fila de Recompra</h1>
+        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
+      </div>
+    )
+  }
 
   const admin = createAdminClient()
-
-  const { data: todosMembros } = await admin
-    .from('membros_loja')
-    .select('role')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
-
-  if (!todosMembros || todosMembros.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Fila de Recompra</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
-
-  const userRole = todosMembros.reduce((best: string, m) => {
-    const mRole = m.role as string
-    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
-  }, todosMembros[0].role as string)
-
-  const multiLoja = !isAcessoLoja(userRole)
-  const ctx = await getContextoLoja(user.id, multiLoja)
-
-  if (ctx.lojaIds.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Fila de Recompra</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
+  // supabase (RLS) necessário para a query de produtos (catálogo)
+  const supabase = await createClient()
 
   const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
   const mostrarLoja = ctx.escopo === 'rede'
