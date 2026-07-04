@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { measureAsync } from '@/lib/performance/timing'
 
 export const COOKIE_LOJA = 'f5_loja_ctx'
 
@@ -15,29 +16,35 @@ export async function getLojasDoUsuario(userId: string): Promise<{ id: string; n
   const admin = createAdminClient()
 
   // Step 1: loja IDs (no PostgREST join — avoids FK resolution ambiguity)
-  const { data: membros } = await admin
-    .from('membros_loja')
-    .select('loja_id')
-    .eq('perfil_id', userId)
-    .eq('ativo', true)
+  const membrosRes = await measureAsync('getLojasDoUsuario:membros_loja', () =>
+    admin
+      .from('membros_loja')
+      .select('loja_id')
+      .eq('perfil_id', userId)
+      .eq('ativo', true)
+  )
+  const membros = membrosRes.data
 
   if (!membros || membros.length === 0) return []
 
   const lojaIds = [...new Set(membros.map(m => m.loja_id as string))]
 
   // Step 2: loja names — exclui lojas internas (admin_only)
-  const { data: lojas } = await admin
-    .from('lojas')
-    .select('id, nome')
-    .in('id', lojaIds)
-    .eq('admin_only', false)
-    .order('nome')
+  const lojasRes = await measureAsync('getLojasDoUsuario:lojas', () =>
+    admin
+      .from('lojas')
+      .select('id, nome')
+      .in('id', lojaIds)
+      .eq('admin_only', false)
+      .order('nome')
+  )
+  const lojas = lojasRes.data
 
   return (lojas ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))
 }
 
 export async function getContextoLoja(userId: string, multiLoja: boolean): Promise<ContextoLoja> {
-  const lojas = await getLojasDoUsuario(userId)
+  const lojas = await measureAsync('getContextoLoja:total', () => getLojasDoUsuario(userId))
 
   if (!multiLoja) {
     const loja = lojas[0] ?? null

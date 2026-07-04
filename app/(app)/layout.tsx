@@ -6,23 +6,31 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { getContextoLoja } from '@/lib/loja/contexto'
+import { measureAsync, startTimer } from '@/lib/performance/timing'
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const endLayout = startTimer('layout:total')
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  const { data: { user } } = await measureAsync('layout:auth.getUser', () =>
+    supabase.auth.getUser()
+  )
   if (!user) redirect('/login')
 
   const admin = createAdminClient()
-  const [{ data: perfil }, { data: todosMembros }, { data: libData }] = await Promise.all([
-    supabase.from('perfis').select('nome').eq('id', user.id).single(),
-    admin.from('membros_loja').select('role').eq('perfil_id', user.id).eq('ativo', true),
-    admin.from('liberacoes_acesso')
-      .select('tipo, status')
-      .eq('email', (user.email ?? '').toLowerCase())
-      .in('status', ['aplicado', 'ativo']),
-  ])
+  const [{ data: perfil }, { data: todosMembros }, { data: libData }] = await measureAsync(
+    'layout:Promise.all[perfis+membros+liberacoes]',
+    () => Promise.all([
+      supabase.from('perfis').select('nome').eq('id', user.id).single(),
+      admin.from('membros_loja').select('role').eq('perfil_id', user.id).eq('ativo', true),
+      admin.from('liberacoes_acesso')
+        .select('tipo, status')
+        .eq('email', (user.email ?? '').toLowerCase())
+        .in('status', ['aplicado', 'ativo']),
+    ])
+  )
 
   if (!todosMembros || todosMembros.length === 0) redirect('/sem-acesso')
 
@@ -32,7 +40,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }, todosMembros[0].role as string)
 
   const isAcessoRede = role === 'admin_f5' || (libData ?? []).some(l => l.tipo === 'rede')
-  const ctx = isAcessoRede ? await getContextoLoja(user.id, true) : null
+  const ctx = isAcessoRede
+    ? await measureAsync('layout:getContextoLoja', () => getContextoLoja(user.id, true))
+    : null
+  endLayout()
 
   return (
     <div className="flex min-h-screen bg-background">
