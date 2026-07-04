@@ -3,6 +3,67 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
+import { getAppContext } from '@/lib/app/contexto'
+import type { RegistroListaEspera } from './ListaEsperaCards'
+
+const LISTA_PAGE_SIZE = 50
+
+export async function carregarMaisListaEspera(cursor: string): Promise<{
+  registros: RegistroListaEspera[]
+  nextCursor: string | null
+}> {
+  const appCtx = await getAppContext()
+  if (!appCtx || !appCtx.hasMembros) return { registros: [], nextCursor: null }
+
+  const { ctx } = appCtx
+  const admin = createAdminClient()
+  const offset = parseInt(cursor, 10) || 0
+  const mostrarLoja = ctx.escopo === 'rede'
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+
+  const { data } = await admin
+    .from('lista_espera')
+    .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
+    .in('loja_id', ctx.lojaIds)
+    .order('criado_em', { ascending: false })
+    .range(offset, offset + LISTA_PAGE_SIZE - 1)
+
+  const items = data ?? []
+  const hasMore = items.length === LISTA_PAGE_SIZE
+
+  const vendedoraIds = [...new Set(items.map(r => r.vendedora_id as string).filter(Boolean))]
+  const nomeMap: Record<string, string> = {}
+  if (vendedoraIds.length > 0) {
+    const { data: perfisData } = await admin
+      .from('perfis')
+      .select('id, nome')
+      .in('id', vendedoraIds)
+    for (const p of perfisData ?? []) nomeMap[p.id as string] = p.nome as string
+  }
+
+  const registros: RegistroListaEspera[] = items.map(r => ({
+    id: r.id as string,
+    loja_id: r.loja_id as string,
+    cliente_nome: r.cliente_nome as string,
+    cliente_whatsapp: r.cliente_whatsapp as string,
+    produto_nome: r.produto_nome as string,
+    produto_id: r.produto_id as string | null,
+    categoria_nome: r.categoria_nome as string | null,
+    valor_potencial: r.valor_potencial as number | null,
+    quantidade: (r.quantidade as number) ?? 1,
+    status: r.status as string,
+    observacao: r.observacao as string | null,
+    criado_em: r.criado_em as string,
+    vendedora_id: r.vendedora_id as string | null,
+    vendedora_nome: nomeMap[r.vendedora_id as string] ?? '—',
+    loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
+  }))
+
+  return {
+    registros,
+    nextCursor: hasMore ? String(offset + LISTA_PAGE_SIZE) : null,
+  }
+}
 
 export type StatusListaEspera =
   | 'aguardando'

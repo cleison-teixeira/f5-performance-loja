@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { AvisosLista } from './AvisosLista'
+import { AvisosPageClient } from './AvisosPageClient'
 import { getAppContext } from '@/lib/app/contexto'
 import type { AvisoDetalhado, ItemVendaGrupo } from './types'
 import { calcularTaxaRecompraMes } from '@/lib/metricas/taxa-conversao'
@@ -62,7 +62,7 @@ export default async function AvisosPage() {
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
       .gte('data_aviso', dataInicio90)
       .order('data_aviso', { ascending: true })
-      .limit(100),
+      .limit(50),
     supabase
       .from('produtos')
       .select('id, nome, preco_sugerido, comissionavel_recompra')
@@ -216,8 +216,10 @@ export default async function AvisosPage() {
       </div>
 
       {/* ── Lista de avisos (inclui cards de resumo reativos) ── */}
-      <AvisosLista
-        avisos={avisos}
+      <AvisosPageClient
+        initialAvisos={avisos}
+        initialItensVenda={itensVendaPorVenda}
+        initialNextCursor={(avisosRaw?.length ?? 0) === 50 ? '50' : null}
         hoje={hoje}
         catalogo={catalogo}
         percentuaisPorVendedora={percentuaisPorVendedora}
@@ -225,12 +227,10 @@ export default async function AvisosPage() {
         loja_id={lojaIdFallback}
         loja_nome={ctx.lojaNome}
         isVendedora={isVendedora}
-        mode="recompra"
         totalRecomprasValorMes={totalRecomprasValorMes}
         qtdRecomprasMes={qtdRecomprasMes}
         mostrarLoja={mostrarLoja}
         taxaConversao={taxaConversao}
-        itensVendaPorVenda={itensVendaPorVenda}
       />
 
     </div>

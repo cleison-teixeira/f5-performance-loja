@@ -1,44 +1,35 @@
-export const dynamic = 'force-dynamic'
+'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
-import { ClientesPageClient } from './ClientesPageClient'
-import type { ClienteItem } from './ClientesLista'
 import { getAppContext } from '@/lib/app/contexto'
+import type { ClienteItem } from './ClientesLista'
 
-export default async function ClientesPage() {
+const PAGE_SIZE = 50
+
+export async function carregarMaisClientes(cursor: string): Promise<{
+  clientes: ClienteItem[]
+  nextCursor: string | null
+}> {
   const appCtx = await getAppContext()
-  if (!appCtx) redirect('/login')
+  if (!appCtx || !appCtx.hasMembros) return { clientes: [], nextCursor: null }
 
   const { ctx } = appCtx
-
-  if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Clientes de recompra</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
-
   const admin = createAdminClient()
-
+  const offset = parseInt(cursor, 10) || 0
   const mostrarLoja = ctx.escopo === 'rede'
   const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
-  const qtdLojas = ctx.lojas.length
-  const subtitulo = ctx.escopo === 'rede'
-    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
-    : ctx.lojaNome
 
   const clientesRes = await admin
     .from('clientes')
     .select('id, nome, whatsapp, criado_em, loja_id')
     .in('loja_id', ctx.lojaIds)
     .order('nome')
-    .limit(50)
+    .range(offset, offset + PAGE_SIZE - 1)
 
-  const clienteIds = (clientesRes.data ?? []).map(c => c.id as string)
+  const items = clientesRes.data ?? []
+  const hasMore = items.length === PAGE_SIZE
 
+  const clienteIds = items.map(c => c.id as string)
   const vendasRes = clienteIds.length > 0
     ? await admin
         .from('vendas')
@@ -59,7 +50,7 @@ export default async function ClientesPage() {
     vendasPorCliente[cid].total += (v.valor as number) ?? 0
   }
 
-  const clientes: ClienteItem[] = (clientesRes.data ?? []).map(c => {
+  const clientes: ClienteItem[] = items.map(c => {
     const stats = vendasPorCliente[c.id as string]
     return {
       id: c.id as string,
@@ -73,20 +64,8 @@ export default async function ClientesPage() {
     }
   })
 
-  return (
-    <div className="space-y-5 pb-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Clientes de recompra</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{subtitulo}</p>
-        <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
-          Base de clientes que podem comprar de novo.
-        </p>
-      </div>
-      <ClientesPageClient
-        initialClientes={clientes}
-        initialNextCursor={(clientesRes.data?.length ?? 0) === 50 ? '50' : null}
-        mostrarLoja={mostrarLoja}
-      />
-    </div>
-  )
+  return {
+    clientes,
+    nextCursor: hasMore ? String(offset + PAGE_SIZE) : null,
+  }
 }

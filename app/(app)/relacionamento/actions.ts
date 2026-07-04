@@ -1,34 +1,23 @@
-export const dynamic = 'force-dynamic'
+'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
-import { RelacionamentoPageClient } from './RelacionamentoPageClient'
 import type { AvisoDetalhado } from '@/app/(app)/avisos/types'
 
-export default async function RelacionamentoPage() {
+const PAGE_SIZE = 50
+
+export async function carregarMaisRelacionamento(cursor: string): Promise<{
+  avisos: AvisoDetalhado[]
+  nextCursor: string | null
+}> {
   const appCtx = await getAppContext()
-  if (!appCtx) redirect('/login')
+  if (!appCtx || !appCtx.hasMembros) return { avisos: [], nextCursor: null }
 
-  const { user, role: userRole, ctx } = appCtx
-
-  if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Relacionamento</h1>
-        <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
-      </div>
-    )
-  }
-
+  const { ctx } = appCtx
   const admin = createAdminClient()
-
-  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
-  const mostrarLoja = ctx.escopo === 'rede'
+  const offset = parseInt(cursor, 10) || 0
   const hoje = new Date().toISOString().split('T')[0]
-  const isVendedora = false
-
-  const lojaIdFallback = ctx.lojaId ?? ctx.lojaIds[0]
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
 
   const [avisosRes, membrosRes] = await Promise.all([
     admin
@@ -43,7 +32,7 @@ export default async function RelacionamentoPage() {
       .in('loja_id', ctx.lojaIds)
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
       .order('data_aviso', { ascending: true })
-      .limit(50),
+      .range(offset, offset + PAGE_SIZE - 1),
     admin
       .from('membros_loja')
       .select('perfil_id, perfis(nome)')
@@ -51,35 +40,27 @@ export default async function RelacionamentoPage() {
       .eq('ativo', true),
   ])
 
-  const avisosRaw = avisosRes.data
-  const membrosAtivos = membrosRes.data
-
   const vendedoraNomeMap = new Map<string, string>()
-  for (const m of membrosAtivos ?? []) {
+  for (const m of membrosRes.data ?? []) {
     const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
     const perfil = Array.isArray(p) ? p[0] : p
     if (perfil?.nome) vendedoraNomeMap.set(m.perfil_id as string, perfil.nome)
   }
 
-  const vendedorasLoja = (membrosAtivos ?? []).map(m => ({
-    id: m.perfil_id as string,
-    nome: vendedoraNomeMap.get(m.perfil_id as string) ?? '—',
-    percentual: 0,
-  }))
+  const avisosRaw = avisosRes.data ?? []
+  const hasMore = avisosRaw.length === PAGE_SIZE
 
-  const avisos: AvisoDetalhado[] = (avisosRaw ?? []).filter(a => {
+  const avisos: AvisoDetalhado[] = avisosRaw.filter(a => {
     const mp = a.mensagens_produto as unknown as { tipo: string } | null
     const tipo = mp?.tipo ?? ''
     const status = a.status as string
-    const isRelacionamentoContatoFeito = status === 'contato_feito' || (status === 'enviado' && !a.recompra_id)
-    return (tipo === 'agradecimento' || tipo === 'relacionamento') && !isRelacionamentoContatoFeito
+    const isContatoFeito = status === 'contato_feito' || (status === 'enviado' && !(a as unknown as { recompra_id: string | null }).recompra_id)
+    return (tipo === 'agradecimento' || tipo === 'relacionamento') && !isContatoFeito
   }).map(a => {
     const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
     const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
     const itemVenda = a.itens_venda as unknown as {
-      produto_nome: string
-      produto_id: string | null
-      subtotal: number | null
+      produto_nome: string; produto_id: string | null; subtotal: number | null
       produtos: { foto_url: string | null; galeria_urls: string[] | null } | Array<{ foto_url: string | null; galeria_urls: string[] | null }> | null
     } | null
     const produtosRaw = itemVenda?.produtos
@@ -115,29 +96,8 @@ export default async function RelacionamentoPage() {
     }
   })
 
-  return (
-    <div className="space-y-5 pb-6">
-
-      {/* ── Cabeçalho ── */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Relacionamento</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{ctx.lojaNome}</p>
-        <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
-          Mensagens de contato para manter o cliente aquecido.
-        </p>
-      </div>
-
-      {/* ── Lista (sem catálogo nem percentuais — não há ação de venda aqui) ── */}
-      <RelacionamentoPageClient
-        initialAvisos={avisos}
-        initialNextCursor={(avisosRes.data?.length ?? 0) === 50 ? '50' : null}
-        hoje={hoje}
-        vendedorasLoja={vendedorasLoja}
-        loja_id={lojaIdFallback}
-        isVendedora={isVendedora}
-        mostrarLoja={mostrarLoja}
-      />
-
-    </div>
-  )
+  return {
+    avisos,
+    nextCursor: hasMore ? String(offset + PAGE_SIZE) : null,
+  }
 }

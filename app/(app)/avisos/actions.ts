@@ -5,6 +5,133 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
 import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
 import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
+import { getAppContext } from '@/lib/app/contexto'
+import type { AvisoDetalhado, ItemVendaGrupo } from './types'
+
+const AVISOS_PAGE_SIZE = 50
+
+export async function carregarMaisAvisos(cursor: string): Promise<{
+  avisos: AvisoDetalhado[]
+  itensVenda: Record<string, ItemVendaGrupo[]>
+  nextCursor: string | null
+}> {
+  const appCtx = await getAppContext()
+  if (!appCtx || !appCtx.hasMembros) return { avisos: [], itensVenda: {}, nextCursor: null }
+
+  const { ctx } = appCtx
+  const admin = createAdminClient()
+  const offset = parseInt(cursor, 10) || 0
+  const hoje = new Date().toISOString().split('T')[0]
+  const data90DaysAgo = new Date()
+  data90DaysAgo.setDate(data90DaysAgo.getDate() - 90)
+  const dataInicio90 = data90DaysAgo.toISOString().split('T')[0]
+  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
+
+  const [avisosRes, membrosRes] = await Promise.all([
+    admin
+      .from('avisos')
+      .select(`
+        id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
+        clientes(nome, whatsapp),
+        mensagens_produto(tipo),
+        itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
+        vendas(valor, data_compra)
+      `)
+      .in('loja_id', ctx.lojaIds)
+      .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
+      .gte('data_aviso', dataInicio90)
+      .order('data_aviso', { ascending: true })
+      .range(offset, offset + AVISOS_PAGE_SIZE - 1),
+    admin
+      .from('membros_loja')
+      .select('perfil_id, perfis(nome)')
+      .in('loja_id', ctx.lojaIds)
+      .eq('ativo', true),
+  ])
+
+  const vendedoraNomeMap = new Map<string, string>()
+  for (const m of membrosRes.data ?? []) {
+    const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
+    const perfil = Array.isArray(p) ? p[0] : p
+    if (perfil?.nome) vendedoraNomeMap.set(m.perfil_id as string, perfil.nome)
+  }
+
+  const avisosRaw = avisosRes.data ?? []
+  const hasMore = avisosRaw.length === AVISOS_PAGE_SIZE
+
+  const avisos: AvisoDetalhado[] = avisosRaw.filter(a => {
+    const mp = a.mensagens_produto as unknown as { tipo: string } | null
+    const tipo = mp?.tipo ?? ''
+    return tipo === 'recompra' || tipo === 'oferta' || tipo === 'follow_up'
+  }).map(a => {
+    const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
+    const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
+    const itemVenda = a.itens_venda as unknown as {
+      produto_nome: string; produto_id: string | null; subtotal: number | null
+      produtos: { foto_url: string | null; galeria_urls: string[] | null } | Array<{ foto_url: string | null; galeria_urls: string[] | null }> | null
+    } | null
+    const produtosRaw = itemVenda?.produtos
+    const produtoFoto = Array.isArray(produtosRaw) ? produtosRaw[0] : produtosRaw
+    const venda = a.vendas as unknown as { valor: number; data_compra: string | null } | null
+    const avisoLojaId = a.loja_id as string
+
+    return {
+      id: a.id as string,
+      data_aviso: a.data_aviso as string,
+      status: a.status as AvisoDetalhado['status'],
+      recompra_id: (a as unknown as { recompra_id: string | null }).recompra_id ?? null,
+      texto_renderizado: a.texto_renderizado as string,
+      cliente_nome: cliente?.nome ?? 'Cliente',
+      cliente_whatsapp: cliente?.whatsapp ?? '',
+      cliente_id: a.cliente_id as string,
+      produto_nome: itemVenda?.produto_nome ?? 'Produto',
+      produto_id: itemVenda?.produto_id ?? null,
+      produto_foto_url: produtoFoto?.foto_url || produtoFoto?.galeria_urls?.[0] || null,
+      tipo: (mensagem?.tipo ?? 'agradecimento') as AvisoDetalhado['tipo'],
+      valor_venda: venda?.valor ?? 0,
+      valor_produto: itemVenda?.subtotal ?? 0,
+      previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
+      venda_id: a.venda_id as string,
+      item_venda_id: (a.item_venda_id as string | null) ?? null,
+      data_compra: venda?.data_compra?.slice(0, 10) ?? '',
+      observacao_resultado: (a as unknown as { observacao_resultado: string | null }).observacao_resultado ?? null,
+      vendedora_id: a.vendedora_id as string,
+      vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
+      atrasado: a.data_aviso < hoje,
+      loja_id: avisoLojaId,
+      loja_nome: lojaNomeMap.get(avisoLojaId) ?? '',
+    }
+  })
+
+  const vendaIds = [...new Set(avisos.map(a => a.venda_id))]
+  const itensVenda: Record<string, ItemVendaGrupo[]> = {}
+  if (vendaIds.length > 0) {
+    const { data: itensData } = await admin
+      .from('itens_venda')
+      .select('id, venda_id, produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)')
+      .in('venda_id', vendaIds)
+      .eq('recorrente', true)
+    for (const item of itensData ?? []) {
+      const vId = item.venda_id as string
+      const prodRaw = (item as unknown as { produtos: { foto_url: string | null; galeria_urls: string[] | null } | Array<{ foto_url: string | null; galeria_urls: string[] | null }> | null }).produtos
+      const prodFoto = Array.isArray(prodRaw) ? prodRaw[0] : prodRaw
+      if (!itensVenda[vId]) itensVenda[vId] = []
+      itensVenda[vId].push({
+        id: item.id as string,
+        produto_nome: item.produto_nome as string,
+        produto_id: (item.produto_id as string | null) ?? null,
+        produto_foto_url: prodFoto?.foto_url || prodFoto?.galeria_urls?.[0] || null,
+        valor_produto: (item.subtotal as number | null) ?? 0,
+      })
+    }
+  }
+
+  return {
+    avisos,
+    itensVenda,
+    nextCursor: hasMore ? String(offset + AVISOS_PAGE_SIZE) : null,
+  }
+}
 
 export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; erro?: string }> {
   try {

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
-import { VendasLista } from './VendasLista'
+import { VendasPageClient } from './VendasPageClient'
 
 export interface VendaItemExtrato {
   produto_nome: string
@@ -68,7 +68,7 @@ export default async function VendasPage() {
     .in('loja_id', ctx.lojaIds)
     .order('data_compra', { ascending: false })
     .order('criado_em', { ascending: false })
-    .limit(100)
+    .limit(50)
 
   if (isVendedora) {
     vendasQuery = vendasQuery.eq('vendedora_id', user.id)
@@ -146,7 +146,13 @@ export default async function VendasPage() {
         <h1 className="text-xl font-semibold">Extrato de vendas</h1>
         <p className="text-sm text-muted-foreground">{subtitulo}</p>
       </div>
-      <VendasLista vendas={vendas} isVendedora={isVendedora} vendedoras={vendedoras} mostrarLoja={mostrarLoja} />
+      <VendasPageClient
+        initialVendas={vendas}
+        initialNextCursor={(vendasRaw?.length ?? 0) === 50 ? '50' : null}
+        isVendedora={isVendedora}
+        vendedoras={vendedoras}
+        mostrarLoja={mostrarLoja}
+      />
     </div>
   )
 }

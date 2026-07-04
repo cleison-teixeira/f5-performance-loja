@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getAppContext } from '@/lib/app/contexto'
-import { ProdutosLista } from './ProdutosLista'
+import { ProdutosPageClient } from './ProdutosPageClient'
 import type { ProdutoCard } from './ProdutosLista'
 
 export default async function ProdutosPage() {
@@ -38,7 +38,7 @@ export default async function ProdutosPage() {
     .in('loja_id', ctx.lojaIds)
     .eq('ativo', true)
     .order('nome')
-    .limit(150)
+    .limit(50)
 
   type ProdutoRaw = {
     id: string
@@ -90,7 +90,11 @@ export default async function ProdutosPage() {
         </p>
       )}
 
-      <ProdutosLista lista={lista} podeEditar={podeEditar} />
+      <ProdutosPageClient
+        initialLista={lista}
+        initialNextCursor={((produtosRaw ?? []).length) === 50 ? '50' : null}
+        podeEditar={podeEditar}
+      />
     </div>
   )
 }

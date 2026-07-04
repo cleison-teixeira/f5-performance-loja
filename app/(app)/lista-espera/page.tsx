@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { Package } from 'lucide-react'
 import { getAppContext } from '@/lib/app/contexto'
 import { ListaEsperaForm } from './ListaEsperaForm'
+import { ListaEsperaPageClient } from './ListaEsperaPageClient'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 
 function fmt(v: number) {
@@ -45,7 +46,7 @@ export default async function ListaEsperaPage() {
       .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
       .in('loja_id', ctx.lojaIds)
       .order('criado_em', { ascending: false })
-      .limit(200),
+      .limit(50),
     ctx.escopo === 'loja'
       ? admin
           .from('categorias')
@@ -215,8 +216,9 @@ export default async function ListaEsperaPage() {
         </p>
       )}
 
-      <ListaEsperaCards
-        registros={registros}
+      <ListaEsperaPageClient
+        initialRegistros={registros}
+        initialNextCursor={(registrosRes.data?.length ?? 0) === 50 ? '50' : null}
         defaultLojaNome={lojaNome}
         vendedoras={vendedoras}
         produtos={produtos}
