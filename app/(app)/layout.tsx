@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { startTimer } from '@/lib/performance/timing'
 import { ClientPerformanceReporter } from '@/components/performance/ClientPerformanceReporter'
+import { AppRoutePrefetch } from '@/components/performance/AppRoutePrefetch'
 import { RouteProgress } from '@/components/layout/RouteProgress'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
       <BottomNav role={role} />
       <RouteProgress />
+      <AppRoutePrefetch />
       <ClientPerformanceReporter />
     </div>
   )
