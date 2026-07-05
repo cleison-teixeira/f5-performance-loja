@@ -1,12 +1,23 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { desativarMembro } from './actions'
-import { FormAddMembro } from './FormAddMembro'
-import { FormEditarMembro } from './FormEditarMembro'
-import { FormPinMembro } from './FormPinMembro'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import type { MembroExibido } from './page'
+
+const FormAddMembro = dynamic(
+  () => import('./FormAddMembro').then(m => ({ default: m.FormAddMembro })),
+  { ssr: false }
+)
+const FormEditarMembro = dynamic(
+  () => import('./FormEditarMembro').then(m => ({ default: m.FormEditarMembro })),
+  { ssr: false }
+)
+const FormPinMembro = dynamic(
+  () => import('./FormPinMembro').then(m => ({ default: m.FormPinMembro })),
+  { ssr: false }
+)
 
 interface Props {
   membros: MembroExibido[]

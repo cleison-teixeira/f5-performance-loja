@@ -8,7 +8,12 @@ import { atualizarStatusListaEspera, buscarMembrosAtivosLoja, type StatusListaEs
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
-import { ListaEsperaEditForm } from './ListaEsperaEditForm'
+import dynamic from 'next/dynamic'
+
+const ListaEsperaEditForm = dynamic(
+  () => import('./ListaEsperaEditForm').then(m => ({ default: m.ListaEsperaEditForm })),
+  { ssr: false }
+)
 
 export interface RegistroListaEspera {
   id: string

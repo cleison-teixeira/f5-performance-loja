@@ -6,9 +6,20 @@ import { Copy, Check, User, Package, Send, CalendarClock, XCircle, Pencil } from
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { marcarEnviado, editarTextoAviso } from './actions'
-import { ConfirmarRecompraModal } from './ConfirmarRecompraModal'
-import { ReagendarModal } from './ReagendarModal'
-import { PerderOportunidadeModal } from './PerderOportunidadeModal'
+import dynamic from 'next/dynamic'
+
+const ConfirmarRecompraModal = dynamic(
+  () => import('./ConfirmarRecompraModal').then(m => ({ default: m.ConfirmarRecompraModal })),
+  { ssr: false }
+)
+const ReagendarModal = dynamic(
+  () => import('./ReagendarModal').then(m => ({ default: m.ReagendarModal })),
+  { ssr: false }
+)
+const PerderOportunidadeModal = dynamic(
+  () => import('./PerderOportunidadeModal').then(m => ({ default: m.PerderOportunidadeModal })),
+  { ssr: false }
+)
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
 import type { VendedoraLoja } from './AvisosLista'
