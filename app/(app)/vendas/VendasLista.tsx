@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { SlidersHorizontal, X, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -66,6 +66,14 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
   const [produtoNome, setProdutoNome] = useState('')
   const [dataEspecifica, setDataEspecifica] = useState('')
   const [drawerAberto, setDrawerAberto] = useState(false)
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    setIsDesktop(window.innerWidth >= 768)
+  }, [])
+
+  const showMobile = isDesktop !== true
+  const showDesktop = isDesktop !== false
 
   const produtosUnicos = useMemo(() => {
     const nomes = new Set<string>()
@@ -101,7 +109,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
   return (
     <div className="space-y-4">
       {/* Desktop filters */}
-      <div className="hidden md:flex flex-wrap items-center gap-3">
+      {showDesktop && <div className="hidden md:flex flex-wrap items-center gap-3">
         <div className="flex rounded-md border overflow-hidden text-sm">
           {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
@@ -184,10 +192,10 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
             Limpar filtros
           </button>
         )}
-      </div>
+      </div>}
 
       {/* Mobile: period + filter button */}
-      <div className="flex items-center justify-between gap-3 md:hidden">
+      {showMobile && <div className="flex items-center justify-between gap-3 md:hidden">
         <div className="flex rounded-md border overflow-hidden text-sm">
           {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
@@ -216,7 +224,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
           <SlidersHorizontal className="h-3.5 w-3.5" />
           Filtros{temFiltrosAtivos ? ' •' : ''}
         </button>
-      </div>
+      </div>}
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -234,14 +242,16 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
       ) : (
         <>
           {/* Mobile cards */}
+          {showMobile && (
           <div className="space-y-3 md:hidden">
             {filtradas.map(v => (
               <VendaCard key={v.id} venda={v} isVendedora={isVendedora} mostrarLoja={mostrarLoja} />
             ))}
           </div>
+          )}
 
           {/* Desktop table */}
-          <div className="hidden md:block rounded-lg border overflow-hidden">
+          {showDesktop && <div className="hidden md:block rounded-lg border overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
@@ -305,7 +315,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
                 ))}
               </tbody>
             </table>
-          </div>
+          </div>}
         </>
       )}
 

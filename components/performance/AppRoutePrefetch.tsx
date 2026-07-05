@@ -1,20 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-const ROTAS_DESKTOP = [
-  '/dashboard',
-  '/avisos',
-  '/relacionamento',
-  '/clientes',
-  '/produtos',
-  '/lista-espera',
-  '/vendas',
-  '/perdas',
-]
-
-const ROTAS_MOBILE = [
+const ROTAS = [
   '/dashboard',
   '/avisos',
   '/relacionamento',
@@ -24,23 +13,33 @@ const ROTAS_MOBILE = [
 
 export function AppRoutePrefetch() {
   const router = useRouter()
+  const fezPrefetch = useRef(false)
 
   useEffect(() => {
-    const isMobile = window.innerWidth < 768
-    const rotas = isMobile ? ROTAS_MOBILE : ROTAS_DESKTOP
+    if (fezPrefetch.current) return
 
-    const prefetch = () => {
-      for (const rota of rotas) {
-        router.prefetch(rota)
-      }
+    const timers: ReturnType<typeof setTimeout>[] = []
+
+    const prefetchStaggered = () => {
+      if (fezPrefetch.current) return
+      fezPrefetch.current = true
+      ROTAS.forEach((rota, i) => {
+        timers.push(setTimeout(() => router.prefetch(rota), i * 300))
+      })
     }
 
     if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(prefetch, { timeout: 3000 })
-      return () => cancelIdleCallback(id)
+      const id = requestIdleCallback(prefetchStaggered, { timeout: 8000 })
+      return () => {
+        cancelIdleCallback(id)
+        timers.forEach(clearTimeout)
+      }
     } else {
-      const id = setTimeout(prefetch, 2000)
-      return () => clearTimeout(id)
+      const id = setTimeout(prefetchStaggered, 5000)
+      return () => {
+        clearTimeout(id)
+        timers.forEach(clearTimeout)
+      }
     }
   }, [router])
 
