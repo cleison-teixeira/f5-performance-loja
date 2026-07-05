@@ -1,7 +1,10 @@
+import { PageHeaderSkeleton, MobileCardSkeleton } from '@/components/ui/skeletons'
+
 export default function Loading() {
   return (
-    <div className="flex items-center justify-center min-h-[40vh]">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    <div className="space-y-5 min-h-[60vh]">
+      <PageHeaderSkeleton />
+      <MobileCardSkeleton count={5} />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { startTimer } from '@/lib/performance/timing'
 import { ClientPerformanceReporter } from '@/components/performance/ClientPerformanceReporter'
+import { RouteProgress } from '@/components/layout/RouteProgress'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const endLayout = startTimer('app-layout:total')
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
       <BottomNav role={role} />
+      <RouteProgress />
       <ClientPerformanceReporter />
     </div>
   )

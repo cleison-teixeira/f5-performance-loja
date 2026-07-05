@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Pencil, Send } from 'lucide-react'
+import { Copy, Check, Pencil, Send, ClipboardList } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { atualizarStatusListaEspera, buscarMembrosAtivosLoja, type StatusListaEspera } from './actions'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
@@ -446,12 +447,11 @@ export function ListaEsperaCards({
 
   if (registros.length === 0) {
     return (
-      <div className="rounded-xl border bg-card p-8 text-center space-y-2">
-        <p className="text-sm font-medium">Nenhuma oportunidade em espera ainda.</p>
-        <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
-          Quando um cliente pedir algo que não tem na loja, cadastre aqui para não perder a venda.
-        </p>
-      </div>
+      <EmptyState
+        icon={ClipboardList}
+        title="Nenhuma oportunidade em espera ainda"
+        description="Quando um cliente pedir algo que não tem na loja, cadastre aqui para não perder a venda."
+      />
     )
   }
 

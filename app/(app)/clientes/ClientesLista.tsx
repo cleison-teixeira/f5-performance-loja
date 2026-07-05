@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Users, TrendingUp, UserMinus, Search } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export type ClienteItem = {
   id: string
@@ -121,13 +122,11 @@ export function ClientesLista({ clientes, mostrarLoja }: Props) {
 
       {/* ── Lista ── */}
       {total === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center space-y-2">
-          <Users className="h-8 w-8 text-muted-foreground mx-auto" />
-          <p className="text-sm font-medium">Nenhum cliente ainda</p>
-          <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
-            Os clientes aparecem aqui automaticamente quando uma compra é registrada.
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Nenhum cliente ainda"
+          description="Os clientes aparecem aqui automaticamente quando uma compra é registrada."
+        />
       ) : filtrados.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">

@@ -81,7 +81,7 @@ export function BottomNav({ role }: Props) {
                 key={href}
                 href={href}
                 className={cn(
-                  'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors touch-manipulation',
+                  'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors touch-manipulation active:opacity-70',
                   active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
@@ -94,7 +94,7 @@ export function BottomNav({ role }: Props) {
           <button
             onClick={() => setDrawerAberto(true)}
             className={cn(
-              'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors touch-manipulation',
+              'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors touch-manipulation active:opacity-70',
               maisAtivo ? 'text-primary' : 'text-muted-foreground'
             )}
           >
@@ -137,7 +137,7 @@ export function BottomNav({ role }: Props) {
                         href={href}
                         onClick={() => setDrawerAberto(false)}
                         className={cn(
-                          'flex items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors touch-manipulation',
+                          'flex items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors touch-manipulation active:bg-muted/60',
                           active
                             ? 'bg-primary/10 text-primary font-medium'
                             : 'text-foreground hover:bg-accent'

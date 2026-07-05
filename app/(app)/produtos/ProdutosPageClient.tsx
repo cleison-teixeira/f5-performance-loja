@@ -35,8 +35,10 @@ export function ProdutosPageClient({ initialLista, initialNextCursor, podeEditar
             disabled={isPending}
             className="flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
           >
-            {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Carregar mais produtos
+            {isPending
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Carregando...</>
+              : 'Carregar mais produtos'
+            }
           </button>
         </div>
       )}

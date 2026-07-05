@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Search } from 'lucide-react'
+import { Search, Package } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export type ProdutoCard = {
   id: string
@@ -62,17 +63,12 @@ export function ProdutosLista({ lista, podeEditar }: Props) {
       )}
 
       {lista.length === 0 ? (
-        <div className="rounded-xl border bg-card p-8 text-center space-y-2">
-          <p className="text-sm font-medium">Nenhum produto ativo cadastrado.</p>
-          {podeEditar && (
-            <p className="text-xs text-muted-foreground">
-              Cadastre produtos em{' '}
-              <Link href="/configuracoes/produtos" className="text-primary hover:underline">
-                Produtos e mensagens
-              </Link>.
-            </p>
-          )}
-        </div>
+        <EmptyState
+          icon={Package}
+          title="Nenhum produto ativo cadastrado"
+          description="Cadastre os produtos que sua loja trabalha para gerar avisos de recompra automaticamente."
+          action={podeEditar ? { label: 'Cadastrar produtos', href: '/configuracoes/produtos' } : undefined}
+        />
       ) : filtrados.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
