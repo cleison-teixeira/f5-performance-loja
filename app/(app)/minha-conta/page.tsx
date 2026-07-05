@@ -49,11 +49,19 @@ export default async function MinhaContaPage() {
 
   const admin = createAdminClient()
 
-  const { data: membrosData } = await admin
-    .from('membros_loja')
-    .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos)')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
+  // membros e liberações não dependem um do outro — executar em paralelo
+  const [{ data: membrosData }, { data: libData }] = await Promise.all([
+    admin
+      .from('membros_loja')
+      .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos)')
+      .eq('perfil_id', user.id)
+      .eq('ativo', true),
+    admin
+      .from('liberacoes_acesso')
+      .select('id, tipo, status, valor_pago, prazo_acesso, criado_em, aplicado_em, loja_id')
+      .eq('email', (user.email ?? '').toLowerCase())
+      .order('criado_em', { ascending: false }),
+  ])
 
   if (!membrosData || membrosData.length === 0) redirect('/sem-acesso')
 
@@ -65,13 +73,6 @@ export default async function MinhaContaPage() {
   if (role === 'vendedora') redirect('/dashboard')
 
   const podeEditar = ['dono', 'gerente', 'admin_f5'].includes(role)
-
-  // Fetch liberações before building lojas — isRede depends on this
-  const { data: libData } = await admin
-    .from('liberacoes_acesso')
-    .select('id, tipo, status, valor_pago, prazo_acesso, criado_em, aplicado_em, loja_id')
-    .eq('email', (user.email ?? '').toLowerCase())
-    .order('criado_em', { ascending: false })
 
   // isRede is determined solely by whether this email has an active tipo='rede' liberação.
   const isRede = (libData ?? []).some(

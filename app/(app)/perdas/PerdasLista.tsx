@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { TrendingDown, AlertCircle, Package, User } from 'lucide-react'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { PerdaItem } from './page'
 
 type Periodo = '30' | '90'
@@ -173,9 +174,11 @@ export function PerdasLista({ perdas, isVendedora, mostrarLoja }: { perdas: Perd
 
       {/* ── Lista ── */}
       {filtradas.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4">
-          Nenhuma perda registrada neste período.
-        </p>
+        <EmptyState
+          icon={TrendingDown}
+          title="Nenhuma perda neste período"
+          description="Nenhuma oportunidade foi encerrada como perdida nos últimos dias. Continue acionando a fila de recompra!"
+        />
       ) : (
         <div className="space-y-3">
           {filtradas.map(p => (

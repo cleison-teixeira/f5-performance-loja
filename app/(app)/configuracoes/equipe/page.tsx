@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
-import { getContextoLoja } from '@/lib/loja/contexto'
+import { getMembrosAtivos, getContextoLoja } from '@/lib/loja/contexto'
 import { TabelaEquipe } from './TabelaEquipe'
 import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
 
@@ -28,13 +28,9 @@ export default async function ConfigEquipePage() {
   if (!user) redirect('/login')
 
   const admin = createAdminClient()
-  const { data: todosMembros } = await admin
-    .from('membros_loja')
-    .select('role')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
+  const todosMembros = await getMembrosAtivos(user.id)
 
-  if (!todosMembros || todosMembros.length === 0) {
+  if (todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Equipe</h1>
@@ -95,18 +91,19 @@ export default async function ConfigEquipePage() {
     }
   }
 
-  // Fetch members including pin_ativo and pin_hash presence (never expose hash value)
-  const { data: membros } = await admin
-    .from('membros_loja')
-    .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, perfis(nome, whatsapp)')
-    .eq('loja_id', loja_id)
-    .order('role')
-
-  const { data: regrasData } = await admin
-    .from('regras_comissao')
-    .select('vendedora_id, percentual')
-    .eq('loja_id', loja_id)
-    .eq('ativo', true)
+  // membros da equipe e regras não dependem um do outro — executar em paralelo
+  const [{ data: membros }, { data: regrasData }] = await Promise.all([
+    admin
+      .from('membros_loja')
+      .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, perfis(nome, whatsapp)')
+      .eq('loja_id', loja_id)
+      .order('role'),
+    admin
+      .from('regras_comissao')
+      .select('vendedora_id, percentual')
+      .eq('loja_id', loja_id)
+      .eq('ativo', true),
+  ])
   const comissaoPorId: Record<string, number> = Object.fromEntries(
     (regrasData ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
   )

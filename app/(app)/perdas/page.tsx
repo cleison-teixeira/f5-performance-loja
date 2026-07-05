@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
-import { getContextoLoja } from '@/lib/loja/contexto'
+import { getMembrosAtivos, getContextoLoja } from '@/lib/loja/contexto'
 import { PerdasLista } from './PerdasLista'
 
 export interface PerdaItem {
@@ -28,14 +28,9 @@ export default async function PerdasPage() {
   if (!user) redirect('/login')
 
   const admin = createAdminClient()
+  const todosMembros = await getMembrosAtivos(user.id)
 
-  const { data: todosMembros } = await admin
-    .from('membros_loja')
-    .select('role')
-    .eq('perfil_id', user.id)
-    .eq('ativo', true)
-
-  if (!todosMembros || todosMembros.length === 0) {
+  if (todosMembros.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Recompras perdidas</h1>
