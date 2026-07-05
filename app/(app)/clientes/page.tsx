@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { ClientesPageClient } from './ClientesPageClient'
 import type { ClienteItem } from './ClientesLista'
 import { getAppContext } from '@/lib/app/contexto'
+import { startTimer } from '@/lib/performance/timing'
 
 export default async function ClientesPage() {
   const appCtx = await getAppContext()
@@ -30,6 +31,7 @@ export default async function ClientesPage() {
     ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
     : ctx.lojaNome
 
+  const endClientes = startTimer('clientes:queries')
   const clientesRes = await admin
     .from('clientes')
     .select('id, nome, whatsapp, criado_em, loja_id')
@@ -46,6 +48,7 @@ export default async function ClientesPage() {
         .in('cliente_id', clienteIds)
         .order('data_compra', { ascending: false })
     : { data: [] }
+  endClientes()
 
   type VendaStats = { qtd: number; total: number; ultima: string }
   const vendasPorCliente: Record<string, VendaStats> = {}

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { RelacionamentoPageClient } from './RelacionamentoPageClient'
 import type { AvisoDetalhado } from '@/app/(app)/avisos/types'
+import { measureAsync } from '@/lib/performance/timing'
 
 export default async function RelacionamentoPage() {
   const appCtx = await getAppContext()
@@ -30,7 +31,7 @@ export default async function RelacionamentoPage() {
 
   const lojaIdFallback = ctx.lojaId ?? ctx.lojaIds[0]
 
-  const [avisosRes, membrosRes] = await Promise.all([
+  const [avisosRes, membrosRes] = await measureAsync('relacionamento:queries', () => Promise.all([
     admin
       .from('avisos')
       .select(`
@@ -49,7 +50,7 @@ export default async function RelacionamentoPage() {
       .select('perfil_id, perfis(nome)')
       .in('loja_id', ctx.lojaIds)
       .eq('ativo', true),
-  ])
+  ]))
 
   const avisosRaw = avisosRes.data
   const membrosAtivos = membrosRes.data

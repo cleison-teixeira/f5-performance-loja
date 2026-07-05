@@ -4,13 +4,17 @@ import { Header } from '@/components/layout/Header'
 import { SeletorLojaGlobal } from '@/components/layout/SeletorLojaGlobal'
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
+import { startTimer } from '@/lib/performance/timing'
+import { ClientPerformanceReporter } from '@/components/performance/ClientPerformanceReporter'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const endLayout = startTimer('app-layout:total')
   const appCtx = await getAppContext()
   if (!appCtx) redirect('/login')
   if (!appCtx.hasMembros) redirect('/sem-acesso')
 
   const { perfil, role, isAcessoRede, ctx } = appCtx
+  endLayout()
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -25,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
       <BottomNav role={role} />
+      <ClientPerformanceReporter />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getAppContext } from '@/lib/app/contexto'
 import { ProdutosPageClient } from './ProdutosPageClient'
 import type { ProdutoCard } from './ProdutosLista'
+import { measureAsync } from '@/lib/performance/timing'
 
 export default async function ProdutosPage() {
   const appCtx = await getAppContext()
@@ -32,13 +33,15 @@ export default async function ProdutosPage() {
     ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'} · Configure ciclo, preço médio e mensagens de recompra.`
     : `${ctx.lojaNome} · Configure ciclo, preço médio e mensagens de recompra.`
 
-  const { data: produtosRaw } = await admin
-    .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, loja_id, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(tipo, dias_apos_venda)')
-    .in('loja_id', ctx.lojaIds)
-    .eq('ativo', true)
-    .order('nome')
-    .limit(50)
+  const { data: produtosRaw } = await measureAsync('produtos:queries', () =>
+    admin
+      .from('produtos')
+      .select('id, nome, preco_sugerido, foto_url, recorrente, qtd_mensagens, loja_id, nicho, parceiro, categoria, galeria_urls, variantes, mensagens_produto(tipo, dias_apos_venda)')
+      .in('loja_id', ctx.lojaIds)
+      .eq('ativo', true)
+      .order('nome')
+      .limit(50)
+  )
 
   type ProdutoRaw = {
     id: string

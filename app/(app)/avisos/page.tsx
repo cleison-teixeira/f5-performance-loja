@@ -7,6 +7,7 @@ import { AvisosPageClient } from './AvisosPageClient'
 import { getAppContext } from '@/lib/app/contexto'
 import type { AvisoDetalhado, ItemVendaGrupo } from './types'
 import { calcularTaxaRecompraMes } from '@/lib/metricas/taxa-conversao'
+import { measureAsync } from '@/lib/performance/timing'
 
 export interface CatalogoProduto {
   id: string
@@ -48,7 +49,7 @@ export default async function AvisosPage() {
   const dataInicio90 = data90DaysAgo.toISOString().split('T')[0]
 
   // Parallelizar: avisos + catalogo + recompras + membros em um único batch
-  const [avisosRes, catalogoRes, recomprasRes, membrosRes] = await Promise.all([
+  const [avisosRes, catalogoRes, recomprasRes, membrosRes] = await measureAsync('avisos:queries', () => Promise.all([
     admin
       .from('avisos')
       .select(`
@@ -80,7 +81,7 @@ export default async function AvisosPage() {
       .select('perfil_id, perfis(nome)')
       .in('loja_id', ctx.lojaIds)
       .eq('ativo', true),
-  ])
+  ]))
 
   const avisosRaw = avisosRes.data
   const catalogoRaw = catalogoRes.data

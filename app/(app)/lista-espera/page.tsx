@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { Package } from 'lucide-react'
 import { getAppContext } from '@/lib/app/contexto'
+import { measureAsync } from '@/lib/performance/timing'
 import { ListaEsperaForm } from './ListaEsperaForm'
 import { ListaEsperaPageClient } from './ListaEsperaPageClient'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
@@ -40,7 +41,7 @@ export default async function ListaEsperaPage() {
   const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
   const lojaNome = ctx.lojaNome ?? ''
 
-  const [registrosRes, categoriasRes, vendedorasRes, produtosRes] = await Promise.all([
+  const [registrosRes, categoriasRes, vendedorasRes, produtosRes] = await measureAsync('lista-espera:queries', () => Promise.all([
     admin
       .from('lista_espera')
       .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
@@ -71,7 +72,7 @@ export default async function ListaEsperaPage() {
           .eq('ativo', true)
           .order('nome')
       : Promise.resolve({ data: [] as Array<{ id: unknown; nome: unknown }> }),
-  ])
+  ]))
 
   const categoriaMap: Record<string, string> = {}
   for (const c of categoriasRes.data ?? []) {

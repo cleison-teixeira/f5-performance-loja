@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { VendasPageClient } from './VendasPageClient'
+import { measureAsync } from '@/lib/performance/timing'
 
 export interface VendaItemExtrato {
   produto_nome: string
@@ -74,7 +75,7 @@ export default async function VendasPage() {
     vendasQuery = vendasQuery.eq('vendedora_id', user.id)
   }
 
-  const [vendasRes, membrosRes] = await Promise.all([
+  const [vendasRes, membrosRes] = await measureAsync('vendas:queries', () => Promise.all([
     vendasQuery,
     isVendedora
       ? Promise.resolve({ data: null })
@@ -83,7 +84,7 @@ export default async function VendasPage() {
           .select('perfil_id, perfis(nome)')
           .in('loja_id', ctx.lojaIds)
           .eq('ativo', true),
-  ])
+  ]))
 
   const vendasRaw = vendasRes.data
 

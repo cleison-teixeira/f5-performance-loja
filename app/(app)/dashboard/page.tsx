@@ -9,6 +9,7 @@ import { ListaSkeleton } from './DashboardSkeletons'
 import { calcularTaxaRecompraGeral } from '@/lib/metricas/taxa-conversao'
 import { getAppContext } from '@/lib/app/contexto'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { measureAsync } from '@/lib/performance/timing'
 
 export interface DashboardAviso {
   id: string
@@ -187,7 +188,7 @@ export default async function DashboardPage() {
   const [
     avisosRes, recomprasRes, enviadosRes, membrosRes, metasRes, listaEsperaRes, taxaConversao,
     vendasRes, produtosRes, comissaoVendaRes,
-  ] = await Promise.all([
+  ] = await measureAsync('dashboard:queries', () => Promise.all([
     // ── Sempre necessário ────────────────────────────────────────────────────
     (() => {
       let q = admin
@@ -284,7 +285,7 @@ export default async function DashboardPage() {
           if (vidFilter) q = q.eq('vendedora_id', vidFilter)
           return q
         })(),
-  ])
+  ]))
 
   // Build vendedora name map
   const vendedoraNomeMap = new Map<string, string>()
