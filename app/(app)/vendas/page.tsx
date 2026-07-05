@@ -62,8 +62,7 @@ export default async function VendasPage() {
       id, valor, criado_em, data_compra, vendedora_id, origem, loja_id,
       clientes(nome, whatsapp),
       perfis!vendas_vendedora_id_fkey(nome),
-      itens_venda(produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente),
-      comissao_venda(valor_comissao),
+      itens_venda(produto_nome, quantidade, valor_unitario, subtotal, recorrente),
       avisos(id)
     `)
     .in('loja_id', ctx.lojaIds)
@@ -107,12 +106,9 @@ export default async function VendasPage() {
     const perfil = v.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
     const perfilObj = Array.isArray(perfil) ? perfil[0] : perfil
     const itensRaw = v.itens_venda as unknown as Array<{
-      produto_id: string | null; produto_nome: string; quantidade: number; valor_unitario: number; subtotal: number; recorrente: boolean
+      produto_nome: string; quantidade: number; valor_unitario: number; subtotal: number; recorrente: boolean
     }> | null
     const avisosArr = v.avisos as unknown as Array<{ id: string }> | null
-    const cvRaw = v.comissao_venda as unknown as
-      | Array<{ valor_comissao: number }> | { valor_comissao: number } | null
-    const cv = Array.isArray(cvRaw) ? cvRaw[0] : cvRaw
     const vendaLojaId = (v as unknown as { loja_id: string }).loja_id
 
     const itens = (itensRaw ?? []).map(i => ({
@@ -134,7 +130,7 @@ export default async function VendasPage() {
       valor_total: v.valor as number,
       itens,
       tem_recorrente: itens.some(i => i.recorrente),
-      valor_comissao: cv?.valor_comissao ?? 0,
+      valor_comissao: 0,
       origem: (v as unknown as { origem: string }).origem ?? 'venda_manual',
       qtd_avisos: (avisosArr ?? []).length,
       loja_nome: mostrarLoja ? (lojaNomeMap.get(vendaLojaId) ?? '') : undefined,

@@ -194,7 +194,7 @@ export default async function DashboardPage() {
       let q = admin
         .from('avisos')
         .select(`
-          id, data_aviso, venda_id, status, recompra_id, texto_renderizado, vendedora_id, previsao_comissao,
+          id, data_aviso, venda_id, status, recompra_id, vendedora_id, previsao_comissao,
           clientes(nome, whatsapp),
           mensagens_produto(tipo),
           itens_venda(produto_nome, produto_id, subtotal),
@@ -329,7 +329,7 @@ export default async function DashboardPage() {
       venda_id: a.venda_id as string,
       status: a.status as string,
       recompra_id: (a as unknown as { recompra_id: string | null }).recompra_id ?? null,
-      texto_renderizado: a.texto_renderizado as string,
+      texto_renderizado: '',
       cliente_nome: cliente?.nome ?? 'Cliente',
       cliente_whatsapp: cliente?.whatsapp ?? '',
       produto_nome: itemVenda?.produto_nome ?? 'Produto',
