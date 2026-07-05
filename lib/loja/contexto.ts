@@ -13,24 +13,28 @@ export type ContextoLoja = {
   lojaNome: string
 }
 
-export async function getLojasDoUsuario(userId: string): Promise<{ id: string; nome: string }[]> {
+// Cache por request — getAppContext popula primeiro; getLojasDoUsuario reutiliza sem nova query.
+const _getMembrosAtivos = async (userId: string): Promise<{ loja_id: string; role: string }[]> => {
   const admin = createAdminClient()
+  const { data } = await admin
+    .from('membros_loja')
+    .select('loja_id, role')
+    .eq('perfil_id', userId)
+    .eq('ativo', true)
+  return (data ?? []) as { loja_id: string; role: string }[]
+}
+export const getMembrosAtivos = cache(_getMembrosAtivos)
 
-  // Step 1: loja IDs (no PostgREST join — avoids FK resolution ambiguity)
-  const membrosRes = await measureAsync('getLojasDoUsuario:membros_loja', () =>
-    admin
-      .from('membros_loja')
-      .select('loja_id')
-      .eq('perfil_id', userId)
-      .eq('ativo', true)
-  )
-  const membros = membrosRes.data
+export async function getLojasDoUsuario(userId: string): Promise<{ id: string; nome: string }[]> {
+  // getMembrosAtivos é cached — se getAppContext já chamou, retorna sem nova query ao DB
+  const membros = await getMembrosAtivos(userId)
 
-  if (!membros || membros.length === 0) return []
+  if (membros.length === 0) return []
 
-  const lojaIds = [...new Set(membros.map(m => m.loja_id as string))]
+  const lojaIds = [...new Set(membros.map(m => m.loja_id))]
 
-  // Step 2: loja names — exclui lojas internas (admin_only)
+  // Busca nomes das lojas — exclui lojas internas (admin_only)
+  const admin = createAdminClient()
   const lojasRes = await measureAsync('getLojasDoUsuario:lojas', () =>
     admin
       .from('lojas')
@@ -39,9 +43,8 @@ export async function getLojasDoUsuario(userId: string): Promise<{ id: string; n
       .eq('admin_only', false)
       .order('nome')
   )
-  const lojas = lojasRes.data
 
-  return (lojas ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))
+  return (lojasRes.data ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))
 }
 
 const _getContextoLojaImpl = async (userId: string, multiLoja: boolean): Promise<ContextoLoja> => {

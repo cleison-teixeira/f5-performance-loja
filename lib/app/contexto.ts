@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getContextoLoja, type ContextoLoja } from '@/lib/loja/contexto'
+import { getMembrosAtivos, getContextoLoja, type ContextoLoja } from '@/lib/loja/contexto'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { measureAsync, startTimer } from '@/lib/performance/timing'
 
@@ -36,11 +36,11 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
   }
 
   const admin = createAdminClient()
-  const [perfilRes, membrosRes, libRes] = await measureAsync(
+  const [perfilRes, todosMembros, libRes] = await measureAsync(
     'getAppContext:parallel[perfis+membros+liberacoes]',
     () => Promise.all([
       supabase.from('perfis').select('nome').eq('id', user.id).single(),
-      admin.from('membros_loja').select('role').eq('perfil_id', user.id).eq('ativo', true),
+      getMembrosAtivos(user.id),  // cached — getContextoLoja reutiliza sem nova query
       admin.from('liberacoes_acesso')
         .select('tipo, status')
         .eq('email', (user.email ?? '').toLowerCase())
@@ -48,10 +48,9 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     ])
   )
 
-  const todosMembros = membrosRes.data
   const emptyCtx: ContextoLoja = { lojas: [], lojaId: null, escopo: 'loja', lojaIds: [], lojaNome: '' }
 
-  if (!todosMembros || todosMembros.length === 0) {
+  if (todosMembros.length === 0) {
     endTotal()
     return {
       user: { id: user.id, email: user.email },
