@@ -13,8 +13,15 @@ const ROTAS = [
 
 export function AppRoutePrefetch() {
   const router = useRouter()
+  const routerRef = useRef(router)
   const fezPrefetch = useRef(false)
 
+  // Mantém ref atualizado sem re-executar o efeito de prefetch
+  useEffect(() => {
+    routerRef.current = router
+  }, [router])
+
+  // Executa uma única vez — sem [router] no dep array para evitar double-fire
   useEffect(() => {
     if (fezPrefetch.current) return
 
@@ -24,7 +31,7 @@ export function AppRoutePrefetch() {
       if (fezPrefetch.current) return
       fezPrefetch.current = true
       ROTAS.forEach((rota, i) => {
-        timers.push(setTimeout(() => router.prefetch(rota), i * 300))
+        timers.push(setTimeout(() => routerRef.current.prefetch(rota), i * 300))
       })
     }
 
@@ -41,7 +48,8 @@ export function AppRoutePrefetch() {
         timers.forEach(clearTimeout)
       }
     }
-  }, [router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return null
 }
