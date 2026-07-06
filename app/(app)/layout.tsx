@@ -5,6 +5,8 @@ import { SeletorLojaGlobal } from '@/components/layout/SeletorLojaGlobal'
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { getNotificacoes } from '@/lib/notifications/getNotificacoes'
+import { verificarAceitePendente } from '@/lib/aceites/verificar'
+import { ModalAceite } from '@/components/aceites/ModalAceite'
 import { startTimer } from '@/lib/performance/timing'
 import { ClientPerformanceReporter } from '@/components/performance/ClientPerformanceReporter'
 import { AppRoutePrefetch } from '@/components/performance/AppRoutePrefetch'
@@ -19,11 +21,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { perfil, role, isAcessoRede, ctx } = appCtx
 
   const hoje = new Date().toISOString().split('T')[0]
-  const { notificacoes, badgesMap } = await getNotificacoes({
-    isAdminF5: role === 'admin_f5',
-    lojaIds: appCtx.lojaIds,
-    hoje,
-  })
+  const [notifResult, precisaAceitar] = await Promise.all([
+    getNotificacoes({ isAdminF5: role === 'admin_f5', lojaIds: appCtx.lojaIds, hoje }),
+    (role === 'dono' || role === 'gerente') && appCtx.user?.id
+      ? verificarAceitePendente(appCtx.user.id)
+      : Promise.resolve(false),
+  ])
+  const { notificacoes, badgesMap } = notifResult
 
   endLayout()
 
@@ -40,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
       <BottomNav role={role} badgesMap={badgesMap} />
+      {precisaAceitar && <ModalAceite lojaId={ctx.lojaId ?? null} />}
       <RouteProgress />
       <AppRoutePrefetch />
       <ClientPerformanceReporter />

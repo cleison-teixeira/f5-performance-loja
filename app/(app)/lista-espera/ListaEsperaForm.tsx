@@ -383,6 +383,9 @@ export function ListaEsperaForm({
             value={form.observacao}
             onChange={e => set('observacao', e.target.value)}
           />
+          <p className="mt-1 text-[10px] text-muted-foreground/60 leading-snug">
+            Não insira dados sensíveis, diagnósticos médicos ou informações desnecessárias.
+          </p>
         </div>
 
         {erro && (

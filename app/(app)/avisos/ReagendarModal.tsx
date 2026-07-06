@@ -115,6 +115,9 @@ export function ReagendarModal({ aviso, onSucesso, onFechar }: Props) {
               rows={2}
               className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm resize-none ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground/40"
             />
+            <p className="mt-1 text-[10px] text-muted-foreground/60 leading-snug">
+              Não insira dados sensíveis, diagnósticos médicos ou informações desnecessárias.
+            </p>
           </div>
 
           {erro && <p className="text-xs text-destructive">{erro}</p>}
