@@ -392,7 +392,7 @@ function RegistroCard({
           <button
             onClick={handleSalvarConversao}
             disabled={isPending || !responsavelId}
-            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
           >
             {isPending ? 'Convertendo…' : 'Confirmar Conversão em Venda'}
           </button>
