@@ -31,33 +31,60 @@ export async function addMembro(dados: {
       return { ok: false, erro: 'Sem permissão para adicionar membros a esta loja' }
     }
 
-    // Cria usuário operacional usando phone como identificador (sem email)
-    const phoneE164 = toE164(dados.telefone)
-    const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
-      phone: phoneE164,
-      phone_confirm: true,
-      user_metadata: {
-        name: dados.nome,
-        nome: dados.nome,
-        telefone: dados.telefone,
-        origem: 'equipe_operacional',
-      },
-    })
+    // Verificar se já existe perfil com este WhatsApp (busca global em perfis)
+    const { data: perfisExistentes } = await admin
+      .from('perfis')
+      .select('id')
+      .eq('whatsapp', dados.telefone)
+      .order('criado_em', { ascending: true })
 
-    if (createErr) {
-      const msg = createErr.message.toLowerCase()
-      if (msg.includes('already') || msg.includes('registered') || msg.includes('phone')) {
-        return { ok: false, erro: 'Já existe um membro cadastrado com este WhatsApp.' }
+    let perfil_id: string
+
+    if (perfisExistentes && perfisExistentes.length > 0) {
+      // Verificar se algum desses perfis já é membro desta loja
+      for (const candidato of perfisExistentes) {
+        const { data: membroExistente } = await admin
+          .from('membros_loja')
+          .select('id, ativo')
+          .eq('loja_id', dados.loja_id)
+          .eq('perfil_id', candidato.id as string)
+          .maybeSingle()
+
+        if (membroExistente) {
+          if (membroExistente.ativo as boolean) {
+            return { ok: false, erro: 'Este WhatsApp já está cadastrado na equipe desta loja.' }
+          } else {
+            return { ok: false, erro: 'Este membro já existe, mas está inativo. Reative o cadastro para usar novamente.' }
+          }
+        }
       }
-      return { ok: false, erro: createErr.message }
-    }
-    if (!newUser.user) return { ok: false, erro: 'Erro ao criar perfil do membro' }
-    const perfil_id = newUser.user.id
+      // Perfil existe em outra(s) loja(s) — reutilizar o mais antigo e vincular aqui
+      perfil_id = perfisExistentes[0].id as string
+    } else {
+      // Nenhum perfil com este WhatsApp — criar novo usuário
+      const phoneE164 = toE164(dados.telefone)
+      const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+        phone: phoneE164,
+        phone_confirm: true,
+        user_metadata: {
+          name: dados.nome,
+          nome: dados.nome,
+          telefone: dados.telefone,
+          origem: 'equipe_operacional',
+        },
+      })
 
-    await admin.from('perfis').upsert(
-      { id: perfil_id, nome: dados.nome, whatsapp: dados.telefone || null },
-      { onConflict: 'id' }
-    )
+      if (createErr) {
+        return { ok: false, erro: 'Não foi possível adicionar o membro. Verifique os dados e tente novamente.' }
+      }
+      if (!newUser.user) return { ok: false, erro: 'Erro ao criar perfil do membro' }
+      perfil_id = newUser.user.id
+
+      await admin.from('perfis').upsert(
+        { id: perfil_id, nome: dados.nome, whatsapp: dados.telefone || null },
+        { onConflict: 'id' }
+      )
+    }
 
     const { error: membroErr } = await admin.from('membros_loja').upsert(
       { loja_id: dados.loja_id, perfil_id, role: dados.role, ativo: true },
