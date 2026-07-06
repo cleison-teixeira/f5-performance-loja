@@ -28,6 +28,7 @@ export interface RegistroListaEspera {
   status: string
   observacao: string | null
   criado_em: string
+  data_registro?: string | null
   vendedora_id: string | null
   vendedora_nome?: string
   loja_nome?: string
@@ -50,9 +51,9 @@ const ABERTO = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
 const COM_MENSAGEM = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
 
 function fmtData(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: '2-digit',
-  })
+  const date = iso.includes('T') ? iso.split('T')[0] : iso
+  const [ano, mes, dia] = date.split('-')
+  return `${dia}/${mes}/${ano.slice(2)}`
 }
 
 function fmtValor(v: number) {
@@ -314,8 +315,8 @@ function RegistroCard({
           </div>
         )}
         <div>
-          <p className="text-muted-foreground">Cadastrado</p>
-          <p className="font-medium">{fmtData(registro.criado_em)}</p>
+          <p className="text-muted-foreground">Data do registro</p>
+          <p className="font-medium">{fmtData(registro.data_registro ?? registro.criado_em)}</p>
         </div>
       </div>
 

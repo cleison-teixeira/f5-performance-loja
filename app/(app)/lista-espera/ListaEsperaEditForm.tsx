@@ -4,6 +4,14 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, Loader2 } from 'lucide-react'
 import { editarListaEspera, buscarClienteListaEspera, type StatusListaEspera } from './actions'
+
+function hojeLocal() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNome } from '@/lib/normalizar-nome'
 import { STATUS_LABELS } from './StatusBadge'
@@ -59,6 +67,7 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
     vendedora_id: registro.vendedora_id ?? (vendedoras[0]?.id ?? ''),
     observacao: registro.observacao ?? '',
     status: registro.status,
+    data_registro: registro.data_registro ?? registro.criado_em.split('T')[0],
   })
 
   // Auto-lookup client by WhatsApp when it changes
@@ -130,6 +139,7 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
         observacao: form.observacao || undefined,
         vendedora_id: vendedoraId,
         status: form.status as StatusListaEspera,
+        data_registro: form.data_registro || hojeLocal(),
       })
       if (res.ok) {
         router.refresh()
@@ -220,13 +230,14 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs font-medium text-muted-foreground block mb-1">
-            Valor potencial (R$)
+            Data do registro
           </label>
           <input
             className={inputClass}
-            placeholder="0,00"
-            value={form.valor_potencial}
-            onChange={e => set('valor_potencial', e.target.value)}
+            type="date"
+            value={form.data_registro}
+            max={hojeLocal()}
+            onChange={e => set('data_registro', e.target.value)}
           />
         </div>
         <div>
@@ -243,10 +254,22 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
         </div>
       </div>
 
+      <div>
+        <label className="text-xs font-medium text-muted-foreground block mb-1">
+          Valor potencial (R$)
+        </label>
+        <input
+          className={inputClass}
+          placeholder="0,00"
+          value={form.valor_potencial}
+          onChange={e => set('valor_potencial', e.target.value)}
+        />
+      </div>
+
       {vendedoras.length > 0 && (
         <div>
           <label className="text-xs font-medium text-muted-foreground block mb-1">
-            Vendedora responsável
+            Responsável pela venda
           </label>
           <select
             className={inputClass}

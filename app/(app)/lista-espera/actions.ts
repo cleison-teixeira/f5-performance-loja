@@ -23,7 +23,7 @@ export async function carregarMaisListaEspera(cursor: string): Promise<{
 
   const { data } = await admin
     .from('lista_espera')
-    .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, vendedora_id, loja_id')
+    .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id')
     .in('loja_id', ctx.lojaIds)
     .order('criado_em', { ascending: false })
     .range(offset, offset + LISTA_PAGE_SIZE - 1)
@@ -54,6 +54,7 @@ export async function carregarMaisListaEspera(cursor: string): Promise<{
     status: r.status as string,
     observacao: r.observacao as string | null,
     criado_em: r.criado_em as string,
+    data_registro: (r as unknown as { data_registro: string | null }).data_registro ?? null,
     vendedora_id: r.vendedora_id as string | null,
     vendedora_nome: nomeMap[r.vendedora_id as string] ?? '—',
     loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
@@ -106,6 +107,7 @@ export interface CriarListaEsperaInput {
   quantidade: number
   observacao?: string
   vendedora_id: string
+  data_registro: string
 }
 
 export async function criarListaEspera(
@@ -156,6 +158,7 @@ export async function criarListaEspera(
     quantidade: input.quantidade,
     observacao: input.observacao?.trim() || null,
     vendedora_id: input.vendedora_id,
+    data_registro: input.data_registro,
     status: 'aguardando',
   })
   if (error) return { ok: false, error: error.message }
@@ -173,6 +176,7 @@ export interface EditarListaEsperaInput {
   observacao?: string
   vendedora_id: string
   status: StatusListaEspera
+  data_registro: string
 }
 
 export async function editarListaEspera(
@@ -258,6 +262,7 @@ export async function editarListaEspera(
     quantidade: input.quantidade,
     observacao: input.observacao?.trim() || null,
     vendedora_id: input.vendedora_id,
+    data_registro: input.data_registro,
     status: input.status,
     atualizado_em: new Date().toISOString(),
   }

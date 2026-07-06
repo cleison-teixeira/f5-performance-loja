@@ -4,6 +4,14 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X, Loader2, CheckCircle } from 'lucide-react'
 import { criarListaEspera, buscarClienteListaEspera } from './actions'
+
+function hojeLocal() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNome } from '@/lib/normalizar-nome'
 
@@ -80,6 +88,7 @@ export function ListaEsperaForm({
     quantidade: '1',
     observacao: '',
     vendedora_id: defaultVendedoraId,
+    data_registro: hojeLocal(),
   }
 
   const [form, setForm] = useState(estadoInicial)
@@ -165,6 +174,7 @@ export function ListaEsperaForm({
         quantidade: qtd,
         observacao: form.observacao || undefined,
         vendedora_id: form.vendedora_id,
+        data_registro: form.data_registro || hojeLocal(),
       })
       if (res.ok) {
         setSucesso(true)
@@ -319,6 +329,18 @@ export function ListaEsperaForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1">
+              Data do registro
+            </label>
+            <input
+              className={inputClass}
+              type="date"
+              value={form.data_registro}
+              max={hojeLocal()}
+              onChange={e => set('data_registro', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
               Quantidade
             </label>
             <input
@@ -329,23 +351,24 @@ export function ListaEsperaForm({
               onChange={e => set('quantidade', e.target.value)}
             />
           </div>
-          {!isVendedora && vendedoras.length > 0 && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">
-                Vendedora responsável
-              </label>
-              <select
-                className={inputClass}
-                value={form.vendedora_id}
-                onChange={e => set('vendedora_id', e.target.value)}
-              >
-                {vendedoras.map(v => (
-                  <option key={v.id} value={v.id}>{v.nome}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
+
+        {!isVendedora && vendedoras.length > 0 && (
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
+              Responsável pela venda
+            </label>
+            <select
+              className={inputClass}
+              value={form.vendedora_id}
+              onChange={e => set('vendedora_id', e.target.value)}
+            >
+              {vendedoras.map(v => (
+                <option key={v.id} value={v.id}>{v.nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="text-xs font-medium text-muted-foreground block mb-1">
