@@ -49,6 +49,7 @@ export interface LojaAdocao {
   documento: string | null
   email: string | null
   empresa_responsavel_email: string | null
+  emails_membros: string[]
   meta: MetaAdocao | null
   metricas: MetricasLoja
   financeiro: InfoFinanceira | null
@@ -83,6 +84,7 @@ export default async function AdocaoPage() {
     oportunidadesRes, avisosAtivosRes,
     recomprasRes, perdasRes,
     libRes, planosRes,
+    membrosLojaRes,
   ] = await Promise.all([
     // Inclui billing_status e trial_ends_at via join com empresas
     admin.from('lojas').select('id, nome, empresa_id, whatsapp, documento, email, empresas(billing_status, trial_ends_at, responsavel_email)')
@@ -129,7 +131,27 @@ export default async function AdocaoPage() {
 
     // Planos cadastrados
     admin.from('planos').select('id, nome, preco_mensal').eq('ativo', true),
+
+    // Membros ativos — para mapear perfil_id → loja_id e buscar emails via auth
+    admin.from('membros_loja').select('loja_id, perfil_id').eq('ativo', true),
   ])
+
+  // Emails dos membros por loja — server-side only via service role
+  // auth.users.email é a fonte canônica do "E-mail da conta" (mesma origem de /minha-conta)
+  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  const perfilEmailMap = new Map<string, string>()
+  for (const u of authData?.users ?? []) {
+    if (u.email) perfilEmailMap.set(u.id, u.email)
+  }
+  const lojaEmailsMembrosMap = new Map<string, string[]>()
+  for (const m of membrosLojaRes.data ?? []) {
+    const lojaId = m.loja_id as string
+    const email = perfilEmailMap.get(m.perfil_id as string)
+    if (!email) continue
+    if (!lojaEmailsMembrosMap.has(lojaId)) lojaEmailsMembrosMap.set(lojaId, [])
+    const arr = lojaEmailsMembrosMap.get(lojaId)!
+    if (!arr.includes(email)) arr.push(email)
+  }
 
   // Agregar métricas por loja_id
   const cadastradasMesPorLoja = new Map<string, number>()
@@ -216,6 +238,7 @@ export default async function AdocaoPage() {
       documento: (l.documento as string | null) ?? null,
       email: (l.email as string | null) ?? null,
       empresa_responsavel_email: empresaJoin?.responsavel_email ?? null,
+      emails_membros: lojaEmailsMembrosMap.get(lojaId) ?? [],
       financeiro,
       meta: metaRaw ? {
         id: metaRaw.id as string,
