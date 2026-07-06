@@ -6,7 +6,7 @@ import { Search } from 'lucide-react'
 import { salvarProduto, salvarMensagens, desativarProduto } from './actions'
 import { UploadFotoProduto } from '@/components/ui/upload-foto-produto'
 import { ORDENS_POR_MODELO, MODELO_OPTIONS } from '@/lib/mensagens/modelos'
-import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP, TEMPLATES_POR_ESTILO } from '@/lib/mensagens/templates_padrao'
+import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP, getTextosParaEstiloEIncentivo } from '@/lib/mensagens/templates_padrao'
 import type { ProdutoItem, MensagemSlot } from './page'
 import { NICHOS_OFICIAIS, getCategoriasDoNicho } from '@/lib/config/produtos-segmentos'
 
@@ -126,8 +126,8 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
 
   function handleEstiloChange(novoEstilo: string) {
     const ordensAtivas = ORDENS_POR_MODELO[qtdMensagens]
-    const defaultsAtuais = TEMPLATES_POR_ESTILO[estilo] ?? TEMPLATES_POR_ESTILO.clean
-    const novosDefaults = TEMPLATES_POR_ESTILO[novoEstilo] ?? TEMPLATES_POR_ESTILO.clean
+    const defaultsAtuais = getTextosParaEstiloEIncentivo(estilo, tipoIncentivo)
+    const novosDefaults = getTextosParaEstiloEIncentivo(novoEstilo, tipoIncentivo)
 
     const temCustomizado = mensagens
       .filter(m => ordensAtivas.includes(m.ordem))
@@ -144,6 +144,34 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
 
     setEstilo(novoEstilo)
     setMensagens(prev => prev.map(m => {
+      const novoDefault = novosDefaults.find(d => d.ordem === m.ordem)
+      return novoDefault ? { ...m, texto: novoDefault.texto } : m
+    }))
+  }
+
+  function handleTipoIncentivoChange(novoTipo: string) {
+    const ordensAtivas = ORDENS_POR_MODELO[qtdMensagens]
+    const defaultsAtuais = getTextosParaEstiloEIncentivo(estilo, tipoIncentivo)
+    const novosDefaults = getTextosParaEstiloEIncentivo(estilo, novoTipo)
+
+    // Incentivo afeta apenas slots 3, 4 e 5
+    const ordensAfetadas = ordensAtivas.filter(o => o >= 3)
+    const temCustomizado = mensagens
+      .filter(m => ordensAfetadas.includes(m.ordem))
+      .some(m => {
+        const textoDefault = defaultsAtuais.find(d => d.ordem === m.ordem)?.texto ?? ''
+        return m.texto.trim() !== '' && m.texto.trim() !== textoDefault.trim()
+      })
+
+    if (temCustomizado) {
+      if (!window.confirm('Alterar o incentivo pode substituir os textos atuais dos templates. Deseja aplicar o novo incentivo?')) {
+        return
+      }
+    }
+
+    setTipoIncentivo(novoTipo)
+    setMensagens(prev => prev.map(m => {
+      if (!ordensAfetadas.includes(m.ordem)) return m
       const novoDefault = novosDefaults.find(d => d.ordem === m.ordem)
       return novoDefault ? { ...m, texto: novoDefault.texto } : m
     }))
@@ -409,7 +437,7 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
                 <label className="text-sm font-medium">Tipo de Incentivo</label>
                 <select
                   value={tipoIncentivo}
-                  onChange={e => setTipoIncentivo(e.target.value)}
+                  onChange={e => handleTipoIncentivoChange(e.target.value)}
                   className={inputClass}
                 >
                   <option value="nenhum">Nenhum</option>

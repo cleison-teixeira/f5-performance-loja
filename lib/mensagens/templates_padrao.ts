@@ -39,6 +39,60 @@ export interface TemplateEstilo {
   texto: string
 }
 
+export interface TemplateIncentivo {
+  ordem: 3 | 4 | 5
+  tipo: 'recompra' | 'oferta' | 'follow_up'
+  texto: string
+}
+
+export const TEMPLATES_POR_INCENTIVO: Record<string, TemplateIncentivo[]> = {
+  cupom: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando em breve! Tenho um cupom de desconto exclusivo para a sua reposição. Quer garantir já?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Para garantir seu {produto}, use o cupom {cupom} e garanta desconto exclusivo. Válido {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, passando para confirmar se você ainda quer garantir seu {produto}. O cupom {cupom} fica válido {validade_oferta}. Posso separar para você?' },
+  ],
+  desconto_percentual: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando! Tenho {desconto_percentual} de desconto na sua reposição. Quer garantir?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Oportunidade especial: {desconto_percentual} de desconto em {produto} para você. Válido {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, confirmando se você quer garantir {produto} com {desconto_percentual} de desconto. A oferta é válida {validade_oferta}. Posso reservar?' },
+  ],
+  desconto_valor: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando! Tenho {desconto_valor} de desconto para a sua reposição. Quer garantir?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Tem {desconto_valor} de desconto em {produto} para você hoje. Válido {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, confirmando se você quer garantir {produto} com {desconto_valor} de desconto. Oferta válida {validade_oferta}. Posso separar?' },
+  ],
+  brinde: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando! Tenho uma surpresa especial para a sua reposição. Quer saber mais?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Ao garantir seu {produto} agora, você leva também {beneficio}. Válido {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, confirmando se você quer garantir {produto} e levar {beneficio} de brinde. Válido {validade_oferta}. Posso reservar para você?' },
+  ],
+  condicao_especial: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando! Tenho uma condição especial para você nessa reposição. Quer saber?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Tenho uma condição especial em {produto} para você: {beneficio}. Válida {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, passando para confirmar se você quer aproveitar a condição especial em {produto}: {beneficio}. Válida {validade_oferta}. Posso garantir?' },
+  ],
+  frete_gratis: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando! Posso enviar com frete grátis na sua reposição. Quer garantir?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Posso enviar seu {produto} com frete grátis! Válido {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, confirmando se você quer garantir {produto} com frete grátis. Oferta válida {validade_oferta}. Posso reservar?' },
+  ],
+  combo: [
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando! Tenho um combo especial para a sua reposição. Quer saber mais?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Tenho um combo promocional com {produto}: {beneficio}. Válido {validade_oferta}. Quer aproveitar?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, confirmando se você quer aproveitar o combo com {produto}: {beneficio}. Válido {validade_oferta}. Posso separar?' },
+  ],
+}
+
+export function getTextosParaEstiloEIncentivo(estilo: string, tipoIncentivo: string): TemplateEstilo[] {
+  const styleTemplates = TEMPLATES_POR_ESTILO[estilo] ?? TEMPLATES_POR_ESTILO.clean
+  const incentivoTemplates = TEMPLATES_POR_INCENTIVO[tipoIncentivo] ?? []
+  if (incentivoTemplates.length === 0) return styleTemplates
+  return styleTemplates.map(t => {
+    const override = incentivoTemplates.find(it => it.ordem === t.ordem)
+    return override ? { ...t, texto: override.texto } : t
+  })
+}
+
 export const TEMPLATES_POR_ESTILO: Record<string, TemplateEstilo[]> = {
   clean: [
     { ordem: 1, tipo: 'agradecimento', texto: 'Olá, aqui é a {vendedora} da {loja}. Estou passando para agradecer pela sua compra. Peço que salve meu contato porque vou acompanhar sua evolução com {produto} nos próximos dias.' },
