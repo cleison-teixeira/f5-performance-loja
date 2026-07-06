@@ -48,8 +48,8 @@ async function buildLojaNotificacoes(
       .eq('status', 'aguardando'),
   ])
 
-  type AvisoRaw = { id: string; data_aviso: string; status: string; recompra_id: string | null; mensagens_produto: { tipo: string }[] | null }
-  const getTipo = (a: AvisoRaw) => (Array.isArray(a.mensagens_produto) ? a.mensagens_produto[0]?.tipo : null) ?? ''
+  type AvisoRaw = { data_aviso: string; status: string; recompra_id: string | null; mensagens_produto: { tipo: string } | null }
+  const getTipo = (a: AvisoRaw) => a.mensagens_produto?.tipo ?? ''
 
   const avisosRaw = (avisosRes.data ?? []) as unknown as AvisoRaw[]
   const avisosFila = avisosRaw.filter(a => TIPOS_FILA.includes(getTipo(a)))
