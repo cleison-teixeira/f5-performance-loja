@@ -11,7 +11,7 @@ export default async function ClientesPage() {
   const appCtx = await getAppContext()
   if (!appCtx) redirect('/login')
 
-  const { ctx } = appCtx
+  const { ctx, role } = appCtx
 
   if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
     return (
@@ -34,7 +34,7 @@ export default async function ClientesPage() {
   const endClientes = startTimer('clientes:queries')
   const clientesRes = await admin
     .from('clientes')
-    .select('id, nome, whatsapp, criado_em, loja_id')
+    .select('id, nome, whatsapp, criado_em, loja_id, nao_contatar')
     .in('loja_id', ctx.lojaIds)
     .order('nome')
     .limit(50)
@@ -73,6 +73,8 @@ export default async function ClientesPage() {
       total: stats?.total ?? 0,
       ultima: stats?.ultima ?? null,
       loja_nome: mostrarLoja ? (lojaNomeMap.get(c.loja_id as string) ?? '') : null,
+      nao_contatar: (c.nao_contatar as boolean) ?? false,
+      loja_id: c.loja_id as string,
     }
   })
 
@@ -89,6 +91,7 @@ export default async function ClientesPage() {
         initialClientes={clientes}
         initialNextCursor={(clientesRes.data?.length ?? 0) === 50 ? '50' : null}
         mostrarLoja={mostrarLoja}
+        role={role}
       />
     </div>
   )

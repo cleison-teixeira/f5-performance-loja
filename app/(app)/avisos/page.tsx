@@ -54,7 +54,7 @@ export default async function AvisosPage() {
       .from('avisos')
       .select(`
         id, loja_id, data_aviso, status, recompra_id, texto_renderizado, venda_id, item_venda_id, vendedora_id, cliente_id, previsao_comissao, observacao_resultado,
-        clientes(nome, whatsapp),
+        clientes(nome, whatsapp, nao_contatar),
         mensagens_produto(tipo),
         itens_venda(produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)),
         vendas(valor, data_compra)
@@ -136,7 +136,7 @@ export default async function AvisosPage() {
     const tipo = mp?.tipo ?? ''
     return tipo === 'recompra' || tipo === 'oferta' || tipo === 'follow_up'
   }).map(a => {
-    const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
+    const cliente = a.clientes as unknown as { nome: string; whatsapp: string; nao_contatar: boolean } | null
     const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
     const itemVenda = a.itens_venda as unknown as {
       produto_nome: string
@@ -172,6 +172,7 @@ export default async function AvisosPage() {
       vendedora_id: a.vendedora_id as string,
       vendedora_nome: vendedoraNomeMap.get(a.vendedora_id as string) ?? '',
       atrasado: a.data_aviso < hoje,
+      nao_contatar: cliente?.nao_contatar ?? false,
       loja_id: avisoLojaId,
       loja_nome: lojaNomeMap.get(avisoLojaId) ?? '',
     }

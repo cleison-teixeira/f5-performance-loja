@@ -44,7 +44,7 @@ export default async function ListaEsperaPage() {
   const [registrosRes, categoriasRes, vendedorasRes, produtosRes] = await measureAsync('lista-espera:queries', () => Promise.all([
     admin
       .from('lista_espera')
-      .select('id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id')
+      .select('id, cliente_id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id, clientes(nao_contatar)')
       .in('loja_id', ctx.lojaIds)
       .order('criado_em', { ascending: false })
       .limit(50),
@@ -97,7 +97,9 @@ export default async function ListaEsperaPage() {
     for (const p of perfisData ?? []) nomeMap[p.id as string] = p.nome as string
   }
 
-  const registros: RegistroListaEspera[] = (registrosRes.data ?? []).map(r => ({
+  const registros: RegistroListaEspera[] = (registrosRes.data ?? []).map(r => {
+    const clienteData = (r as unknown as { clientes: { nao_contatar: boolean } | null }).clientes
+    return ({
     id: r.id as string,
     loja_id: r.loja_id as string,
     cliente_nome: r.cliente_nome as string,
@@ -116,7 +118,8 @@ export default async function ListaEsperaPage() {
     vendedora_id: r.vendedora_id as string | null,
     vendedora_nome: nomeMap[r.vendedora_id as string] ?? '—',
     loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
-  }))
+    nao_contatar: clienteData?.nao_contatar ?? false,
+  })})
 
   const vendedoras = isVendedora || ctx.escopo === 'rede'
     ? []

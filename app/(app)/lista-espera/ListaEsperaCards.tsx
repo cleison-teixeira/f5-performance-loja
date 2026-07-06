@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Pencil, Send, ClipboardList } from 'lucide-react'
+import { Copy, Check, Pencil, Send, ClipboardList, ShieldOff } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { atualizarStatusListaEspera, buscarMembrosAtivosLoja, type StatusListaEspera } from './actions'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
@@ -33,6 +33,7 @@ export interface RegistroListaEspera {
   vendedora_id: string | null
   vendedora_nome?: string
   loja_nome?: string
+  nao_contatar?: boolean
 }
 
 type GrupoProduto = {
@@ -77,11 +78,13 @@ function MensagemSugerida({
   whatsapp,
   itemId,
   status,
+  naoContatar,
 }: {
   mensagem: string
   whatsapp: string
   itemId: string
   status: string
+  naoContatar?: boolean
 }) {
   const router = useRouter()
   const [copiado, setCopiado] = useState(false)
@@ -183,14 +186,32 @@ function MensagemSugerida({
         </div>
       )}
 
-      <button
-        onClick={handleEnviar}
-        disabled={isPending}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-60"
-      >
-        <Send className="h-4 w-4 flex-none" />
-        {isPending ? 'Salvando…' : 'Enviar no WhatsApp'}
-      </button>
+      {naoContatar ? (
+        <>
+          <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 flex items-start gap-2">
+            <ShieldOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-none mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              Cliente marcado como Não Contatar. Evite enviar mensagens ativas para este cliente.
+            </p>
+          </div>
+          <button
+            disabled
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-200 dark:bg-zinc-700 px-4 py-2.5 text-sm font-bold text-zinc-500 dark:text-zinc-400 cursor-not-allowed"
+          >
+            <ShieldOff className="h-4 w-4 flex-none" />
+            Contato bloqueado por opt-out
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={handleEnviar}
+          disabled={isPending}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-60"
+        >
+          <Send className="h-4 w-4 flex-none" />
+          {isPending ? 'Salvando…' : 'Enviar no WhatsApp'}
+        </button>
+      )}
     </div>
   )
 }
@@ -341,6 +362,7 @@ function RegistroCard({
           whatsapp={registro.cliente_whatsapp}
           itemId={registro.id}
           status={registro.status}
+          naoContatar={registro.nao_contatar}
         />
       )}
 

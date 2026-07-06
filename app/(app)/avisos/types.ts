@@ -23,6 +23,7 @@ export interface AvisoDetalhado {
   vendedora_nome: string
   atrasado: boolean
   observacao_resultado: string | null
+  nao_contatar?: boolean
   loja_id?: string
   loja_nome?: string
 }
@@ -48,4 +49,5 @@ export interface GrupoRecompra {
   data_compra: string
   atrasado: boolean
   valor_total: number
+  nao_contatar?: boolean
 }

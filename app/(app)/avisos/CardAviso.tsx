@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Copy, Check, User, Package, Send, CalendarClock, XCircle, Pencil } from 'lucide-react'
+import { Copy, Check, User, Package, Send, CalendarClock, XCircle, Pencil, ShieldOff } from 'lucide-react'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
-import { marcarEnviado, editarTextoAviso } from './actions'
+import { marcarEnviado, editarTextoAviso, removerPorOptOut } from './actions'
 import dynamic from 'next/dynamic'
 
 const ConfirmarRecompraModal = dynamic(
@@ -144,6 +144,18 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
       onMarcado(aviso.id)
     } else {
       setErro(resultado.erro ?? 'Erro ao marcar como enviado')
+    }
+  }
+
+  async function handleRemoverOptOut() {
+    setLoading(true)
+    setErro(null)
+    const resultado = await removerPorOptOut(aviso.id)
+    setLoading(false)
+    if (resultado.ok) {
+      onMarcado(aviso.id)
+    } else {
+      setErro(resultado.erro ?? 'Erro ao remover da fila')
     }
   }
 
@@ -334,16 +346,34 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
           {!editando && (
             <div className="flex flex-col gap-2 pt-0.5">
 
-              {/* Primária: WhatsApp */}
-              <a
-                href={linkWhatsApp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
-              >
-                <Send className="h-4 w-4 flex-none" />
-                Enviar no WhatsApp
-              </a>
+              {/* Primária: WhatsApp ou bloqueio opt-out */}
+              {aviso.nao_contatar ? (
+                <>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 flex items-start gap-2">
+                    <ShieldOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-none mt-0.5" />
+                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                      Cliente marcado como Não Contatar. Evite enviar mensagens ativas para este cliente.
+                    </p>
+                  </div>
+                  <button
+                    disabled
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-200 dark:bg-zinc-700 px-4 py-2.5 text-sm font-bold text-zinc-500 dark:text-zinc-400 cursor-not-allowed"
+                  >
+                    <ShieldOff className="h-4 w-4 flex-none" />
+                    Contato bloqueado por opt-out
+                  </button>
+                </>
+              ) : (
+                <a
+                  href={linkWhatsApp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
+                >
+                  <Send className="h-4 w-4 flex-none" />
+                  Enviar no WhatsApp
+                </a>
+              )}
 
               {isValorPotencial ? (
                 <>
@@ -363,7 +393,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
                       Reagendar
                     </button>
                   </div>
-                  {/* Linha 2: Não quer mais + Contato feito */}
+                  {/* Linha 2: Não quer mais + Contato feito / Remover por opt-out */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setModalPerder(true)}
@@ -373,24 +403,46 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
                       Não quer mais
                     </button>
                     {!isContatoFeito && (
-                      <button
-                        onClick={handleMarcarEnviado}
-                        disabled={loading}
-                        className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
-                      >
-                        {loading ? 'Salvando…' : 'Contato feito'}
-                      </button>
+                      aviso.nao_contatar ? (
+                        <button
+                          onClick={handleRemoverOptOut}
+                          disabled={loading}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                        >
+                          <ShieldOff className="h-3.5 w-3.5 flex-none" />
+                          {loading ? 'Salvando…' : 'Remover por opt-out'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleMarcarEnviado}
+                          disabled={loading}
+                          className="flex-1 inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                        >
+                          {loading ? 'Salvando…' : 'Contato feito'}
+                        </button>
+                      )
                     )}
                   </div>
                 </>
               ) : (
-                <button
-                  onClick={handleMarcarEnviado}
-                  disabled={loading}
-                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
-                >
-                  {loading ? 'Salvando…' : 'Marcar contato feito'}
-                </button>
+                aviso.nao_contatar ? (
+                  <button
+                    onClick={handleRemoverOptOut}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50 disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                  >
+                    <ShieldOff className="h-3.5 w-3.5 flex-none" />
+                    {loading ? 'Salvando…' : 'Remover da fila por opt-out'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleMarcarEnviado}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors"
+                  >
+                    {loading ? 'Salvando…' : 'Marcar contato feito'}
+                  </button>
+                )
               )}
 
             </div>

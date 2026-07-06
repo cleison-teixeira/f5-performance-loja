@@ -11,17 +11,17 @@ import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
 export async function buscarCliente(
   whatsapp: string,
   loja_id: string
-): Promise<{ id: string; nome: string } | null> {
+): Promise<{ id: string; nome: string; nao_contatar: boolean } | null> {
   const normalizado = whatsapp.replace(/\D/g, '')
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('clientes')
-    .select('id, nome')
+    .select('id, nome, nao_contatar')
     .eq('loja_id', loja_id)
     .eq('whatsapp', normalizado)
     .maybeSingle()
   if (error || !data) return null
-  return { id: data.id as string, nome: data.nome as string }
+  return { id: data.id as string, nome: data.nome as string, nao_contatar: (data.nao_contatar as boolean) ?? false }
 }
 
 export interface ItemVendaDados {

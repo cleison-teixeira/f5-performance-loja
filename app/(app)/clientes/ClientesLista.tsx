@@ -1,8 +1,18 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Users, TrendingUp, UserMinus, Search } from 'lucide-react'
+import { Users, TrendingUp, UserMinus, Search, ShieldOff, ShieldCheck } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import dynamic from 'next/dynamic'
+
+const NaoContatarMarcarModal = dynamic(
+  () => import('./NaoContatarModal').then(m => ({ default: m.NaoContatarMarcarModal })),
+  { ssr: false }
+)
+const ReativarContatoModal = dynamic(
+  () => import('./NaoContatarModal').then(m => ({ default: m.ReativarContatoModal })),
+  { ssr: false }
+)
 
 export type ClienteItem = {
   id: string
@@ -13,6 +23,8 @@ export type ClienteItem = {
   total: number
   ultima: string | null
   loja_nome: string | null
+  nao_contatar: boolean
+  loja_id: string
 }
 
 function formatarData(iso: string): string {
@@ -39,10 +51,14 @@ function iniciais(nome: string): string {
 interface Props {
   clientes: ClienteItem[]
   mostrarLoja: boolean
+  role?: string
 }
 
-export function ClientesLista({ clientes, mostrarLoja }: Props) {
+export function ClientesLista({ clientes, mostrarLoja, role }: Props) {
   const [busca, setBusca] = useState('')
+  const [modalMarcar, setModalMarcar] = useState<{ id: string; nome: string; lojaId: string } | null>(null)
+  const [modalReativar, setModalReativar] = useState<{ id: string; nome: string; lojaId: string } | null>(null)
+  const podeReativar = role === 'dono' || role === 'gerente' || role === 'admin_f5'
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
@@ -146,15 +162,23 @@ export function ClientesLista({ clientes, mostrarLoja }: Props) {
 
           <ul className="space-y-2">
             {filtrados.map(c => (
-              <li key={c.id} className="rounded-xl border bg-card p-4">
+              <li key={c.id} className={`rounded-xl border bg-card p-4 ${c.nao_contatar ? 'border-amber-200/70 dark:border-amber-800/40' : ''}`}>
                 <div className="flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm shrink-0 mt-0.5">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 mt-0.5 ${c.nao_contatar ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-primary/10 text-primary'}`}>
                     {iniciais(c.nome)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-semibold text-sm leading-snug truncate">{c.nome}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold text-sm leading-snug truncate">{c.nome}</p>
+                          {c.nao_contatar && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 shrink-0">
+                              <ShieldOff className="h-2.5 w-2.5" />
+                              Não Contatar
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{formatarWhatsApp(c.whatsapp)}</p>
                       </div>
                       {c.qtd > 0 ? (
@@ -187,12 +211,53 @@ export function ClientesLista({ clientes, mostrarLoja }: Props) {
                         </p>
                       )}
                     </div>
+
+                    {/* Ações de privacidade */}
+                    <div className="mt-2 flex gap-2">
+                      {c.nao_contatar ? (
+                        podeReativar && (
+                          <button
+                            onClick={() => setModalReativar({ id: c.id, nome: c.nome, lojaId: c.loja_id })}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
+                          >
+                            <ShieldCheck className="h-3 w-3" />
+                            Reativar contato
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          onClick={() => setModalMarcar({ id: c.id, nome: c.nome, lojaId: c.loja_id })}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                        >
+                          <ShieldOff className="h-3 w-3" />
+                          Não Contatar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </li>
             ))}
           </ul>
         </div>
+      )}
+
+      {modalMarcar && (
+        <NaoContatarMarcarModal
+          clienteId={modalMarcar.id}
+          clienteNome={modalMarcar.nome}
+          lojaId={modalMarcar.lojaId}
+          onFechar={() => setModalMarcar(null)}
+        />
+      )}
+
+      {modalReativar && (
+        <ReativarContatoModal
+          clienteId={modalReativar.id}
+          clienteNome={modalReativar.nome}
+          lojaId={modalReativar.lojaId}
+          onFechar={() => setModalReativar(null)}
+        />
       )}
     </div>
   )

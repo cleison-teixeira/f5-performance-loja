@@ -5,7 +5,7 @@ import { buscarCliente, salvarVenda } from './actions'
 import { ResumoVenda } from './ResumoVenda'
 import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
-import { CheckCircle, Loader2, UserPlus, Plus, X } from 'lucide-react'
+import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff } from 'lucide-react'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 interface Vendedora {
@@ -101,7 +101,7 @@ export function FormNovaVenda({
   }
 
   const [whatsapp, setWhatsapp] = useState('')
-  const [clienteEncontrado, setClienteEncontrado] = useState<{ id: string; nome: string } | null>(null)
+  const [clienteEncontrado, setClienteEncontrado] = useState<{ id: string; nome: string; nao_contatar: boolean } | null>(null)
   const [clienteNome, setClienteNome] = useState('')
   const [dataCompra, setDataCompra] = useState(hojeLocal)
   const [buscandoCliente, startBuscaTransition] = useTransition()
@@ -321,10 +321,20 @@ export function FormNovaVenda({
               </p>
             )}
             {!buscandoCliente && digits.length >= 10 && clienteEncontrado && (
-              <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-                <CheckCircle className="h-3 w-3" />
-                Cliente encontrado: <strong>{clienteEncontrado.nome}</strong>
-              </p>
+              <>
+                <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                  <CheckCircle className="h-3 w-3" />
+                  Cliente encontrado: <strong>{clienteEncontrado.nome}</strong>
+                </p>
+                {clienteEncontrado.nao_contatar && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 flex items-start gap-2 mt-1">
+                    <ShieldOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-none mt-0.5" />
+                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                      Este cliente pediu para não receber contatos. Você pode registrar a venda, mas não deve enviar mensagens ativas.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
             {!buscandoCliente && digits.length >= 10 && !clienteEncontrado && (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

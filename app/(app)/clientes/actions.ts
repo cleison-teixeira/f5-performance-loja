@@ -21,7 +21,7 @@ export async function carregarMaisClientes(cursor: string): Promise<{
 
   const clientesRes = await admin
     .from('clientes')
-    .select('id, nome, whatsapp, criado_em, loja_id')
+    .select('id, nome, whatsapp, criado_em, loja_id, nao_contatar')
     .in('loja_id', ctx.lojaIds)
     .order('nome')
     .range(offset, offset + PAGE_SIZE - 1)
@@ -61,6 +61,8 @@ export async function carregarMaisClientes(cursor: string): Promise<{
       total: stats?.total ?? 0,
       ultima: stats?.ultima ?? null,
       loja_nome: mostrarLoja ? (lojaNomeMap.get(c.loja_id as string) ?? '') : null,
+      nao_contatar: (c.nao_contatar as boolean) ?? false,
+      loja_id: c.loja_id as string,
     }
   })
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { ClientesLista, type ClienteItem } from './ClientesLista'
 import { carregarMaisClientes } from './actions'
@@ -9,12 +9,18 @@ interface Props {
   initialClientes: ClienteItem[]
   initialNextCursor: string | null
   mostrarLoja: boolean
+  role?: string
 }
 
-export function ClientesPageClient({ initialClientes, initialNextCursor, mostrarLoja }: Props) {
+export function ClientesPageClient({ initialClientes, initialNextCursor, mostrarLoja, role }: Props) {
   const [clientes, setClientes] = useState<ClienteItem[]>(initialClientes)
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    setClientes(initialClientes)
+    setNextCursor(initialNextCursor)
+  }, [initialClientes, initialNextCursor])
 
   function carregarMais() {
     if (!nextCursor || isPending) return
@@ -27,7 +33,7 @@ export function ClientesPageClient({ initialClientes, initialNextCursor, mostrar
 
   return (
     <>
-      <ClientesLista clientes={clientes} mostrarLoja={mostrarLoja} />
+      <ClientesLista clientes={clientes} mostrarLoja={mostrarLoja} role={role} />
       {nextCursor && (
         <div className="flex justify-center pt-2 pb-4">
           <button

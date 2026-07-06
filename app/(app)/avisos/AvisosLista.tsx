@@ -78,6 +78,7 @@ function agruparPorVenda(
       data_compra: primary.data_compra,
       atrasado: primary.atrasado,
       valor_total,
+      nao_contatar: primary.nao_contatar ?? false,
     }
   })
 }

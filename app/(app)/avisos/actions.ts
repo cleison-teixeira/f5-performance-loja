@@ -149,6 +149,26 @@ export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; er
   }
 }
 
+export async function removerPorOptOut(aviso_id: string): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('avisos')
+      .update({
+        status: 'contato_feito',
+        enviado_em: new Date().toISOString(),
+        observacao_resultado: 'Removido da fila por opt-out / cliente marcado como Não Contatar',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', aviso_id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
 export async function editarTextoAviso(
   aviso_id: string,
   texto: string
