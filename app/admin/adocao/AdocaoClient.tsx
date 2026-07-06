@@ -390,6 +390,8 @@ export function AdocaoClient({ lojas, hoje }: Props) {
           loja.empresa_nome,
           loja.whatsapp ?? '',
           loja.documento ?? '',
+          loja.email ?? '',
+          loja.empresa_responsavel_email ?? '',
           loja.meta?.responsavel_loja_nome ?? '',
           loja.meta?.responsavel_loja_whatsapp ?? '',
         ].join(' ').toLowerCase()

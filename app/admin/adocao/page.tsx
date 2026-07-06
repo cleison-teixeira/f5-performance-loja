@@ -47,6 +47,8 @@ export interface LojaAdocao {
   empresa_nome: string
   whatsapp: string | null
   documento: string | null
+  email: string | null
+  empresa_responsavel_email: string | null
   meta: MetaAdocao | null
   metricas: MetricasLoja
   financeiro: InfoFinanceira | null
@@ -83,7 +85,7 @@ export default async function AdocaoPage() {
     libRes, planosRes,
   ] = await Promise.all([
     // Inclui billing_status e trial_ends_at via join com empresas
-    admin.from('lojas').select('id, nome, empresa_id, whatsapp, documento, empresas(billing_status, trial_ends_at)')
+    admin.from('lojas').select('id, nome, empresa_id, whatsapp, documento, email, empresas(billing_status, trial_ends_at, responsavel_email)')
       .eq('ativa', true).eq('admin_only', false).order('nome'),
     admin.from('empresas').select('id, nome'),
     admin.from('lojas_metas_adocao').select('*'),
@@ -195,7 +197,7 @@ export default async function AdocaoPage() {
     const metaRaw = metaMap.get(lojaId) ?? null
 
     // Dados financeiros: empresas (via join) + liberacoes_acesso
-    const empresaJoin = (l as unknown as { empresas: { billing_status: string; trial_ends_at: string | null } | null }).empresas
+    const empresaJoin = (l as unknown as { empresas: { billing_status: string; trial_ends_at: string | null; responsavel_email: string | null } | null }).empresas
     const lib = liberacaoMap.get(lojaId) ?? null
     const financeiro: InfoFinanceira | null = empresaJoin ? {
       billing_status: empresaJoin.billing_status ?? 'trial',
@@ -212,6 +214,8 @@ export default async function AdocaoPage() {
       empresa_nome: empresaMap.get(l.empresa_id as string) ?? '',
       whatsapp: (l.whatsapp as string | null) ?? null,
       documento: (l.documento as string | null) ?? null,
+      email: (l.email as string | null) ?? null,
+      empresa_responsavel_email: empresaJoin?.responsavel_email ?? null,
       financeiro,
       meta: metaRaw ? {
         id: metaRaw.id as string,
