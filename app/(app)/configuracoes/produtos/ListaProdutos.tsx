@@ -6,7 +6,7 @@ import { Search } from 'lucide-react'
 import { salvarProduto, salvarMensagens, desativarProduto } from './actions'
 import { UploadFotoProduto } from '@/components/ui/upload-foto-produto'
 import { ORDENS_POR_MODELO, MODELO_OPTIONS } from '@/lib/mensagens/modelos'
-import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
+import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP, TEMPLATES_POR_ESTILO } from '@/lib/mensagens/templates_padrao'
 import type { ProdutoItem, MensagemSlot } from './page'
 import { NICHOS_OFICIAIS, getCategoriasDoNicho } from '@/lib/config/produtos-segmentos'
 
@@ -51,7 +51,6 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
   const [fotoUrl, setFotoUrl] = useState<string | null>(produto?.foto_url ?? null)
   const [ativo, setAtivo] = useState(produto?.ativo ?? true)
   const [recorrente, setRecorrente] = useState(produto?.recorrente ?? true)
-  const [comissionavelRecompra, setComissionavelRecompra] = useState(produto?.comissionavel_recompra ?? true)
   const [qtdMensagens, setQtdMensagens] = useState<1 | 2 | 3 | 4 | 5>(produto?.qtd_mensagens ?? 3)
   
   const nichosHabilitados = lojaNichos.length > 0 ? lojaNichos : ['Outros']
@@ -125,6 +124,31 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
+  function handleEstiloChange(novoEstilo: string) {
+    const ordensAtivas = ORDENS_POR_MODELO[qtdMensagens]
+    const defaultsAtuais = TEMPLATES_POR_ESTILO[estilo] ?? TEMPLATES_POR_ESTILO.clean
+    const novosDefaults = TEMPLATES_POR_ESTILO[novoEstilo] ?? TEMPLATES_POR_ESTILO.clean
+
+    const temCustomizado = mensagens
+      .filter(m => ordensAtivas.includes(m.ordem))
+      .some(m => {
+        const textoDefault = defaultsAtuais.find(d => d.ordem === m.ordem)?.texto ?? ''
+        return m.texto.trim() !== '' && m.texto.trim() !== textoDefault.trim()
+      })
+
+    if (temCustomizado) {
+      if (!window.confirm('Alterar o estilo pode substituir os textos atuais dos templates. Deseja aplicar o novo estilo?')) {
+        return
+      }
+    }
+
+    setEstilo(novoEstilo)
+    setMensagens(prev => prev.map(m => {
+      const novoDefault = novosDefaults.find(d => d.ordem === m.ordem)
+      return novoDefault ? { ...m, texto: novoDefault.texto } : m
+    }))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) return
@@ -139,7 +163,7 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
       foto_url: fotoUrl,
       ativo,
       recorrente,
-      comissionavel_recompra: comissionavelRecompra,
+      comissionavel_recompra: produto?.comissionavel_recompra ?? true,
       qtd_mensagens: qtdMensagens,
       nicho: nicho.trim() || null,
       parceiro: parceiro.trim() || null,
@@ -329,21 +353,6 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={comissionavelRecompra}
-            onClick={() => setComissionavelRecompra(!comissionavelRecompra)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${comissionavelRecompra ? 'bg-primary' : 'bg-muted'}`}
-          >
-            <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${comissionavelRecompra ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-          <div>
-            <span className="text-sm">{comissionavelRecompra ? 'Comissionável na recompra' : 'Não comissionável'}</span>
-            <p className="text-xs text-muted-foreground">{comissionavelRecompra ? 'Entra na base de comissão' : 'Não entra na base de comissão'}</p>
-          </div>
-        </div>
       </div>
 
       {/* BLOCO B — MENSAGENS E CADÊNCIA */}
@@ -386,7 +395,7 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
                 <label className="text-sm font-medium">Estilo do Template</label>
                 <select
                   value={estilo}
-                  onChange={e => setEstilo(e.target.value)}
+                  onChange={e => handleEstiloChange(e.target.value)}
                   className={inputClass}
                 >
                   <option value="clean">Clean (Direto)</option>
