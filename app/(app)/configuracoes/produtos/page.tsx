@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { ListaProdutos } from './ListaProdutos'
-import { TEMPLATES_PADRAO } from '@/lib/mensagens/templates_padrao'
+import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
 import { normalizarNicho } from '@/lib/config/produtos-segmentos'
 
 export interface MensagemSlot {
@@ -171,7 +171,7 @@ export default async function ConfigProdutosPage() {
               id: null,
               ordem: 4 as const,
               tipo: 'oferta' as const,
-              texto: '',
+              texto: TEMPLATE_OFERTA.texto,
               dias_apos_venda: 45,
               estilo: 'clean',
               tipo_incentivo: 'nenhum',
@@ -203,7 +203,7 @@ export default async function ConfigProdutosPage() {
               id: null,
               ordem: 5 as const,
               tipo: 'follow_up' as const,
-              texto: '',
+              texto: TEMPLATE_FOLLOW_UP.texto,
               dias_apos_venda: 32,
               estilo: 'clean',
               tipo_incentivo: 'nenhum',
