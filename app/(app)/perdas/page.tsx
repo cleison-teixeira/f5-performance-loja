@@ -47,7 +47,11 @@ export default async function PerdasPage() {
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 
-  if (ctx.lojaIds.length === 0) {
+  // Auto-select first loja when no cookie is set — avoids "Toda a rede" as default
+  const lojaIdEfetivo = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
+  const lojaNomeEfetivo = ctx.lojaId ? ctx.lojaNome : (ctx.lojas[0]?.nome ?? '')
+
+  if (!lojaIdEfetivo) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Recompras perdidas</h1>
@@ -57,34 +61,35 @@ export default async function PerdasPage() {
   }
 
   const isVendedora = userRole === 'vendedora'
-  const mostrarLoja = ctx.escopo === 'rede'
-  const lojaNomeMap = new Map(ctx.lojas.map(l => [l.id, l.nome]))
-  const qtdLojas = ctx.lojas.length
-  const subtitulo = ctx.escopo === 'rede'
-    ? `Toda a rede · ${qtdLojas} ${qtdLojas === 1 ? 'loja conectada' : 'lojas conectadas'}`
-    : `${ctx.lojaNome} · Visão da loja selecionada`
+  const mostrarLoja = false
+  const subtitulo = `${lojaNomeEfetivo} · Visão da loja selecionada`
 
   const noventa = new Date()
   noventa.setDate(noventa.getDate() - 90)
   const limite90 = noventa.toISOString()
 
-  let query = admin
+  const { data: perdasRaw } = await admin
     .from('avisos')
     .select(`
-      id, encerrado_em, motivo_perda, observacao_resultado, vendedora_id, loja_id,
+      id, encerrado_em, motivo_perda, observacao_resultado, vendedora_id, loja_id, item_venda_id,
       clientes(nome, whatsapp),
       itens_venda(produto_nome, subtotal)
     `)
-    .in('loja_id', ctx.lojaIds)
+    .eq('loja_id', lojaIdEfetivo)
     .eq('status', 'perdida')
     .gte('encerrado_em', limite90)
     .order('encerrado_em', { ascending: false })
 
-  if (isVendedora) query = query.eq('vendedora_id', user.id)
+  // Deduplicate: 1 item_venda_id = 1 oportunidade perdida (múltiplos avisos por oportunidade)
+  const seen = new Set<string>()
+  const perdasDedup = (perdasRaw ?? []).filter(p => {
+    const key = (p.item_venda_id as string | null) ?? (p.id as string)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 
-  const { data: perdasRaw } = await query
-
-  const vendedoraIds = [...new Set((perdasRaw ?? []).map(p => p.vendedora_id as string).filter(Boolean))]
+  const vendedoraIds = [...new Set(perdasDedup.map(p => p.vendedora_id as string).filter(Boolean))]
   const vendedoraNomeMap = new Map<string, string>()
   if (vendedoraIds.length > 0) {
     const { data: perfis } = await admin
@@ -96,10 +101,9 @@ export default async function PerdasPage() {
     }
   }
 
-  const perdas: PerdaItem[] = (perdasRaw ?? []).map(p => {
+  const perdas: PerdaItem[] = perdasDedup.map(p => {
     const cliente = p.clientes as unknown as { nome: string; whatsapp: string } | null
     const itemVenda = p.itens_venda as unknown as { produto_nome: string; subtotal: number | null } | null
-    const perdaLojaId = p.loja_id as string
 
     return {
       id: p.id as string,
@@ -111,7 +115,7 @@ export default async function PerdasPage() {
       produto_nome: itemVenda?.produto_nome ?? 'Produto',
       valor_produto: itemVenda?.subtotal ?? 0,
       vendedora_nome: vendedoraNomeMap.get(p.vendedora_id as string) ?? '',
-      loja_nome: mostrarLoja ? (lojaNomeMap.get(perdaLojaId) ?? '') : undefined,
+      loja_nome: undefined,
     }
   })
 

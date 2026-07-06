@@ -41,18 +41,10 @@ export default async function NovaVendaPage() {
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 
-  if (ctx.escopo === 'rede') {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
-        <p className="text-sm text-muted-foreground">
-          Selecione uma loja no seletor acima para registrar uma compra.
-        </p>
-      </div>
-    )
-  }
+  const lojaId = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
+  const lojaNome = ctx.lojaId ? ctx.lojaNome : (ctx.lojas[0]?.nome ?? '')
 
-  if (!ctx.lojaId) {
+  if (!lojaId) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
@@ -69,18 +61,18 @@ export default async function NovaVendaPage() {
     admin
       .from('produtos')
       .select('id, nome, preco_sugerido, foto_url, recorrente, comissionavel_recompra, qtd_mensagens')
-      .eq('loja_id', ctx.lojaId)
+      .eq('loja_id', lojaId)
       .eq('ativo', true)
       .order('nome'),
     admin
       .from('membros_loja')
       .select('perfil_id, perfis(id, nome)')
-      .eq('loja_id', ctx.lojaId)
+      .eq('loja_id', lojaId)
       .eq('ativo', true),
     admin
       .from('comissao_fixa_produto')
       .select('vendedora_id, produto_id, valor_fixo')
-      .eq('loja_id', ctx.lojaId)
+      .eq('loja_id', lojaId)
       .eq('ativo', true),
   ])
 
@@ -123,14 +115,14 @@ export default async function NovaVendaPage() {
       ? admin
           .from('regras_comissao')
           .select('vendedora_id, percentual')
-          .eq('loja_id', ctx.lojaId)
+          .eq('loja_id', lojaId)
           .eq('ativo', true)
           .in('vendedora_id', vendedoraIds)
       : Promise.resolve({ data: [] as Array<{ vendedora_id: unknown; percentual: unknown }> }),
     admin
       .from('regras_comissao')
       .select('percentual')
-      .eq('loja_id', ctx.lojaId)
+      .eq('loja_id', lojaId)
       .eq('vendedora_id', user.id)
       .eq('ativo', true)
       .maybeSingle(),
@@ -167,11 +159,11 @@ export default async function NovaVendaPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
-        <p className="text-sm text-muted-foreground">{ctx.lojaNome} · Cadastre uma compra recorrente para o F5 avisar a equipe na hora certa.</p>
+        <p className="text-sm text-muted-foreground">{lojaNome} · Cadastre uma compra recorrente para o F5 avisar a equipe na hora certa.</p>
       </div>
       <FormNovaVenda
-        loja_id={ctx.lojaId}
-        loja_nome={ctx.lojaNome}
+        loja_id={lojaId}
+        loja_nome={lojaNome}
         vendedora_logada_id={user.id}
         vendedora_logada_nome={perfil?.nome ?? ''}
         vendedoras={vendedoras}

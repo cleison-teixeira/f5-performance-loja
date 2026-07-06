@@ -50,18 +50,10 @@ export default async function ConfigEquipePage() {
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 
-  if (ctx.escopo === 'rede') {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Equipe</h1>
-        <p className="text-sm text-muted-foreground">
-          Selecione uma loja no seletor acima para ver a equipe desta unidade.
-        </p>
-      </div>
-    )
-  }
+  const loja_id = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
+  const lojaNome = ctx.lojaId ? ctx.lojaNome : (ctx.lojas[0]?.nome ?? '')
 
-  if (!ctx.lojaId) {
+  if (!loja_id) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Equipe</h1>
@@ -69,9 +61,6 @@ export default async function ConfigEquipePage() {
       </div>
     )
   }
-
-  const loja_id = ctx.lojaId
-  const lojaNome = ctx.lojaNome
 
   // Guard PIN: somente Acesso Loja. admin_f5 e dono com rede passam direto.
   let guardLojaId: string | null = null

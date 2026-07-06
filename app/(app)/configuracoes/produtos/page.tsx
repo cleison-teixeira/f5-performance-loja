@@ -73,18 +73,10 @@ export default async function ConfigProdutosPage() {
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 
-  if (ctx.escopo === 'rede') {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
-        <p className="text-sm text-muted-foreground">
-          Selecione uma loja no seletor <strong>Visão</strong> acima para gerenciar produtos desta unidade.
-        </p>
-      </div>
-    )
-  }
+  const loja_id = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
+  const lojaNome = ctx.lojaId ? ctx.lojaNome : (ctx.lojas[0]?.nome ?? '')
 
-  if (!ctx.lojaId) {
+  if (!loja_id) {
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
@@ -92,8 +84,6 @@ export default async function ConfigProdutosPage() {
       </div>
     )
   }
-
-  const loja_id = ctx.lojaId
   const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
 
   const { data: lojaRes } = await admin
@@ -238,7 +228,7 @@ export default async function ConfigProdutosPage() {
     <div className="space-y-4 max-w-2xl mx-auto">
       <div>
         <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
-        <p className="text-sm text-muted-foreground">{ctx.lojaNome}</p>
+        <p className="text-sm text-muted-foreground">{lojaNome}</p>
       </div>
       <ListaProdutos produtos={produtos} loja_id={loja_id} podeEditar={podeEditar} lojaNichos={lojaNichos} />
     </div>

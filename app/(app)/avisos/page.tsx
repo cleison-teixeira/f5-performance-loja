@@ -61,6 +61,7 @@ export default async function AvisosPage() {
       `)
       .in('loja_id', ctx.lojaIds)
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
+      .in('mensagens_produto.tipo', ['recompra', 'oferta', 'follow_up'])
       .gte('data_aviso', dataInicio90)
       .order('data_aviso', { ascending: true })
       .limit(50),
