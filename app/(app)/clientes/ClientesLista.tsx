@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Users, TrendingUp, UserMinus, Search, ShieldOff, ShieldCheck } from 'lucide-react'
+import { Users, TrendingUp, UserMinus, Search, ShieldOff, ShieldCheck, Pencil } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import dynamic from 'next/dynamic'
 
@@ -13,11 +13,16 @@ const ReativarContatoModal = dynamic(
   () => import('./NaoContatarModal').then(m => ({ default: m.ReativarContatoModal })),
   { ssr: false }
 )
+const EditarClienteModal = dynamic(
+  () => import('./EditarClienteModal').then(m => ({ default: m.EditarClienteModal })),
+  { ssr: false }
+)
 
 export type ClienteItem = {
   id: string
   nome: string
   whatsapp: string
+  observacao: string | null
   criado_em: string
   qtd: number
   total: number
@@ -58,6 +63,7 @@ export function ClientesLista({ clientes, mostrarLoja, role }: Props) {
   const [busca, setBusca] = useState('')
   const [modalMarcar, setModalMarcar] = useState<{ id: string; nome: string; lojaId: string } | null>(null)
   const [modalReativar, setModalReativar] = useState<{ id: string; nome: string; lojaId: string } | null>(null)
+  const [modalEditar, setModalEditar] = useState<{ id: string; nome: string; whatsapp: string; observacao: string | null; lojaId: string } | null>(null)
   const podeReativar = role === 'dono' || role === 'gerente' || role === 'admin_f5'
 
   const filtrados = useMemo(() => {
@@ -212,8 +218,15 @@ export function ClientesLista({ clientes, mostrarLoja, role }: Props) {
                       )}
                     </div>
 
-                    {/* Ações de privacidade */}
-                    <div className="mt-2 flex gap-2">
+                    {/* Ações */}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setModalEditar({ id: c.id, nome: c.nome, whatsapp: c.whatsapp, observacao: c.observacao, lojaId: c.loja_id })}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Editar
+                      </button>
                       {c.nao_contatar ? (
                         podeReativar && (
                           <button
@@ -257,6 +270,17 @@ export function ClientesLista({ clientes, mostrarLoja, role }: Props) {
           clienteNome={modalReativar.nome}
           lojaId={modalReativar.lojaId}
           onFechar={() => setModalReativar(null)}
+        />
+      )}
+
+      {modalEditar && (
+        <EditarClienteModal
+          clienteId={modalEditar.id}
+          clienteNome={modalEditar.nome}
+          clienteWhatsapp={modalEditar.whatsapp}
+          clienteObservacao={modalEditar.observacao}
+          lojaId={modalEditar.lojaId}
+          onFechar={() => setModalEditar(null)}
         />
       )}
     </div>

@@ -34,7 +34,7 @@ export default async function ClientesPage() {
   const endClientes = startTimer('clientes:queries')
   const clientesRes = await admin
     .from('clientes')
-    .select('id, nome, whatsapp, criado_em, loja_id, nao_contatar')
+    .select('id, nome, whatsapp, observacao, criado_em, loja_id, nao_contatar')
     .in('loja_id', ctx.lojaIds)
     .order('nome')
     .limit(50)
@@ -68,6 +68,7 @@ export default async function ClientesPage() {
       id: c.id as string,
       nome: c.nome as string,
       whatsapp: c.whatsapp as string,
+      observacao: (c as unknown as { observacao: string | null }).observacao ?? null,
       criado_em: c.criado_em as string,
       qtd: stats?.qtd ?? 0,
       total: stats?.total ?? 0,

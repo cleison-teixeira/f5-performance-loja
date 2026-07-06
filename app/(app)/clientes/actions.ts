@@ -21,7 +21,7 @@ export async function carregarMaisClientes(cursor: string): Promise<{
 
   const clientesRes = await admin
     .from('clientes')
-    .select('id, nome, whatsapp, criado_em, loja_id, nao_contatar')
+    .select('id, nome, whatsapp, observacao, criado_em, loja_id, nao_contatar')
     .in('loja_id', ctx.lojaIds)
     .order('nome')
     .range(offset, offset + PAGE_SIZE - 1)
@@ -56,6 +56,7 @@ export async function carregarMaisClientes(cursor: string): Promise<{
       id: c.id as string,
       nome: c.nome as string,
       whatsapp: c.whatsapp as string,
+      observacao: (c as unknown as { observacao: string | null }).observacao ?? null,
       criado_em: c.criado_em as string,
       qtd: stats?.qtd ?? 0,
       total: stats?.total ?? 0,
@@ -70,4 +71,57 @@ export async function carregarMaisClientes(cursor: string): Promise<{
     clientes,
     nextCursor: hasMore ? String(offset + PAGE_SIZE) : null,
   }
+}
+
+export async function editarCliente(dados: {
+  cliente_id: string
+  loja_id: string
+  nome: string
+  whatsapp: string
+  observacao: string | null
+}): Promise<{ ok: boolean; erro?: string }> {
+  const appCtx = await getAppContext()
+  if (!appCtx || !appCtx.hasMembros) return { ok: false, erro: 'Sem acesso.' }
+
+  const { ctx } = appCtx
+  if (!ctx.lojaIds.includes(dados.loja_id)) return { ok: false, erro: 'Acesso negado à loja.' }
+
+  const nomeTrimado = dados.nome.trim()
+  if (nomeTrimado.length < 2) return { ok: false, erro: 'O nome deve ter pelo menos 2 caracteres.' }
+
+  const whatsappNormalizado = dados.whatsapp.replace(/\D/g, '')
+  if (whatsappNormalizado.length < 10) return { ok: false, erro: 'WhatsApp inválido. Informe DDD + número.' }
+
+  const admin = createAdminClient()
+
+  const { data: duplicado } = await admin
+    .from('clientes')
+    .select('id')
+    .eq('loja_id', dados.loja_id)
+    .eq('whatsapp', whatsappNormalizado)
+    .neq('id', dados.cliente_id)
+    .maybeSingle()
+
+  if (duplicado) return { ok: false, erro: 'Já existe outro cliente nesta loja com este WhatsApp.' }
+
+  const { error: errCliente } = await admin
+    .from('clientes')
+    .update({
+      nome: nomeTrimado,
+      whatsapp: whatsappNormalizado,
+      observacao: dados.observacao?.trim() || null,
+    })
+    .eq('id', dados.cliente_id)
+    .eq('loja_id', dados.loja_id)
+
+  if (errCliente) return { ok: false, erro: errCliente.message }
+
+  await admin
+    .from('lista_espera')
+    .update({ cliente_whatsapp: whatsappNormalizado })
+    .eq('cliente_id', dados.cliente_id)
+    .in('loja_id', ctx.lojaIds)
+    .in('status', ['aguardando', 'encontrado_outra_loja', 'avisado'])
+
+  return { ok: true }
 }
