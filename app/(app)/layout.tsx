@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header'
 import { SeletorLojaGlobal } from '@/components/layout/SeletorLojaGlobal'
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
+import { getNotificacoes } from '@/lib/notifications/getNotificacoes'
 import { startTimer } from '@/lib/performance/timing'
 import { ClientPerformanceReporter } from '@/components/performance/ClientPerformanceReporter'
 import { AppRoutePrefetch } from '@/components/performance/AppRoutePrefetch'
@@ -16,13 +17,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!appCtx.hasMembros) redirect('/sem-acesso')
 
   const { perfil, role, isAcessoRede, ctx } = appCtx
+
+  const hoje = new Date().toISOString().split('T')[0]
+  const { notificacoes, badgesMap } = await getNotificacoes({
+    isAdminF5: role === 'admin_f5',
+    lojaIds: appCtx.lojaIds,
+    hoje,
+  })
+
   endLayout()
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar role={role} badgesMap={badgesMap} />
       <div className="flex flex-col flex-1 min-w-0">
-        <Header nomeUsuario={perfil?.nome ?? ''} role={role} />
+        <Header nomeUsuario={perfil?.nome ?? ''} role={role} notificacoes={notificacoes} />
         {isAcessoRede && ctx.lojas.length > 1 && (
           <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
         )}
@@ -30,7 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
-      <BottomNav role={role} />
+      <BottomNav role={role} badgesMap={badgesMap} />
       <RouteProgress />
       <AppRoutePrefetch />
       <ClientPerformanceReporter />

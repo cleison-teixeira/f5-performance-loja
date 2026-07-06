@@ -45,9 +45,10 @@ type NavItem = { href: string; label: string; icon: React.ElementType }
 
 interface Props {
   role: string
+  badgesMap?: Record<string, number>
 }
 
-export function Sidebar({ role }: Props) {
+export function Sidebar({ role, badgesMap = {} }: Props) {
   const pathname = usePathname()
   const hideGestao = role === 'vendedora'
 
@@ -76,6 +77,7 @@ export function Sidebar({ role }: Props) {
         <ul className="space-y-0.5">
           {items.map(({ href, label: itemLabel, icon: ItemIcon }) => {
             const active = isActive(href)
+            const badge = badgesMap[href]
             return (
               <li key={href}>
                 <Link href={href} className={linkClass(active)}>
@@ -83,7 +85,12 @@ export function Sidebar({ role }: Props) {
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[oklch(0.62_0.20_145)]" />
                   )}
                   <ItemIcon className={cn('h-4 w-4 shrink-0', active && 'text-[oklch(0.72_0.20_145)]')} />
-                  {itemLabel}
+                  <span className="flex-1 truncate">{itemLabel}</span>
+                  {badge != null && badge > 0 && (
+                    <span className="ml-1 shrink-0 text-[9px] font-bold bg-red-500 text-white rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 leading-none">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
                 </Link>
               </li>
             )

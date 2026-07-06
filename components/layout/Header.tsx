@@ -1,22 +1,21 @@
-import { Bell } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { UserMenu } from './UserMenu'
+import { NotificacoesSino } from '@/components/notifications/NotificacoesSino'
+import type { Notificacao } from '@/lib/notifications/types'
 
 interface HeaderProps {
   nomeUsuario?: string
   nomeLoja?: string
   role?: string
+  notificacoes?: Notificacao[]
 }
 
-export function Header({ nomeUsuario = '', nomeLoja = '', role = '' }: HeaderProps) {
+export function Header({ nomeUsuario = '', nomeLoja = '', role = '', notificacoes = [] }: HeaderProps) {
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b bg-background sticky top-0 z-40">
       <div className="md:hidden font-semibold text-base tracking-tight">F5 Recompra</div>
       <div className="hidden md:block text-sm text-muted-foreground">{nomeLoja}</div>
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificacoesSino notificacoes={notificacoes} />
         <UserMenu nomeUsuario={nomeUsuario} role={role} />
       </div>
     </header>

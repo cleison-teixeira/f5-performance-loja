@@ -47,9 +47,10 @@ const aprenderDrawer = [
 
 interface Props {
   role: string
+  badgesMap?: Record<string, number>
 }
 
-export function BottomNav({ role }: Props) {
+export function BottomNav({ role, badgesMap = {} }: Props) {
   const pathname = usePathname()
   const [drawerAberto, setDrawerAberto] = useState(false)
   const hideGestao = role === 'vendedora'
@@ -76,6 +77,7 @@ export function BottomNav({ role }: Props) {
         <div className="flex items-center justify-around h-16">
           {mainItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
+            const badge = badgesMap[href]
             return (
               <Link
                 key={href}
@@ -85,7 +87,14 @@ export function BottomNav({ role }: Props) {
                   active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <div className="relative">
+                  <Icon className="h-5 w-5" />
+                  {badge != null && badge > 0 && (
+                    <span className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 rounded-full bg-red-500 text-[8px] font-bold text-white flex items-center justify-center px-0.5 leading-none pointer-events-none">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </div>
                 <span>{label}</span>
               </Link>
             )
