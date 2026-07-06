@@ -59,9 +59,9 @@ export function Sidebar({ role }: Props) {
 
   const linkClass = (active: boolean) =>
     cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+      'relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors overflow-hidden',
       active
-        ? 'bg-sidebar-primary/[0.18] text-[oklch(0.78_0.19_145)] font-semibold'
+        ? 'bg-sidebar-primary/[0.15] text-[oklch(0.82_0.20_145)] font-semibold'
         : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
     )
 
@@ -74,14 +74,20 @@ export function Sidebar({ role }: Props) {
           <span className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.12em]">{label}</span>
         </div>
         <ul className="space-y-0.5">
-          {items.map(({ href, label: itemLabel, icon: ItemIcon }) => (
-            <li key={href}>
-              <Link href={href} className={linkClass(isActive(href))}>
-                <ItemIcon className="h-4 w-4 shrink-0" />
-                {itemLabel}
-              </Link>
-            </li>
-          ))}
+          {items.map(({ href, label: itemLabel, icon: ItemIcon }) => {
+            const active = isActive(href)
+            return (
+              <li key={href}>
+                <Link href={href} className={linkClass(active)}>
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[oklch(0.62_0.20_145)]" />
+                  )}
+                  <ItemIcon className={cn('h-4 w-4 shrink-0', active && 'text-[oklch(0.72_0.20_145)]')} />
+                  {itemLabel}
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </>
     )
@@ -93,7 +99,7 @@ export function Sidebar({ role }: Props) {
   return (
     <aside className="hidden md:flex flex-col w-60 bg-sidebar h-screen sticky top-0 border-r border-sidebar-border">
       <div className="flex items-center h-14 px-4 border-b border-sidebar-border">
-        <img src="/branding/logo-horizontal-light.png" alt="F5 Recompra" className="h-7 w-auto object-contain" />
+        <img src="/branding/logo-f5-recompra.png" alt="F5 Recompra" className="h-7 w-auto object-contain" />
       </div>
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />
