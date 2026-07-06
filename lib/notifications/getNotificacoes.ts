@@ -70,7 +70,7 @@ async function buildLojaNotificacoes(
 
   if (filaAtrasados > 0) {
     notificacoes.push({
-      id: `fila-atrasados-${hoje}`,
+      id: `fila-atrasados-${hoje}-${filaAtrasados}`,
       tipo: 'avisos_atrasados',
       titulo: `${filaAtrasados} aviso${filaAtrasados > 1 ? 's' : ''} de recompra atrasado${filaAtrasados > 1 ? 's' : ''}`,
       descricao: 'Clientes aguardando contato com data já passada.',
@@ -81,7 +81,7 @@ async function buildLojaNotificacoes(
 
   if (filaHoje > 0) {
     notificacoes.push({
-      id: `fila-hoje-${hoje}`,
+      id: `fila-hoje-${hoje}-${filaHoje}`,
       tipo: 'avisos_hoje',
       titulo: `${filaHoje} aviso${filaHoje > 1 ? 's' : ''} de recompra para hoje`,
       descricao: `${filaHoje === 1 ? 'Um cliente precisa' : `${filaHoje} clientes precisam`} ser abordado${filaHoje > 1 ? 's' : ''} hoje.`,
@@ -92,7 +92,7 @@ async function buildLojaNotificacoes(
 
   if (relAtrasados > 0) {
     notificacoes.push({
-      id: `rel-atrasados-${hoje}`,
+      id: `rel-atrasados-${hoje}-${relAtrasados}`,
       tipo: 'relacionamento_atrasados',
       titulo: `${relAtrasados} relacionamento${relAtrasados > 1 ? 's' : ''} atrasado${relAtrasados > 1 ? 's' : ''}`,
       descricao: 'Mensagens de relacionamento com data já passada.',
@@ -103,7 +103,7 @@ async function buildLojaNotificacoes(
 
   if (relHoje > 0) {
     notificacoes.push({
-      id: `rel-hoje-${hoje}`,
+      id: `rel-hoje-${hoje}-${relHoje}`,
       tipo: 'relacionamento_hoje',
       titulo: `${relHoje} relacionamento${relHoje > 1 ? 's' : ''} para hoje`,
       descricao: `${relHoje === 1 ? 'Um cliente precisa' : `${relHoje} clientes precisam`} de atenção hoje.`,
@@ -114,7 +114,7 @@ async function buildLojaNotificacoes(
 
   if (listaCount > 0) {
     notificacoes.push({
-      id: `lista-espera-${hoje}`,
+      id: `lista-espera-${hoje}-${listaCount}`,
       tipo: 'lista_espera',
       titulo: `${listaCount} ite${listaCount > 1 ? 'ns' : 'm'} na lista de espera`,
       descricao: `Cliente${listaCount > 1 ? 's' : ''} aguardando produto disponível.`,

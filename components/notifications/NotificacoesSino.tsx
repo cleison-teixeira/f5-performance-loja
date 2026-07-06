@@ -12,22 +12,27 @@ const SEV_DOT: Record<string, string> = {
   info:    'bg-blue-400',
 }
 
-const STORAGE_KEY = 'f5_notif_lidas_v1'
+const BASE_KEY = 'f5_notif_lidas_v1'
 
 interface Props {
   notificacoes: Notificacao[]
+  userId?: string
 }
 
-export function NotificacoesSino({ notificacoes }: Props) {
+export function NotificacoesSino({ notificacoes, userId }: Props) {
   const [aberto, setAberto] = useState(false)
   const [lidas, setLidas] = useState<Set<string>>(new Set())
+  const [hydrated, setHydrated] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const storageKey = userId ? `${BASE_KEY}:${userId}` : BASE_KEY
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
+      const saved = localStorage.getItem(storageKey)
       if (saved) setLidas(new Set(JSON.parse(saved) as string[]))
     } catch {}
+    setHydrated(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Fecha ao clicar fora
@@ -48,7 +53,7 @@ export function NotificacoesSino({ notificacoes }: Props) {
   }, [])
 
   function salvar(set: Set<string>) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])) } catch {}
+    try { localStorage.setItem(storageKey, JSON.stringify([...set])) } catch {}
   }
 
   function marcarUmaLida(id: string) {
@@ -75,7 +80,7 @@ export function NotificacoesSino({ notificacoes }: Props) {
         className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
       >
         <Bell className="h-4 w-4" />
-        {naoLidas > 0 && (
+        {hydrated && naoLidas > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center px-1 leading-none pointer-events-none">
             {naoLidas > 9 ? '9+' : naoLidas}
           </span>
@@ -89,12 +94,12 @@ export function NotificacoesSino({ notificacoes }: Props) {
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
             <span className="text-sm font-semibold text-zinc-900">
               Notificações
-              {naoLidas > 0 && (
+              {hydrated && naoLidas > 0 && (
                 <span className="ml-2 text-xs font-medium text-zinc-400">({naoLidas} nova{naoLidas > 1 ? 's' : ''})</span>
               )}
             </span>
             <div className="flex items-center gap-2">
-              {naoLidas > 0 && (
+              {hydrated && naoLidas > 0 && (
                 <button
                   onClick={marcarTodasLidas}
                   className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
@@ -123,8 +128,7 @@ export function NotificacoesSino({ notificacoes }: Props) {
               <ul className="divide-y divide-zinc-50">
                 {notificacoes.map(n => {
                   const isLida = lidas.has(n.id)
-                  // lista_espera representa oportunidade ativa — nunca aparece como desabilitada
-                  const visualLida = isLida && n.tipo !== 'lista_espera'
+                  const visualLida = isLida
                   const dot = SEV_DOT[n.severidade] ?? SEV_DOT.info
                   return (
                     <li key={n.id}>
