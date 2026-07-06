@@ -441,7 +441,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
         {/* Card 1: financeiro principal — 90 dias (recompra) / pendentes (relacionamento) */}
         {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
               <TrendingUp className="h-3 w-3 flex-none" />
               Recompras em aberto
@@ -454,7 +454,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-violet-50 dark:bg-violet-950/20 border-violet-200/80 dark:border-violet-800/40 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-violet-50 dark:bg-violet-950/20 border-violet-200/80 dark:border-violet-800/40 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700/65 dark:text-violet-400/60 flex items-center gap-1.5">
               <Bell className="h-3 w-3 flex-none" />
               Avisos pendentes
@@ -470,7 +470,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
         {/* Card 2: Recompras do mês (recompra) / Atrasados (relacionamento) */}
         {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/15 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/15 border-blue-200/70 dark:border-blue-800/30 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700/65 dark:text-blue-400/60 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 flex-none" />
               Recompras em aberto do mês
@@ -483,7 +483,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-red-50/70 dark:bg-red-950/20 border-red-200/70 dark:border-red-800/30 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-red-600/65 dark:text-red-400/60 flex items-center gap-1.5">
               <AlertCircle className="h-3 w-3 flex-none" />
               Avisos atrasados
@@ -497,7 +497,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
         {/* Card 3: Recuperado (recompra) / Para hoje (relacionamento) */}
         {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-100/80 dark:border-emerald-800/30 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-100/80 dark:border-emerald-800/30 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700/65 dark:text-emerald-400/60 flex items-center gap-1.5">
               <RefreshCw className="h-3 w-3 flex-none" />
               Recuperado
@@ -510,7 +510,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-800/30 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600/65 dark:text-blue-400/60 flex items-center gap-1.5">
               <Bell className="h-3 w-3 flex-none" />
               Avisos para hoje
@@ -524,7 +524,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
         {/* Card 4: Taxa de conversão (recompra) / Próximos 7D (relacionamento) */}
         {mode === 'recompra' ? (
-          <div className="rounded-xl border bg-violet-50/70 dark:bg-violet-950/15 border-violet-200/70 dark:border-violet-800/30 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-violet-50/70 dark:bg-violet-950/15 border-violet-200/70 dark:border-violet-800/30 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700/65 dark:text-violet-400/60 flex items-center gap-1.5">
               <TrendingUp className="h-3 w-3 flex-none" />
               Taxa de recompra do mês
@@ -546,7 +546,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
             )}
           </div>
         ) : (
-          <div className="rounded-xl border bg-muted/40 border-border/60 p-4 flex flex-col gap-1.5">
+          <div className="rounded-xl border bg-muted/40 border-border/60 p-4 shadow-sm flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/65 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 flex-none" />
               Avisos próximos 7d

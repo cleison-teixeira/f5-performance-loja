@@ -257,7 +257,7 @@ function RegistroCard({
 
   if (editando) {
     return (
-      <div className="rounded-xl border bg-card p-4">
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
         <ListaEsperaEditForm
           registro={registro}
           vendedoras={vendedoras}
@@ -270,7 +270,7 @@ function RegistroCard({
   }
 
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-3">
+    <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-semibold text-sm truncate">{registro.produto_nome}</p>
@@ -477,8 +477,8 @@ export function ListaEsperaCards({
                 onClick={() => setProdutoFiltro(produtoFiltro === g.key ? '' : g.key)}
                 className={`rounded-xl border p-3 text-left transition-colors ${
                   produtoFiltro === g.key
-                    ? 'border-primary bg-primary/5'
-                    : 'bg-card hover:bg-muted/40'
+                    ? 'border-primary bg-primary/5 shadow-sm'
+                    : 'bg-card shadow-sm hover:bg-muted/40'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">

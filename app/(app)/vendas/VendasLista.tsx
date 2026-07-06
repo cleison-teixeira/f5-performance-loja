@@ -112,7 +112,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
     <div className="space-y-4">
       {/* Desktop filters */}
       {showDesktop && <div className="hidden md:flex flex-wrap items-center gap-3">
-        <div className="flex rounded-md border overflow-hidden text-sm">
+        <div className="flex rounded-lg border border-input overflow-hidden text-sm">
           {(['7', '30', '90', '180', '365', 'tudo'] as Periodo[]).map(p => (
             <button
               key={p}
@@ -120,7 +120,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
               className={cn(
                 'px-3 py-1.5 transition-colors',
                 periodo === p && !dataEspecifica
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground font-medium'
                   : 'bg-background hover:bg-accent text-foreground'
               )}
             >
@@ -229,14 +229,12 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
       </div>}
 
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">Total vendido</p>
-          <p className="text-xl font-bold mt-0.5">{formatarBRL(totalValor)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {filtradas.length} venda{filtradas.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total vendido</p>
+        <p className="text-2xl font-bold mt-1 tabular-nums tracking-tight">{formatarBRL(totalValor)}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {filtradas.length} venda{filtradas.length !== 1 ? 's' : ''}
+        </p>
       </div>
 
       {filtradas.length === 0 ? (
@@ -253,28 +251,28 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
           )}
 
           {/* Desktop table */}
-          {showDesktop && <div className="hidden md:block rounded-lg border overflow-hidden">
+          {showDesktop && <div className="hidden md:block rounded-lg border overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Data</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cliente</th>
+                <tr className="border-b bg-muted/60">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cliente</th>
                   {!isVendedora && (
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Vendedora</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vendedora</th>
                   )}
                   {mostrarLoja && (
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Loja</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Loja</th>
                   )}
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Produtos</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Avisos</th>
-                  <th className="px-4 py-3" />
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Produtos</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avisos</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
                 {filtradas.map(v => (
-                  <tr key={v.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                  <tr key={v.id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {formatarData(v.data_compra)}
                     </td>
@@ -444,7 +442,7 @@ function VendaCard({ venda: v, isVendedora, mostrarLoja }: { venda: VendaExtrato
   const mostrarExpandir = v.itens.length > 1
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-2">
+    <div className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-base font-semibold">{v.cliente_nome}</p>
