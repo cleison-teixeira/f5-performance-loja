@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useLayoutEffect } from 'react'
 import Link from 'next/link'
 import { SlidersHorizontal, X, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
 import type { VendaExtrato, VendaItemExtrato } from './page'
+
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 const ORIGEM_LABELS: Record<string, string> = {
   venda_manual: 'Venda',
@@ -68,7 +70,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
   const [drawerAberto, setDrawerAberto] = useState(false)
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     setIsDesktop(window.innerWidth >= 768)
   }, [])
 
