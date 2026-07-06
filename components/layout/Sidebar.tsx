@@ -59,19 +59,19 @@ export function Sidebar({ role }: Props) {
 
   const linkClass = (active: boolean) =>
     cn(
-      'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
       active
-        ? 'bg-primary/10 text-primary font-semibold'
-        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+        ? 'bg-sidebar-primary/[0.18] text-[oklch(0.78_0.19_145)] font-semibold'
+        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
     )
 
   function Section({ label, Icon, items }: { label: string; Icon: React.ElementType; items: NavItem[] }) {
     if (items.length === 0) return null
     return (
       <>
-        <div className="flex items-center gap-2 px-3 py-1.5 mt-3">
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 mt-4">
+          <Icon className="h-3 w-3 text-white/25" />
+          <span className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.12em]">{label}</span>
         </div>
         <ul className="space-y-0.5">
           {items.map(({ href, label: itemLabel, icon: ItemIcon }) => (
@@ -91,11 +91,11 @@ export function Sidebar({ role }: Props) {
   const configuracaoItems = hideGestao ? configuracaoItemsVendedora : configuracaoItemsBase
 
   return (
-    <aside className="hidden md:flex flex-col w-60 border-r bg-white h-screen sticky top-0 shadow-[1px_0_0_0_var(--color-border)]">
-      <div className="flex items-center h-14 px-4 border-b">
-        <img src="/branding/logo-f5-recompra.png" alt="F5 Recompra" className="h-8 w-auto object-contain" />
+    <aside className="hidden md:flex flex-col w-60 bg-sidebar h-screen sticky top-0 border-r border-sidebar-border">
+      <div className="flex items-center h-14 px-4 border-b border-sidebar-border">
+        <img src="/branding/logo-horizontal-light.png" alt="F5 Recompra" className="h-7 w-auto object-contain" />
       </div>
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />
         <Section label="Gestão" Icon={Building2} items={gestaoItems} />
         <Section label="Configuração" Icon={Settings} items={configuracaoItems} />
