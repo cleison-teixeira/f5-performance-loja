@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, Loader2 } from 'lucide-react'
 import { editarListaEspera, buscarClienteListaEspera, type StatusListaEspera } from './actions'
+import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 function hojeLocal() {
   const d = new Date()
@@ -142,6 +143,9 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
         data_registro: form.data_registro || hojeLocal(),
       })
       if (res.ok) {
+        if (form.status === 'convertido' && registro.status !== 'convertido') {
+          tocarCaixaRegistradora()
+        }
         router.refresh()
         onSaved()
       } else {

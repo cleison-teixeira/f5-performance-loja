@@ -6,6 +6,7 @@ import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
 import type { VendedoraLoja } from './AvisosLista'
 import { Plus, X } from 'lucide-react'
+import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 interface Props {
   aviso: AvisoDetalhado
@@ -147,6 +148,7 @@ export function ConfirmarRecompraModal({
       return
     }
 
+    tocarCaixaRegistradora()
     onSucesso(aviso.id)
   }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X, Loader2, CheckCircle } from 'lucide-react'
 import { criarListaEspera, buscarClienteListaEspera } from './actions'
+import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 function hojeLocal() {
   const d = new Date()
@@ -177,6 +178,7 @@ export function ListaEsperaForm({
         data_registro: form.data_registro || hojeLocal(),
       })
       if (res.ok) {
+        tocarCaixaRegistradora()
         setSucesso(true)
         router.refresh()
         setTimeout(fechar, 1500)

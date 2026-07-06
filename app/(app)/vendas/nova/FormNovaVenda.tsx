@@ -6,6 +6,7 @@ import { ResumoVenda } from './ResumoVenda'
 import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { CheckCircle, Loader2, UserPlus, Plus, X } from 'lucide-react'
+import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 interface Vendedora {
   id: string
@@ -250,6 +251,7 @@ export function FormNovaVenda({
       return
     }
 
+    tocarCaixaRegistradora()
     setResumo({
       venda_id: resultado.venda_id,
       cliente_nome: resultado.cliente_nome,
