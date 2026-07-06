@@ -61,8 +61,8 @@ export function Sidebar({ role }: Props) {
     cn(
       'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
       active
-        ? 'bg-primary/10 text-primary font-medium'
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+        ? 'bg-primary/10 text-primary font-semibold'
+        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
     )
 
   function Section({ label, Icon, items }: { label: string; Icon: React.ElementType; items: NavItem[] }) {
@@ -91,9 +91,9 @@ export function Sidebar({ role }: Props) {
   const configuracaoItems = hideGestao ? configuracaoItemsVendedora : configuracaoItemsBase
 
   return (
-    <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0">
+    <aside className="hidden md:flex flex-col w-60 border-r bg-white h-screen sticky top-0 shadow-[1px_0_0_0_var(--color-border)]">
       <div className="flex items-center h-14 px-4 border-b">
-        <img src="/branding/logo-f5-recompra.png" alt="F5 Recompra" className="h-7 w-auto object-contain" />
+        <img src="/branding/logo-f5-recompra.png" alt="F5 Recompra" className="h-8 w-auto object-contain" />
       </div>
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         <Section label="Operação" Icon={ShoppingCart} items={operacaoItems} />
