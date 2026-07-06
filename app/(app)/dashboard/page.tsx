@@ -454,16 +454,22 @@ export default async function DashboardPage() {
   const rankingRecompras: RankingRecomprasItem[] = Array.from(rankingRecomprasMap.values())
     .sort((a, b) => b.valorRecuperado - a.valorRecuperado)
 
-  // Top produtos de recompra (por avisos pendentes na fila)
-  const topProdutosRecompra: TopProdutoRecompra[] = Array.from(avisosPorProduto.entries())
-    .filter(([, qtd]) => qtd > 0)
-    .sort((a, b) => b[1] - a[1])
+  // Oportunidades únicas por produto (fila: recompra/oferta), dedup por venda_id + produto_id
+  const oportunidadesPorProdutoMap = new Map<string, Set<string>>()
+  avisos.filter(a => a.tipo === 'recompra' || a.tipo === 'oferta').forEach(a => {
+    const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
+    if (!oportunidadesPorProdutoMap.has(a.produto_nome)) {
+      oportunidadesPorProdutoMap.set(a.produto_nome, new Set())
+    }
+    oportunidadesPorProdutoMap.get(a.produto_nome)!.add(key)
+  })
+
+  // Top produtos de recompra (por oportunidades únicas na fila, não por avisos)
+  const topProdutosRecompra: TopProdutoRecompra[] = Array.from(oportunidadesPorProdutoMap.entries())
+    .map(([nome, keys]) => ({ nome, qtd: keys.size, foto_url: produtoFotoMap.get(nome) ?? null }))
+    .filter(p => p.qtd > 0)
+    .sort((a, b) => b.qtd - a.qtd)
     .slice(0, 5)
-    .map(([nome, qtd]) => ({
-      nome,
-      qtd,
-      foto_url: produtoFotoMap.get(nome) ?? null,
-    }))
 
   // Ranking de vendas (30d)
   const vendedoraMap = new Map<string, { nome: string; total: number; qtd: number }>()
