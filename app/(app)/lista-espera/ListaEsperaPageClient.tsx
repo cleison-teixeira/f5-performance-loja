@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { Loader2 } from 'lucide-react'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 import { carregarMaisListaEspera } from './actions'
@@ -25,6 +25,11 @@ export function ListaEsperaPageClient({
   const [registros, setRegistros] = useState<RegistroListaEspera[]>(initialRegistros)
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    setRegistros(initialRegistros)
+    setNextCursor(initialNextCursor)
+  }, [initialRegistros, initialNextCursor])
 
   function carregarMais() {
     if (!nextCursor || isPending) return

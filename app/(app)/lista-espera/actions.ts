@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
@@ -162,6 +163,7 @@ export async function criarListaEspera(
     status: 'aguardando',
   })
   if (error) return { ok: false, error: error.message }
+  revalidatePath('/lista-espera')
   return { ok: true }
 }
 
