@@ -38,7 +38,7 @@ async function buildLojaNotificacoes(
   const [avisosRes, listaEsperaRes] = await Promise.all([
     admin
       .from('avisos')
-      .select('id, data_aviso, mensagens_produto(tipo)')
+      .select('id, data_aviso, status, recompra_id, mensagens_produto(tipo)')
       .in('loja_id', lojaIds)
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)'),
     admin
@@ -48,12 +48,17 @@ async function buildLojaNotificacoes(
       .eq('status', 'aguardando'),
   ])
 
-  const getTipo = (a: unknown) =>
-    ((a as { mensagens_produto: { tipo: string } | null }).mensagens_produto)?.tipo ?? ''
+  type AvisoRaw = { id: string; data_aviso: string; status: string; recompra_id: string | null; mensagens_produto: { tipo: string }[] | null }
+  const getTipo = (a: AvisoRaw) => (Array.isArray(a.mensagens_produto) ? a.mensagens_produto[0]?.tipo : null) ?? ''
 
-  const avisosRaw = avisosRes.data ?? []
+  const avisosRaw = (avisosRes.data ?? []) as unknown as AvisoRaw[]
   const avisosFila = avisosRaw.filter(a => TIPOS_FILA.includes(getTipo(a)))
-  const avisosRel = avisosRaw.filter(a => TIPOS_RELACIONAMENTO.includes(getTipo(a)))
+  const avisosRel = avisosRaw.filter(a => {
+    if (!TIPOS_RELACIONAMENTO.includes(getTipo(a))) return false
+    if (a.status === 'contato_feito') return false
+    if (a.status === 'enviado' && !a.recompra_id) return false
+    return true
+  })
 
   const filaAtrasados = avisosFila.filter(a => (a.data_aviso as string) < hoje).length
   const filaHoje = avisosFila.filter(a => (a.data_aviso as string) === hoje).length
