@@ -56,9 +56,6 @@ export function FormEditarMembro({ membro, loja_id, onSalvo, onCancelar }: Props
   const [pinPending, startPinTransition] = useTransition()
   const [msgPin, setMsgPin] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
-  // ── Observação ───────────────────────────────────────────────────────────────
-  const [observacao, setObservacao] = useState(membro.observacao_interna ?? '')
-
   // ── Foto handlers ─────────────────────────────────────────────────────────────
   async function processarArquivo(file: File) {
     if (!TIPOS_ACEITOS.includes(file.type)) { setErroFoto('Formato inválido. Use JPG, PNG ou WEBP.'); return }
@@ -149,7 +146,6 @@ export function FormEditarMembro({ membro, loja_id, onSalvo, onCancelar }: Props
       role,
       ativo,
       avatar_url: avatarUrl,
-      observacao_interna: observacao.trim() || null,
     })
     setSalvando(false)
     if (res.ok) {
@@ -160,7 +156,6 @@ export function FormEditarMembro({ membro, loja_id, onSalvo, onCancelar }: Props
         role,
         ativo,
         avatar_url: avatarUrl,
-        observacao_interna: observacao.trim() || null,
         pin_ativo: pinAtivo,
         tem_pin_hash: temPinHash,
       })
@@ -330,19 +325,6 @@ export function FormEditarMembro({ membro, loja_id, onSalvo, onCancelar }: Props
             {msgPin.texto}
           </p>
         )}
-      </div>
-
-      {/* ── SEÇÃO: Observação interna ─────────────────────────────── */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observação interna</p>
-        <textarea
-          value={observacao}
-          onChange={e => setObservacao(e.target.value)}
-          rows={3}
-          placeholder="Ex.: instruções internas, histórico, motivo de desligamento ou observações sobre este membro."
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        />
-        <p className="text-[11px] text-muted-foreground">Visível apenas para dono, gerente e admin.</p>
       </div>
 
       {/* ── Botões principais ─────────────────────────────────────── */}

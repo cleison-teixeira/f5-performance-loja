@@ -38,9 +38,6 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
   const [pin, setPin] = useState('')
   const [pinConfirma, setPinConfirma] = useState('')
 
-  // ── Observação ────────────────────────────────────────────────────────────
-  const [observacao, setObservacao] = useState('')
-
   // ── Foto handlers ─────────────────────────────────────────────────────────
   async function processarArquivo(file: File) {
     if (!TIPOS_ACEITOS.includes(file.type)) { setErroFoto('Formato inválido. Use JPG, PNG ou WEBP.'); return }
@@ -117,7 +114,6 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
       role,
       comissao: 0,
       avatar_url: avatarUrl,
-      observacao_interna: observacao.trim() || null,
       pin: pin.length === 4 ? pin : undefined,
     })
     setSalvando(false)
@@ -240,18 +236,6 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground">4 dígitos. Deixe em branco para cadastrar sem PIN.</p>
-      </div>
-
-      {/* ── SEÇÃO: Observação ─────────────────────────────────────── */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observação interna <span className="font-normal normal-case">(opcional)</span></p>
-        <textarea
-          value={observacao}
-          onChange={e => setObservacao(e.target.value)}
-          rows={2}
-          placeholder="Ex.: instruções internas, histórico ou observações sobre este membro."
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        />
       </div>
 
       {/* ── Botões ────────────────────────────────────────────────── */}
