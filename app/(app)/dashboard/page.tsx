@@ -122,6 +122,7 @@ export interface TopProdutoRecompra {
 export interface RankingLojasItem {
   lojaId: string
   lojaNome: string
+  lojaLogoUrl?: string | null
   totalPotencial: number
   qtdOportunidades: number
   qtdElegiveis: number
@@ -681,6 +682,7 @@ export default async function DashboardPage() {
     rankingLojas = [{
       lojaId: loja_id,
       lojaNome: loja.nome,
+      lojaLogoUrl: lojaDisplay?.logo_url ?? null,
       totalPotencial: dinheiroMesaInfo.totalPotencial,
       qtdOportunidades: dinheiroMesaInfo.qtdOportunidades,
       qtdElegiveis: qtdElegivelLoja,

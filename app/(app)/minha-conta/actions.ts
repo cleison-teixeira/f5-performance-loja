@@ -3,6 +3,31 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+export async function salvarLogoLoja(dados: {
+  loja_id: string
+  logo_url: string | null
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+
+    const admin = createAdminClient()
+    const role = await verificarPertenceLoja(user.id, dados.loja_id)
+    if (!role || !PODE_EDITAR.includes(role)) return { ok: false, erro: 'Sem permissão para editar esta loja' }
+
+    const { error } = await admin
+      .from('lojas')
+      .update({ logo_url: dados.logo_url })
+      .eq('id', dados.loja_id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
 async function verificarPertenceLoja(userId: string, lojaId: string): Promise<string | null> {
   const admin = createAdminClient()
   const { data } = await admin

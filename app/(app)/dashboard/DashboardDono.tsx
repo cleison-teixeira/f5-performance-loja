@@ -500,11 +500,16 @@ export function DashboardDono({
                 }`}>
                   {i + 1}
                 </span>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-none shadow-sm ${
-                  isFirst ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
-                }`}>
-                  {iniciais}
-                </div>
+                {item.lojaLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.lojaLogoUrl} alt={item.lojaNome} className="w-8 h-8 rounded-full object-cover flex-none shadow-sm" />
+                ) : (
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-none shadow-sm ${
+                    isFirst ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
+                  }`}>
+                    {iniciais}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>

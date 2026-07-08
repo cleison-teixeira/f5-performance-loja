@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} badgesMap={badgesMap} />
       <div className="flex flex-col flex-1 min-w-0">
-        <Header nomeUsuario={perfil?.nome ?? ''} role={role} notificacoes={notificacoes} userId={appCtx.user?.id} />
+        <Header nomeUsuario={perfil?.nome ?? ''} role={role} notificacoes={notificacoes} userId={appCtx.user?.id} lojaLogoUrl={appCtx.lojaLogoUrl} />
         {isAcessoRede && ctx.lojas.length > 1 && (
           <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
         )}

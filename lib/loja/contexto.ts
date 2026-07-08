@@ -6,7 +6,7 @@ import { measureAsync } from '@/lib/performance/timing'
 export const COOKIE_LOJA = 'f5_loja_ctx'
 
 export type ContextoLoja = {
-  lojas: { id: string; nome: string }[]
+  lojas: { id: string; nome: string; logo_url?: string | null }[]
   lojaId: string | null
   escopo: 'rede' | 'loja'
   lojaIds: string[]
@@ -38,13 +38,13 @@ export async function getLojasDoUsuario(userId: string): Promise<{ id: string; n
   const lojasRes = await measureAsync('getLojasDoUsuario:lojas', () =>
     admin
       .from('lojas')
-      .select('id, nome')
+      .select('id, nome, logo_url')
       .in('id', lojaIds)
       .eq('admin_only', false)
       .order('nome')
   )
 
-  return (lojasRes.data ?? []).map(l => ({ id: l.id as string, nome: l.nome as string }))
+  return (lojasRes.data ?? []).map(l => ({ id: l.id as string, nome: l.nome as string, logo_url: (l.logo_url as string | null) ?? null }))
 }
 
 const _getContextoLojaImpl = async (userId: string, multiLoja: boolean): Promise<ContextoLoja> => {

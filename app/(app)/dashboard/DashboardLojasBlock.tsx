@@ -25,7 +25,7 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
   const admin = createAdminClient()
 
   const [lojasRes, recomprasLojaRes, avisosLojaRes] = await Promise.all([
-    admin.from('lojas').select('id, nome').in('id', lojaIds),
+    admin.from('lojas').select('id, nome, logo_url').in('id', lojaIds),
     admin
       .from('recompras')
       .select('loja_id, valor_total')
@@ -39,7 +39,11 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
   ])
 
   const lojaNomeMap = new Map<string, string>()
-  for (const l of lojasRes.data ?? []) lojaNomeMap.set(l.id as string, l.nome as string)
+  const lojaLogoMap = new Map<string, string | null>()
+  for (const l of lojasRes.data ?? []) {
+    lojaNomeMap.set(l.id as string, l.nome as string)
+    lojaLogoMap.set(l.id as string, (l.logo_url as string | null) ?? null)
+  }
 
   const hoje = new Date().toISOString().split('T')[0]
   const data90DaysAgo = addDias(hoje, -90)
@@ -83,6 +87,7 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
     .map(id => ({
       lojaId: id,
       lojaNome: lojaNomeMap.get(id) ?? '—',
+      lojaLogoUrl: lojaLogoMap.get(id) ?? null,
       totalPotencial: 0,
       qtdOportunidades: lojaMap.get(id)?.qtdOportunidades ?? 0,
       qtdElegiveis: lojaMap.get(id)?.qtdElegiveis ?? 0,
@@ -126,11 +131,16 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
               }`}>
                 {i + 1}
               </span>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-none shadow-sm ${
-                isFirst ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
-              }`}>
-                {iniciais}
-              </div>
+              {item.lojaLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.lojaLogoUrl} alt={item.lojaNome} className="w-8 h-8 rounded-full object-cover flex-none shadow-sm" />
+              ) : (
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-none shadow-sm ${
+                  isFirst ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
+                }`}>
+                  {iniciais}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>

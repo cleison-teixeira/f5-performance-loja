@@ -17,7 +17,8 @@ export interface AppContext {
   lojaId: string | null
   lojaIds: string[]
   lojaNome: string
-  lojas: { id: string; nome: string }[]
+  lojaLogoUrl: string | null
+  lojas: { id: string; nome: string; logo_url?: string | null }[]
   hasMembros: boolean
 }
 
@@ -62,6 +63,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
       lojaId: null,
       lojaIds: [],
       lojaNome: '',
+      lojaLogoUrl: null,
       lojas: [],
       hasMembros: false,
     }
@@ -92,6 +94,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     lojaId: ctx.lojaId,
     lojaIds: ctx.lojaIds,
     lojaNome: ctx.lojaNome,
+    lojaLogoUrl: ctx.lojas.find(l => l.id === ctx.lojaId)?.logo_url ?? null,
     lojas: ctx.lojas,
     hasMembros: true,
   }

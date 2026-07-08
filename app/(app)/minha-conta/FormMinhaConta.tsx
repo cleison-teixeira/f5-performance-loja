@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { LogOut } from 'lucide-react'
+import { LogOut, Loader2, Camera, ImageIcon } from 'lucide-react'
 import { NICHOS_OFICIAIS } from '@/lib/config/produtos-segmentos'
 import type { LojaData, AssinaturaItem, LojaVinculada } from './page'
-import { salvarLoja, salvarEndereco } from './actions'
+import { salvarLoja, salvarEndereco, salvarLogoLoja } from './actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -152,9 +152,73 @@ export function FormMinhaConta({
   const [complemento, setComplemento] = useState(loja?.complemento ?? '')
   const [msgEndereco, setMsgEndereco] = useState<Msg>(null)
 
+  // Logo da loja
+  const [logoUrl, setLogoUrl] = useState<string | null>(loja?.logo_url ?? null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(loja?.logo_url ?? null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [erroLogo, setErroLogo] = useState<string | null>(null)
+  const [logoUrlManual, setLogoUrlManual] = useState(false)
+  const [logoUrlInput, setLogoUrlInput] = useState('')
+  const lojaGaleriaRef = useRef<HTMLInputElement>(null)
+  const lojaCameraRef = useRef<HTMLInputElement>(null)
+
   function showMsg(setter: (m: Msg) => void, tipo: 'ok' | 'erro', texto: string) {
     setter({ tipo, texto })
     setTimeout(() => setter(null), 5000)
+  }
+
+  async function processarLogoArquivo(file: File) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setErroLogo('Formato inválido. Use JPG, PNG ou WEBP.'); return }
+    if (file.size > 5 * 1024 * 1024) { setErroLogo('Imagem muito grande. Máximo 5 MB.'); return }
+    if (!loja) return
+    const reader = new FileReader()
+    reader.onload = e => setLogoPreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+    setUploadingLogo(true)
+    setErroLogo(null)
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const path = `logos/${loja.id}-${Date.now()}.${ext}`
+    const supabase = createClient()
+    const { error: uploadErr } = await supabase.storage
+      .from('product-images')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadErr) {
+      setUploadingLogo(false)
+      setErroLogo('Erro ao enviar imagem. Tente novamente.')
+      setLogoPreview(logoUrl)
+      return
+    }
+    const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path)
+    const res = await salvarLogoLoja({ loja_id: loja.id, logo_url: publicUrl })
+    setUploadingLogo(false)
+    if (res.ok) { setLogoUrl(publicUrl); setLogoPreview(publicUrl); router.refresh() }
+    else { setErroLogo(res.erro ?? 'Erro ao salvar logo.'); setLogoPreview(logoUrl) }
+  }
+
+  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) processarLogoArquivo(file)
+    e.target.value = ''
+  }
+
+  async function handleLogoUrlConfirm() {
+    const url = logoUrlInput.trim()
+    if (!url || !loja) return
+    setUploadingLogo(true)
+    setErroLogo(null)
+    const res = await salvarLogoLoja({ loja_id: loja.id, logo_url: url })
+    setUploadingLogo(false)
+    if (res.ok) { setLogoUrl(url); setLogoPreview(url); setLogoUrlManual(false); setLogoUrlInput(''); router.refresh() }
+    else setErroLogo(res.erro ?? 'Erro ao salvar logo.')
+  }
+
+  async function handleRemoverLogo() {
+    if (!loja) return
+    setUploadingLogo(true)
+    const res = await salvarLogoLoja({ loja_id: loja.id, logo_url: null })
+    setUploadingLogo(false)
+    if (res.ok) { setLogoUrl(null); setLogoPreview(null); router.refresh() }
+    else setErroLogo(res.erro ?? 'Erro ao remover logo.')
   }
 
   async function handleLogout() {
@@ -260,6 +324,73 @@ export function FormMinhaConta({
             {/* 1. Dados da loja */}
             <section className={card}>
               <h2 className="text-sm font-semibold text-foreground">Dados da loja</h2>
+
+              {/* Logo */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Logo</p>
+                <div className="flex items-center gap-4">
+                  <div className="relative w-14 h-14 flex-none">
+                    {logoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logoPreview} alt="Logo" className="w-14 h-14 rounded-full object-cover border-2 border-border" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                        <span className="text-base font-bold text-muted-foreground">
+                          {nomeLoja.split(' ').filter(Boolean).slice(0, 2).map(n => n[0].toUpperCase()).join('') || '?'}
+                        </span>
+                      </div>
+                    )}
+                    {uploadingLogo && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      </div>
+                    )}
+                  </div>
+                  {podeEditar && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        <button type="button" onClick={() => lojaGaleriaRef.current?.click()} disabled={uploadingLogo}
+                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50 transition-colors touch-manipulation">
+                          <ImageIcon className="h-3 w-3" /> Galeria
+                        </button>
+                        <button type="button" onClick={() => lojaCameraRef.current?.click()} disabled={uploadingLogo}
+                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50 transition-colors touch-manipulation">
+                          <Camera className="h-3 w-3" /> Câmera
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => setLogoUrlManual(v => !v)} disabled={uploadingLogo}
+                          className="text-[11px] text-muted-foreground hover:text-foreground hover:underline transition-colors">
+                          Usar link
+                        </button>
+                        {logoPreview && (
+                          <>
+                            <span className="text-muted-foreground/30 text-[11px] select-none">·</span>
+                            <button type="button" onClick={handleRemoverLogo} disabled={uploadingLogo}
+                              className="text-[11px] text-destructive hover:underline transition-colors">
+                              Remover logo
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {logoUrlManual && podeEditar && (
+                  <div className="flex gap-2 max-w-sm">
+                    <input type="url" value={logoUrlInput} onChange={e => setLogoUrlInput(e.target.value)}
+                      placeholder="https://..." className="flex-1 min-w-0 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    <button type="button" onClick={handleLogoUrlConfirm} disabled={!logoUrlInput.trim() || uploadingLogo}
+                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                      OK
+                    </button>
+                  </div>
+                )}
+                {erroLogo && <p className="text-[11px] text-destructive">{erroLogo}</p>}
+                <input ref={lojaGaleriaRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleLogoFileChange} />
+                <input ref={lojaCameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={handleLogoFileChange} />
+              </div>
+              <div className="h-px bg-border/50" />
 
               <div className="space-y-4">
                 <Field label="Nome da loja">

@@ -15,9 +15,10 @@ import { LogOut, User } from 'lucide-react'
 interface UserMenuProps {
   nomeUsuario?: string
   role?: string
+  lojaLogoUrl?: string | null
 }
 
-export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
+export function UserMenu({ nomeUsuario = '', role = '', lojaLogoUrl }: UserMenuProps) {
   const router = useRouter()
 
   const iniciais = nomeUsuario
@@ -38,7 +39,11 @@ export function UserMenu({ nomeUsuario = '', role = '' }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Avatar className="h-8 w-8 cursor-pointer">
-          <AvatarFallback className="text-xs">{iniciais || '?'}</AvatarFallback>
+          {lojaLogoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lojaLogoUrl} alt="Logo da loja" className="h-8 w-8 rounded-full object-cover" />
+          )}
+          {!lojaLogoUrl && <AvatarFallback className="text-xs">{iniciais || '?'}</AvatarFallback>}
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

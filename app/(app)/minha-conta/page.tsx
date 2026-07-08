@@ -22,6 +22,7 @@ export type LojaData = {
   estado: string | null
   complemento: string | null
   nicho: string
+  logo_url: string | null
 }
 
 export type AssinaturaItem = {
@@ -53,7 +54,7 @@ export default async function MinhaContaPage() {
   const [{ data: membrosData }, { data: libData }] = await Promise.all([
     admin
       .from('membros_loja')
-      .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos)')
+      .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos, logo_url)')
       .eq('perfil_id', user.id)
       .eq('ativo', true),
     admin
@@ -89,7 +90,7 @@ export default async function MinhaContaPage() {
       whatsapp: string | null; cidade: string | null; endereco: string | null
       cep: string | null; rua: string | null; numero: string | null
       bairro: string | null; estado: string | null; complemento: string | null
-      nichos: string[] | null
+      nichos: string[] | null; logo_url: string | null
     }
     const lojaRaw = m.lojas as unknown as LojaRaw | LojaRaw[] | null
     const lojaItem = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
@@ -113,6 +114,7 @@ export default async function MinhaContaPage() {
       estado: lojaItem.estado,
       complemento: lojaItem.complemento,
       nicho: normalizarNicho(rawNicho),
+      logo_url: lojaItem.logo_url ?? null,
     })
   }
 
