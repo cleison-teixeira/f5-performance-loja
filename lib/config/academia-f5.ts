@@ -1,5 +1,3 @@
-export type SubtipoMaterial = 'video' | 'imagem_feed' | 'story' | 'pdf' | 'link'
-
 export type ConteudoAcademia = {
   id: string
   titulo: string
@@ -8,19 +6,15 @@ export type ConteudoAcademia = {
   nicho: string
   modulo: string
   produto: string
-  tipo: 'treinamento' | 'material_divulgacao'
-  subtipo?: SubtipoMaterial
   formato?: 'vertical' | 'horizontal' | 'quadrado'
   youtubeUrl?: string
-  arquivoUrl?: string
-  thumbnailUrl?: string
   creditos?: string
   tags?: string[]
   ativo: boolean
   ordem: number
 }
 
-export const conteudosAcademia: ConteudoAcademia[] = [
+export const treinamentosAcademia: ConteudoAcademia[] = [
   {
     id: 'pv-woman',
     titulo: 'PiùFort Woman',
@@ -29,7 +23,6 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     nicho: 'Suplementos / Produtos naturais',
     modulo: 'Linha PiùFort',
     produto: 'PiùFort Woman',
-    tipo: 'treinamento',
     formato: 'vertical',
     youtubeUrl: 'https://youtube.com/shorts/JG1dkeD5MZU',
     creditos: 'Nutricionista Luciana Leães',
@@ -45,7 +38,6 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     nicho: 'Suplementos / Produtos naturais',
     modulo: 'Linha PiùFort',
     produto: 'PiùFort Imune',
-    tipo: 'treinamento',
     formato: 'vertical',
     youtubeUrl: 'https://youtube.com/shorts/4ovZIK7g3Rw',
     creditos: 'Nutricionista Luciana Leães',
@@ -61,7 +53,6 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     nicho: 'Suplementos / Produtos naturais',
     modulo: 'Linha PiùFort',
     produto: 'PiùFort Gestan',
-    tipo: 'treinamento',
     formato: 'vertical',
     youtubeUrl: 'https://youtube.com/shorts/f7jkIBCDz_s',
     creditos: 'Nutricionista Luciana Leães',
@@ -77,7 +68,6 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     nicho: 'Suplementos / Produtos naturais',
     modulo: 'Linha PiùFort',
     produto: 'PiùFort Antiox',
-    tipo: 'treinamento',
     formato: 'vertical',
     youtubeUrl: 'https://youtube.com/shorts/y9AGNoWRkkU',
     creditos: 'Nutricionista Luciana Leães',
@@ -93,7 +83,6 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     nicho: 'Suplementos / Produtos naturais',
     modulo: 'Linha PiùFort',
     produto: 'Linha PiùFort',
-    tipo: 'treinamento',
     formato: 'vertical',
     youtubeUrl: 'https://youtube.com/shorts/CMYj71JebnY',
     creditos: 'Nutricionista Luciana Leães',
@@ -109,7 +98,6 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     nicho: 'Suplementos / Produtos naturais',
     modulo: 'Linha PiùFort',
     produto: 'PiùFort Slim',
-    tipo: 'treinamento',
     formato: 'horizontal',
     youtubeUrl: 'https://youtu.be/HvTWdHiUwy0',
     creditos: 'Nutricionista Luciana Leães',
@@ -118,11 +106,3 @@ export const conteudosAcademia: ConteudoAcademia[] = [
     ordem: 6,
   },
 ]
-
-export const treinamentosAcademia = conteudosAcademia.filter(
-  c => c.tipo === 'treinamento' && c.ativo
-)
-
-export const materiaisAcademia = conteudosAcademia.filter(
-  c => c.tipo === 'material_divulgacao' && c.ativo
-)

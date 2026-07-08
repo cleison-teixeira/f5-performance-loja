@@ -1,8 +1,8 @@
 'use client'
 
-import { Clock, PlayCircle, GraduationCap, ExternalLink, BookOpen, ImageIcon, FileText, Link2 } from 'lucide-react'
+import { Clock, PlayCircle, GraduationCap, ExternalLink } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { treinamentosAcademia, materiaisAcademia, type ConteudoAcademia } from '@/lib/config/academia-f5'
+import { treinamentosAcademia, type ConteudoAcademia } from '@/lib/config/academia-f5'
 import { youtubeEmbedUrl } from '@/lib/utils/youtube'
 
 // ─── Tipos internos (F5 + Vendas) ────────────────────────────────────────────
@@ -105,7 +105,7 @@ const vendasItems: TrainingItem[] = [
   },
 ]
 
-// ─── Componente: card de treinamento sem vídeo ───────────────────────────────
+// ─── Card: treinamento sem vídeo ─────────────────────────────────────────────
 
 function TrainingCard({ item }: { item: TrainingItem }) {
   return (
@@ -147,7 +147,7 @@ function TrainingCard({ item }: { item: TrainingItem }) {
   )
 }
 
-// ─── Componente: card de vídeo de parceiro com player embutido ───────────────
+// ─── Card: vídeo de parceiro com player embutido ─────────────────────────────
 
 function VideoCard({ item }: { item: ConteudoAcademia }) {
   const embedUrl = item.youtubeUrl ? youtubeEmbedUrl(item.youtubeUrl) : null
@@ -155,7 +155,6 @@ function VideoCard({ item }: { item: ConteudoAcademia }) {
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden flex flex-col">
-      {/* Player */}
       {embedUrl ? (
         <div className={isVertical ? 'bg-black flex justify-center' : ''}>
           <div className={
@@ -178,7 +177,6 @@ function VideoCard({ item }: { item: ConteudoAcademia }) {
         </div>
       )}
 
-      {/* Info */}
       <div className="p-4 flex flex-col gap-2.5 flex-1">
         <div className="flex flex-wrap gap-1.5">
           <span className="inline-flex rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-medium">
@@ -215,74 +213,6 @@ function VideoCard({ item }: { item: ConteudoAcademia }) {
   )
 }
 
-// ─── Componente: ícone por tipo de material ──────────────────────────────────
-
-function MaterialIcon({ subtipo }: { subtipo?: string }) {
-  if (subtipo === 'pdf') return <FileText className="h-5 w-5 text-muted-foreground/40" />
-  if (subtipo === 'link') return <Link2 className="h-5 w-5 text-muted-foreground/40" />
-  if (subtipo === 'imagem_feed' || subtipo === 'story') return <ImageIcon className="h-5 w-5 text-muted-foreground/40" />
-  return <PlayCircle className="h-5 w-5 text-muted-foreground/40" />
-}
-
-// ─── Componente: card de material de divulgação ──────────────────────────────
-
-function MaterialCard({ item }: { item: ConteudoAcademia }) {
-  const labelMap: Record<string, string> = {
-    video: 'Vídeo',
-    imagem_feed: 'Feed',
-    story: 'Story',
-    pdf: 'PDF',
-    link: 'Link',
-  }
-  const label = item.subtipo ? (labelMap[item.subtipo] ?? item.subtipo) : 'Material'
-
-  return (
-    <div className="rounded-xl border bg-card p-4 flex flex-col gap-3">
-      <div className="aspect-video rounded-lg bg-muted flex items-center justify-center">
-        <MaterialIcon subtipo={item.subtipo} />
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        <span className="inline-flex rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">
-          {label}
-        </span>
-        {item.formato && (
-          <span className="inline-flex rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-            {item.formato}
-          </span>
-        )}
-        <span className="inline-flex rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-medium">
-          {item.parceiro}
-        </span>
-      </div>
-
-      <div className="space-y-1 flex-1">
-        <p className="text-sm font-semibold leading-snug">{item.titulo}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">{item.descricao}</p>
-      </div>
-
-      <div className="pt-2 border-t">
-        {item.arquivoUrl ? (
-          <a
-            href={item.arquivoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            {item.subtipo === 'pdf' ? 'Baixar material' : 'Abrir material'}
-          </a>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            Em breve
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="space-y-0.5">
@@ -294,7 +224,7 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 
 // ─── Página ──────────────────────────────────────────────────────────────────
 
-type Secao = 'todos' | 'f5' | 'vendas' | 'parceiros' | 'piuvita' | 'materiais'
+type Secao = 'todos' | 'f5' | 'vendas' | 'parceiros' | 'piuvita'
 
 const TABS: { id: Secao; label: string }[] = [
   { id: 'todos', label: 'Todos' },
@@ -302,7 +232,6 @@ const TABS: { id: Secao; label: string }[] = [
   { id: 'vendas', label: 'Vendas' },
   { id: 'parceiros', label: 'Parceiros' },
   { id: 'piuvita', label: 'PiùVita' },
-  { id: 'materiais', label: 'Materiais' },
 ]
 
 export default function TreinamentosPage() {
@@ -312,7 +241,7 @@ export default function TreinamentosPage() {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const secao = params.get('secao') as Secao | null
-    const validas: Secao[] = ['todos', 'f5', 'vendas', 'parceiros', 'piuvita', 'materiais']
+    const validas: Secao[] = ['todos', 'f5', 'vendas', 'parceiros', 'piuvita']
     if (secao && validas.includes(secao)) setSecaoAtiva(secao)
   }, [])
 
@@ -320,19 +249,16 @@ export default function TreinamentosPage() {
   const mostrarF5 = secaoAtiva === 'todos' || secaoAtiva === 'f5'
   const mostrarVendas = secaoAtiva === 'todos' || secaoAtiva === 'vendas'
   const mostrarParceiros = secaoAtiva === 'todos' || secaoAtiva === 'parceiros' || secaoAtiva === 'piuvita'
-  const mostrarMateriais = secaoAtiva === 'materiais'
 
   return (
     <div className="space-y-8">
-      {/* Cabeçalho */}
       <div>
         <h1 className="text-xl font-semibold">Academia F5 Recompra</h1>
         <p className="text-sm text-muted-foreground">
-          Treinamentos e materiais prontos para ajudar sua equipe a vender mais.
+          Treinamentos para sua equipe vender mais, usar melhor a plataforma e aproveitar conteúdos de parceiros.
         </p>
       </div>
 
-      {/* Intro */}
       <div className="rounded-xl border bg-card p-4 flex items-start gap-3">
         <GraduationCap className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -340,7 +266,6 @@ export default function TreinamentosPage() {
         </p>
       </div>
 
-      {/* Abas */}
       <div className="flex gap-2 border-b pb-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
         {TABS.map(tab => (
           <button
@@ -357,10 +282,7 @@ export default function TreinamentosPage() {
         ))}
       </div>
 
-      {/* Seções */}
       <div className="space-y-8">
-
-        {/* Comece pelo F5 */}
         {mostrarF5 && (
           <section className="space-y-3">
             <SectionHeader
@@ -375,7 +297,6 @@ export default function TreinamentosPage() {
           </section>
         )}
 
-        {/* Treinamento de Vendas */}
         {mostrarVendas && (
           <section className="space-y-3">
             <SectionHeader
@@ -390,7 +311,6 @@ export default function TreinamentosPage() {
           </section>
         )}
 
-        {/* Parceiros */}
         {mostrarParceiros && (
           <section className="space-y-4">
             {secaoAtiva !== 'piuvita' && (
@@ -400,7 +320,6 @@ export default function TreinamentosPage() {
               />
             )}
 
-            {/* PiùVita */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
@@ -421,38 +340,11 @@ export default function TreinamentosPage() {
               </div>
             </div>
 
-            {/* Espaço para novos parceiros */}
             {secaoAtiva !== 'piuvita' && (
               <div className="rounded-xl border border-dashed p-5 text-center space-y-1.5">
                 <p className="text-sm font-medium">Novos parceiros em breve</p>
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
                   Fornecedores parceiros terão uma área exclusiva de treinamento aqui.
-                </p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Materiais de divulgação */}
-        {mostrarMateriais && (
-          <section className="space-y-4">
-            <SectionHeader
-              title="Materiais de divulgação"
-              subtitle="Vídeos, imagens e PDFs prontos para usar nas redes sociais da loja."
-            />
-
-            {materiaisAcademia.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {materiaisAcademia.map(item => (
-                  <MaterialCard key={item.id} item={item} />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed p-8 text-center space-y-2">
-                <BookOpen className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm font-medium">Materiais em preparação</p>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                  Em breve parceiros disponibilizarão vídeos para reels, imagens de feed, stories e PDFs prontos para sua loja usar.
                 </p>
               </div>
             )}
