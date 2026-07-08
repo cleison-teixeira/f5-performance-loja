@@ -130,8 +130,8 @@ export default function DebugMobileAccessPage() {
             qtdRecomprasMes={0}
             dinheiroMesaInfo={{ totalPotencial: 7200, qtdOportunidades: 14, potencial7Dias: 2400, qtdClientes7Dias: 8 }}
             topProdutosRecompra={[
-              { nome: 'Creme Premium', qtd: 3, foto_url: null },
-              { nome: 'Sérum Vitamina C', qtd: 2, foto_url: null },
+              { nome: 'Creme Premium', qtd: 3, foto_url: null, valorRecuperadoMes: 0, qtdRecomprasMes: 0, qtdElegiveis: 0 },
+              { nome: 'Sérum Vitamina C', qtd: 2, foto_url: null, valorRecuperadoMes: 0, qtdRecomprasMes: 0, qtdElegiveis: 0 },
             ]}
           />
         </main>

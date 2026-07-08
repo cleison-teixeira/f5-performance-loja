@@ -7,6 +7,13 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+function addDias(base: string, n: number): string {
+  const [y, m, d] = base.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() + n)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 interface Props {
   lojaIds: string[]
   inicioMes: string
@@ -26,7 +33,7 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
       .gte('criado_em', inicioMes),
     admin
       .from('avisos')
-      .select('loja_id, venda_id, produto_id:itens_venda(produto_id)')
+      .select('loja_id, venda_id, data_aviso, produto_id:itens_venda(produto_id)')
       .in('loja_id', lojaIds)
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)'),
   ])
@@ -34,14 +41,20 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
   const lojaNomeMap = new Map<string, string>()
   for (const l of lojasRes.data ?? []) lojaNomeMap.set(l.id as string, l.nome as string)
 
+  const hoje = new Date().toISOString().split('T')[0]
+  const data90DaysAgo = addDias(hoje, -90)
+  const dataLimiteElegivel = addDias(hoje, 5)
+
   const lojaMap = new Map<string, {
     valorRecuperadoMes: number
     qtdRecomprasMes: number
     qtdOportunidades: number
+    qtdElegiveis: number
     seen: Set<string>
+    seenElegivel: Set<string>
   }>()
   for (const id of lojaIds) {
-    lojaMap.set(id, { valorRecuperadoMes: 0, qtdRecomprasMes: 0, qtdOportunidades: 0, seen: new Set() })
+    lojaMap.set(id, { valorRecuperadoMes: 0, qtdRecomprasMes: 0, qtdOportunidades: 0, qtdElegiveis: 0, seen: new Set(), seenElegivel: new Set() })
   }
 
   for (const r of recomprasLojaRes.data ?? []) {
@@ -55,9 +68,15 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
     const entry = lojaMap.get(a.loja_id as string)
     if (!entry) continue
     const key = `${a.venda_id}__${(a.produto_id as unknown as { produto_id: string } | null)?.produto_id ?? ''}`
-    if (entry.seen.has(key)) continue
-    entry.seen.add(key)
-    entry.qtdOportunidades++
+    if (!entry.seen.has(key)) {
+      entry.seen.add(key)
+      entry.qtdOportunidades++
+    }
+    const dataAviso = (a as unknown as { data_aviso: string }).data_aviso ?? ''
+    if (!entry.seenElegivel.has(key) && dataAviso >= data90DaysAgo && dataAviso <= dataLimiteElegivel) {
+      entry.seenElegivel.add(key)
+      entry.qtdElegiveis++
+    }
   }
 
   const rankingLojas: RankingLojasItem[] = lojaIds
@@ -66,6 +85,7 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
       lojaNome: lojaNomeMap.get(id) ?? '—',
       totalPotencial: 0,
       qtdOportunidades: lojaMap.get(id)?.qtdOportunidades ?? 0,
+      qtdElegiveis: lojaMap.get(id)?.qtdElegiveis ?? 0,
       valorRecuperadoMes: lojaMap.get(id)?.valorRecuperadoMes ?? 0,
       qtdRecomprasMes: lojaMap.get(id)?.qtdRecomprasMes ?? 0,
     }))
@@ -86,11 +106,12 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
       <div className="space-y-1">
         {rankingLojas.map((item, i) => {
           const isFirst = i === 0
-          const maxVal = rankingLojas[0]?.valorRecuperadoMes ?? 1
-          const pct = maxVal > 0 ? Math.round((item.valorRecuperadoMes / maxVal) * 100) : 0
+          const totalElegivel = item.qtdRecomprasMes + item.qtdElegiveis
+          const taxa = totalElegivel > 0 ? Math.round((item.qtdRecomprasMes / totalElegivel) * 100) : 0
           const barGrad = isFirst
             ? 'from-emerald-500 to-green-500'
             : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
+          const iniciais = item.lojaNome.split(' ').filter(Boolean).map(n => n[0].toUpperCase()).slice(0, 2).join('')
           return (
             <div
               key={item.lojaId}
@@ -105,6 +126,11 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
               }`}>
                 {i + 1}
               </span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-none shadow-sm ${
+                isFirst ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
+              }`}>
+                {iniciais}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-medium'}`}>
@@ -120,13 +146,13 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-                      style={{ width: `${pct}%` }}
+                      style={{ width: `${taxa}%` }}
                     />
                   </div>
                   <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
                     isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
                   }`}>
-                    {pct}%
+                    {taxa}%
                   </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">

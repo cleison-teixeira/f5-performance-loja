@@ -244,8 +244,8 @@ export function DashboardGerente({
               {rankingRecompras.slice(0, 5).map((v, i) => {
                 const initials = v.nome.split(' ').filter(Boolean).map(n => n[0].toUpperCase()).slice(0, 2).join('')
                 const isFirst = i === 0
-                const maxVal = rankingRecompras[0]?.valorRecuperado ?? 1
-                const pct = maxVal > 0 ? Math.round((v.valorRecuperado / maxVal) * 100) : 0
+                const totalElegivel = v.qtd + v.qtdElegiveis
+                const taxa = totalElegivel > 0 ? Math.round((v.qtd / totalElegivel) * 100) : 0
                 const barGrad = isFirst
                   ? 'from-emerald-500 to-green-500'
                   : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
@@ -263,11 +263,16 @@ export function DashboardGerente({
                     }`}>
                       {i + 1}
                     </div>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-none shadow-sm ${
-                      AVATAR_BG[i] ?? 'bg-slate-400'
-                    }`}>
-                      {initials}
-                    </div>
+                    {v.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={v.avatar_url} alt={v.nome} className="w-8 h-8 rounded-full object-cover flex-none shadow-sm" loading="lazy" />
+                    ) : (
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-none shadow-sm ${
+                        AVATAR_BG[i] ?? 'bg-slate-400'
+                      }`}>
+                        {initials}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <p className={`text-sm truncate leading-tight ${isFirst ? 'font-bold' : 'font-semibold'}`}>{v.nome}</p>
@@ -279,17 +284,17 @@ export function DashboardGerente({
                         <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-                            style={{ width: `${pct}%` }}
+                            style={{ width: `${taxa}%` }}
                           />
                         </div>
                         <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
                           isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
                         }`}>
-                          {pct}%
+                          {taxa}%
                         </span>
                       </div>
                       <p className="text-[11px] text-muted-foreground tabular-nums leading-tight">
-                        {v.qtd} recompra{v.qtd !== 1 ? 's' : ''} confirmada{v.qtd !== 1 ? 's' : ''}
+                        {v.qtdOportunidades} na fila · {v.qtd} recompra{v.qtd !== 1 ? 's' : ''} este mês
                       </p>
                     </div>
                   </div>
@@ -346,7 +351,8 @@ export function DashboardGerente({
             <div className="space-y-1">
               {topProdutosRecompra.map((p, i) => {
                 const isFirst = i === 0
-                const pct = Math.round((p.qtd / topProdutosRecompra[0].qtd) * 100)
+                const totalElegivel = p.qtdRecomprasMes + p.qtdElegiveis
+                const taxa = totalElegivel > 0 ? Math.round((p.qtdRecomprasMes / totalElegivel) * 100) : 0
                 const barGrad = isFirst
                   ? 'from-emerald-500 to-green-500'
                   : 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
@@ -386,22 +392,25 @@ export function DashboardGerente({
                         <p className={`text-sm tabular-nums flex-none ${
                           isFirst ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold'
                         }`}>
-                          {p.qtd} aviso{p.qtd !== 1 ? 's' : ''}
+                          {fmt(p.valorRecuperadoMes)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-0.5">
                         <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded-full bg-gradient-to-r transition-all duration-700 ${barGrad}`}
-                            style={{ width: `${pct}%` }}
+                            style={{ width: `${taxa}%` }}
                           />
                         </div>
                         <span className={`text-[10px] tabular-nums flex-none w-7 text-right font-semibold ${
                           isFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
                         }`}>
-                          {pct}%
+                          {taxa}%
                         </span>
                       </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {p.qtd} na fila · {p.qtdRecomprasMes} recompra{p.qtdRecomprasMes !== 1 ? 's' : ''} este mês
+                      </p>
                     </div>
                   </div>
                 )
@@ -412,16 +421,16 @@ export function DashboardGerente({
             <div className="rounded-xl bg-muted/30 px-4 py-3 grid grid-cols-3 gap-2">
               <div className="text-center">
                 <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">
-                  Total na fila
+                  Recuperado
                 </p>
-                <p className="text-xs font-bold tabular-nums">
-                  {topProdutosRecompra.reduce((s, prod) => s + prod.qtd, 0)} avisos
+                <p className="text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {fmt(topProdutosRecompra.reduce((s, prod) => s + prod.valorRecuperadoMes, 0))}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Líder</p>
-                <p className="text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                  {topProdutosRecompra[0]?.qtd ?? 0}
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] leading-none mb-1.5">Recompras</p>
+                <p className="text-xs font-bold tabular-nums">
+                  {topProdutosRecompra.reduce((s, prod) => s + prod.qtdRecomprasMes, 0)}
                 </p>
               </div>
               <div className="text-center">

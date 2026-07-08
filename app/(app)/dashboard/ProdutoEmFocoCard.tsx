@@ -2,6 +2,10 @@ import Link from 'next/link'
 import { Package, ChevronRight } from 'lucide-react'
 import type { TopProdutoRecompra } from './page'
 
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
 interface Props {
   produto: TopProdutoRecompra
 }
@@ -33,8 +37,14 @@ export function ProdutoEmFocoCard({ produto }: Props) {
               Produto em foco
             </p>
             <p className="text-base font-bold truncate">{produto.nome}</p>
+            {produto.valorRecuperadoMes > 0 && (
+              <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {fmt(produto.valorRecuperadoMes)} em recompra este mês
+              </p>
+            )}
             <p className="text-xs text-violet-600/80 dark:text-violet-400/80 mt-0.5">
               {produto.qtd} oportunidade{produto.qtd !== 1 ? 's' : ''} na fila
+              {produto.qtdRecomprasMes > 0 && ` · ${produto.qtdRecomprasMes} recompra${produto.qtdRecomprasMes !== 1 ? 's' : ''} este mês`}
             </p>
           </div>
         </div>

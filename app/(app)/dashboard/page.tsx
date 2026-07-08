@@ -105,12 +105,18 @@ export interface RankingRecomprasItem {
   nome: string
   valorRecuperado: number
   qtd: number
+  qtdOportunidades: number
+  qtdElegiveis: number
+  avatar_url: string | null
 }
 
 export interface TopProdutoRecompra {
   nome: string
   qtd: number
   foto_url: string | null
+  valorRecuperadoMes: number
+  qtdRecomprasMes: number
+  qtdElegiveis: number
 }
 
 export interface RankingLojasItem {
@@ -118,6 +124,7 @@ export interface RankingLojasItem {
   lojaNome: string
   totalPotencial: number
   qtdOportunidades: number
+  qtdElegiveis: number
   valorRecuperadoMes: number
   qtdRecomprasMes: number
 }
@@ -233,7 +240,7 @@ export default async function DashboardPage() {
     !isVendedora
       ? admin
           .from('membros_loja')
-          .select('perfil_id, perfis(nome)')
+          .select('perfil_id, perfis(nome, avatar_url)')
           .in('loja_id', lojaIds)
           .eq('ativo', true)
       : Promise.resolve({ data: [] as Array<{ perfil_id: unknown; perfis: unknown }> }),
@@ -266,9 +273,7 @@ export default async function DashboardPage() {
           if (vidFilter) q = q.eq('vendedora_id', vidFilter)
           return q
         })(),
-    isDono
-      ? Promise.resolve({ data: [] as Array<unknown> })
-      : admin
+    admin
           .from('produtos')
           .select('nome, foto_url')
           .in('loja_id', lojaIds)
@@ -287,12 +292,14 @@ export default async function DashboardPage() {
         })(),
   ]))
 
-  // Build vendedora name map
+  // Build vendedora name + avatar maps
   const vendedoraNomeMap = new Map<string, string>()
+  const vendedoraAvatarMap = new Map<string, string | null>()
   ;(membrosRes.data ?? []).forEach(m => {
-    const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }> | null
+    const p = m.perfis as unknown as { nome: string; avatar_url?: string | null } | Array<{ nome: string; avatar_url?: string | null }> | null
     const perfilObj = Array.isArray(p) ? p[0] : p
     if (perfilObj?.nome) vendedoraNomeMap.set(m.perfil_id as string, perfilObj.nome)
+    vendedoraAvatarMap.set(m.perfil_id as string, perfilObj?.avatar_url ?? null)
   })
 
   // Normalize vendas
@@ -438,6 +445,34 @@ export default async function DashboardPage() {
   const totalRecomprasValorMes = recomprasMes.reduce((s, r) => s + r.valor_total, 0)
   const qtdRecomprasMes = recomprasMes.length
 
+  // Janela de elegibilidade: data_aviso em [hoje-90d, hoje+5d]
+  const data90DaysAgo = addDias(hoje, -90)
+  const dataLimiteElegivel = addDias(hoje, 5)
+
+  // Mapas por vendedora e por produto — total na fila + elegíveis (janela 90d+5d)
+  const oportunidadesPorVendedoraMap = new Map<string, Set<string>>()
+  const elegiveisPorVendedoraMap = new Map<string, Set<string>>()
+  const oportunidadesPorProdutoMap = new Map<string, Set<string>>()
+  const elegiveisPorProdutoMap = new Map<string, Set<string>>()
+  avisos.filter(a => a.tipo === 'recompra' || a.tipo === 'oferta').forEach(a => {
+    const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
+    const isElegivel = a.data_aviso >= data90DaysAgo && a.data_aviso <= dataLimiteElegivel
+    // vendedora
+    if (!oportunidadesPorVendedoraMap.has(a.vendedora_id)) oportunidadesPorVendedoraMap.set(a.vendedora_id, new Set())
+    oportunidadesPorVendedoraMap.get(a.vendedora_id)!.add(key)
+    if (isElegivel) {
+      if (!elegiveisPorVendedoraMap.has(a.vendedora_id)) elegiveisPorVendedoraMap.set(a.vendedora_id, new Set())
+      elegiveisPorVendedoraMap.get(a.vendedora_id)!.add(key)
+    }
+    // produto
+    if (!oportunidadesPorProdutoMap.has(a.produto_nome)) oportunidadesPorProdutoMap.set(a.produto_nome, new Set())
+    oportunidadesPorProdutoMap.get(a.produto_nome)!.add(key)
+    if (isElegivel) {
+      if (!elegiveisPorProdutoMap.has(a.produto_nome)) elegiveisPorProdutoMap.set(a.produto_nome, new Set())
+      elegiveisPorProdutoMap.get(a.produto_nome)!.add(key)
+    }
+  })
+
   // Ranking de recuperação por recompras confirmadas no mês
   const rankingRecomprasMap = new Map<string, RankingRecomprasItem>()
   recomprasMes.forEach(r => {
@@ -446,29 +481,56 @@ export default async function DashboardPage() {
       nome: r.vendedora_nome,
       valorRecuperado: 0,
       qtd: 0,
+      qtdOportunidades: 0,
+      qtdElegiveis: 0,
+      avatar_url: vendedoraAvatarMap.get(r.vendedora_id) ?? null,
     }
     entry.valorRecuperado += r.valor_total
     entry.qtd += 1
     rankingRecomprasMap.set(r.vendedora_id, entry)
   })
   const rankingRecompras: RankingRecomprasItem[] = Array.from(rankingRecomprasMap.values())
+    .map(r => ({
+      ...r,
+      qtdOportunidades: oportunidadesPorVendedoraMap.get(r.vendedora_id)?.size ?? 0,
+      qtdElegiveis: elegiveisPorVendedoraMap.get(r.vendedora_id)?.size ?? 0,
+    }))
     .sort((a, b) => b.valorRecuperado - a.valorRecuperado)
 
-  // Oportunidades únicas por produto (fila: recompra/oferta), dedup por venda_id + produto_id
-  const oportunidadesPorProdutoMap = new Map<string, Set<string>>()
-  avisos.filter(a => a.tipo === 'recompra' || a.tipo === 'oferta').forEach(a => {
-    const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
-    if (!oportunidadesPorProdutoMap.has(a.produto_nome)) {
-      oportunidadesPorProdutoMap.set(a.produto_nome, new Set())
-    }
-    oportunidadesPorProdutoMap.get(a.produto_nome)!.add(key)
-  })
+  // Valor recuperado por produto no mês (via avisos confirmados)
+  const recomprasMesIds = recomprasMes.map(r => r.id)
+  const valorRecuperadoPorProduto = new Map<string, { valor: number; qtd: number }>()
+  if (recomprasMesIds.length > 0) {
+    const { data: avisosConf } = await admin
+      .from('avisos')
+      .select('itens_venda(produto_nome, subtotal)')
+      .in('loja_id', lojaIds)
+      .in('recompra_id', recomprasMesIds)
+    ;(avisosConf ?? []).forEach(a => {
+      const iv = a.itens_venda as unknown as { produto_nome: string; subtotal: number } | null
+      if (!iv?.produto_nome) return
+      const e = valorRecuperadoPorProduto.get(iv.produto_nome) ?? { valor: 0, qtd: 0 }
+      e.valor += iv.subtotal ?? 0
+      e.qtd += 1
+      valorRecuperadoPorProduto.set(iv.produto_nome, e)
+    })
+  }
 
-  // Top produtos de recompra (por oportunidades únicas na fila, não por avisos)
+  // Top produtos de recompra — ordenado por valor recuperado no mês; tiebreak por oportunidades na fila
   const topProdutosRecompra: TopProdutoRecompra[] = Array.from(oportunidadesPorProdutoMap.entries())
-    .map(([nome, keys]) => ({ nome, qtd: keys.size, foto_url: produtoFotoMap.get(nome) ?? null }))
+    .map(([nome, keys]) => {
+      const rec = valorRecuperadoPorProduto.get(nome) ?? { valor: 0, qtd: 0 }
+      return {
+        nome,
+        qtd: keys.size,
+        foto_url: produtoFotoMap.get(nome) ?? null,
+        valorRecuperadoMes: rec.valor,
+        qtdRecomprasMes: rec.qtd,
+        qtdElegiveis: elegiveisPorProdutoMap.get(nome)?.size ?? 0,
+      }
+    })
     .filter(p => p.qtd > 0)
-    .sort((a, b) => b.qtd - a.qtd)
+    .sort((a, b) => b.valorRecuperadoMes - a.valorRecuperadoMes || b.qtd - a.qtd)
     .slice(0, 5)
 
   // Ranking de vendas (30d)
@@ -577,11 +639,25 @@ export default async function DashboardPage() {
   // rankingLojas: single-loja sincrono, multi-loja via Suspense (DashboardLojasBlock)
   let rankingLojas: RankingLojasItem[] = []
   if (!multiLoja && !isVendedora && role !== 'gerente') {
+    const seenElegivel = new Set<string>()
+    const qtdElegivelLoja = avisos
+      .filter(a =>
+        (a.tipo === 'recompra' || a.tipo === 'oferta') &&
+        a.data_aviso >= data90DaysAgo &&
+        a.data_aviso <= dataLimiteElegivel
+      )
+      .filter(a => {
+        const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
+        if (seenElegivel.has(key)) return false
+        seenElegivel.add(key)
+        return true
+      }).length
     rankingLojas = [{
       lojaId: loja_id,
       lojaNome: loja.nome,
       totalPotencial: dinheiroMesaInfo.totalPotencial,
       qtdOportunidades: dinheiroMesaInfo.qtdOportunidades,
+      qtdElegiveis: qtdElegivelLoja,
       valorRecuperadoMes: totalRecomprasValorMes,
       qtdRecomprasMes: qtdRecomprasMes,
     }]
