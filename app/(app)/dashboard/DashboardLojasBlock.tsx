@@ -99,7 +99,7 @@ export async function DashboardLojasBlock({ lojaIds, inicioMes }: Props) {
         </div>
         <div>
           <h2 className="text-sm font-semibold leading-none">Performance das lojas</h2>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Dinheiro recuperado e oportunidades em aberto por unidade</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Recuperado este mês por unidade · taxa elegível 90 dias</p>
         </div>
       </div>
 

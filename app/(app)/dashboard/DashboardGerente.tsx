@@ -230,7 +230,7 @@ export function DashboardGerente({
             </div>
             <div>
               <h2 className="text-sm font-semibold leading-none">Ranking de recuperação</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Recuperado por vendedora este mês</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Recuperado por vendedora este mês · taxa elegível 90 dias</p>
             </div>
           </div>
           <Link href="/configuracoes/equipe" className="text-xs text-primary hover:underline">
@@ -339,7 +339,10 @@ export function DashboardGerente({
             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/40 flex items-center justify-center flex-none">
               <Package className="h-4 w-4 text-emerald-600" />
             </div>
-            <h2 className="text-sm font-semibold">Top produtos de recompra</h2>
+            <div>
+              <h2 className="text-sm font-semibold leading-none">Top produtos de recompra</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Produtos este mês · taxa elegível 90 dias</p>
+            </div>
           </div>
           <Link href="/produtos" className="text-xs text-primary hover:underline">
             Ver produtos →
