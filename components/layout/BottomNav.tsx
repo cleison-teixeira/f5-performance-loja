@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 const mainItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
   { href: '/avisos', label: 'Fila', icon: Bell },
-  { href: '/vendas/nova', label: 'Registrar', icon: ShoppingCart },
+  { href: '/vendas/nova', label: 'Registrar Venda', icon: ShoppingCart },
   { href: '/produtos', label: 'Produtos', icon: Package },
 ]
 
@@ -21,8 +21,8 @@ const operacaoDrawer = [
   { href: '/relacionamento', label: 'Relacionamento', icon: MessageCircle },
   { href: '/perdas', label: 'Recompras perdidas', icon: TrendingDown },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
+  { href: '/clientes', label: 'Carteira de Clientes', icon: Users },
+  { href: '/lista-espera', label: 'Pedidos em Espera', icon: Clock },
 ]
 
 const gestaoDrawerBase = [
@@ -33,12 +33,12 @@ const gestaoDrawerBase = [
 const gestaoDrawerVendedora: typeof gestaoDrawerBase = []
 
 const configuracaoDrawerBase = [
-  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/produtos', label: 'Produtos e Mensagens', icon: Package },
   { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
 ]
 
 const configuracaoDrawerVendedora = [
-  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/produtos', label: 'Produtos e Mensagens', icon: Package },
 ]
 
 const aprenderDrawer = [

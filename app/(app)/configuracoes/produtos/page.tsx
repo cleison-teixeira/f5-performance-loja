@@ -59,7 +59,7 @@ export default async function ConfigProdutosPage() {
   if (!todosMembros || todosMembros.length === 0) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
+        <h1 className="text-xl font-semibold">Produtos e Mensagens</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
@@ -79,7 +79,7 @@ export default async function ConfigProdutosPage() {
   if (!loja_id) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
+        <h1 className="text-xl font-semibold">Produtos e Mensagens</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
@@ -227,7 +227,7 @@ export default async function ConfigProdutosPage() {
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-xl font-semibold">Produtos e mensagens</h1>
+        <h1 className="text-xl font-semibold">Produtos e Mensagens</h1>
         <p className="text-sm text-muted-foreground">{lojaNome}</p>
       </div>
       <ListaProdutos produtos={produtos} loja_id={loja_id} podeEditar={podeEditar} lojaNichos={lojaNichos} />

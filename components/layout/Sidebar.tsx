@@ -14,10 +14,10 @@ const operacaoItems = [
   { href: '/avisos', label: 'Fila de Recompra', icon: Bell },
   { href: '/relacionamento', label: 'Relacionamento', icon: MessageCircle },
   { href: '/perdas', label: 'Recompras perdidas', icon: TrendingDown },
-  { href: '/vendas/nova', label: 'Registrar', icon: ShoppingCart },
+  { href: '/vendas/nova', label: 'Registrar Venda', icon: ShoppingCart },
   { href: '/produtos', label: 'Produtos', icon: Package },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/lista-espera', label: 'Lista de Espera', icon: Clock },
+  { href: '/clientes', label: 'Carteira de Clientes', icon: Users },
+  { href: '/lista-espera', label: 'Pedidos em Espera', icon: Clock },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
 ]
 
@@ -29,16 +29,16 @@ const gestaoItemsBase = [
 const gestaoItemsVendedora: typeof gestaoItemsBase = []
 
 const configuracaoItemsBase = [
-  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/produtos', label: 'Produtos e Mensagens', icon: Package },
   { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
 ]
 
 const configuracaoItemsVendedora = [
-  { href: '/configuracoes/produtos', label: 'Produtos e mensagens', icon: Package },
+  { href: '/configuracoes/produtos', label: 'Produtos e Mensagens', icon: Package },
 ]
 
 const aprenderItems = [
-  { href: '/treinamentos', label: 'Academia F5 Recompra', icon: GraduationCap },
+  { href: '/treinamentos', label: 'Academia F5', icon: GraduationCap },
 ]
 
 type NavItem = { href: string; label: string; icon: React.ElementType }

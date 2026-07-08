@@ -16,7 +16,7 @@ export default async function ClientesPage() {
   if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Clientes de recompra</h1>
+        <h1 className="text-xl font-semibold">Carteira de Clientes</h1>
         <p className="text-sm text-muted-foreground">Você ainda não pertence a nenhuma loja.</p>
       </div>
     )
@@ -82,7 +82,7 @@ export default async function ClientesPage() {
   return (
     <div className="space-y-5 pb-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Clientes de recompra</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Carteira de Clientes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{subtitulo}</p>
         <p className="text-xs text-muted-foreground/65 mt-1 leading-relaxed">
           Base de clientes que podem comprar de novo.

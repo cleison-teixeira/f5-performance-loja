@@ -22,7 +22,7 @@ export default async function ListaEsperaPage() {
   if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
     return (
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Lista de Espera</h1>
+        <h1 className="text-xl font-semibold">Pedidos em Espera</h1>
         <p className="text-sm text-muted-foreground">Voce ainda nao pertence a nenhuma loja.</p>
       </div>
     )
@@ -157,7 +157,7 @@ export default async function ListaEsperaPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Lista de Espera</h1>
+        <h1 className="text-xl font-semibold">Pedidos em Espera</h1>
         <p className="text-sm text-muted-foreground">{subtitulo}</p>
       </div>
 
