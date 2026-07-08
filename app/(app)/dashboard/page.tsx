@@ -275,7 +275,7 @@ export default async function DashboardPage() {
         })(),
     admin
           .from('produtos')
-          .select('nome, foto_url')
+          .select('id, nome, foto_url, galeria_urls')
           .in('loja_id', lojaIds)
           .eq('ativo', true)
           .limit(300),
@@ -417,9 +417,17 @@ export default async function DashboardPage() {
 
   // Product radar (empty for dono — produtoFotoMap remains empty)
   const produtoFotoMap = new Map<string, string | null>()
+  const produtoFotoByIdMap = new Map<string, string | null>()
   ;(produtosRes.data ?? []).forEach(p => {
-    const pRaw = p as unknown as { nome: string; foto_url: string | null }
-    produtoFotoMap.set(pRaw.nome, pRaw.foto_url ?? null)
+    const pRaw = p as unknown as { id: string; nome: string; foto_url: string | null; galeria_urls?: string[] | null }
+    const efetiva = pRaw.foto_url ?? pRaw.galeria_urls?.[0] ?? null
+    produtoFotoMap.set(pRaw.nome, efetiva)
+    if (pRaw.id) produtoFotoByIdMap.set(pRaw.id, efetiva)
+  })
+  // Fallback: map produto_nome → produto_id from avisos (for name-mismatch cases)
+  const nomeToProdutoIdMap = new Map<string, string>()
+  avisos.forEach(a => {
+    if (a.produto_id && a.produto_nome) nomeToProdutoIdMap.set(a.produto_nome, a.produto_id)
   })
   const avisosPorProduto = new Map<string, number>()
   avisos.forEach(a => {
@@ -489,13 +497,31 @@ export default async function DashboardPage() {
     entry.qtd += 1
     rankingRecomprasMap.set(r.vendedora_id, entry)
   })
+  // Complement with all active vendedoras at R$0 so ranking never appears empty
+  ;(membrosRes.data ?? []).forEach(m => {
+    const perfId = m.perfil_id as string
+    if (rankingRecomprasMap.has(perfId)) return
+    if (vidFilter && perfId !== vidFilter) return
+    const p = m.perfis as unknown as { nome: string; avatar_url?: string | null } | Array<{ nome: string; avatar_url?: string | null }> | null
+    const perfilObj = Array.isArray(p) ? p[0] : p
+    if (!perfilObj?.nome) return
+    rankingRecomprasMap.set(perfId, {
+      vendedora_id: perfId,
+      nome: perfilObj.nome,
+      valorRecuperado: 0,
+      qtd: 0,
+      qtdOportunidades: 0,
+      qtdElegiveis: 0,
+      avatar_url: perfilObj.avatar_url ?? null,
+    })
+  })
   const rankingRecompras: RankingRecomprasItem[] = Array.from(rankingRecomprasMap.values())
     .map(r => ({
       ...r,
       qtdOportunidades: oportunidadesPorVendedoraMap.get(r.vendedora_id)?.size ?? 0,
       qtdElegiveis: elegiveisPorVendedoraMap.get(r.vendedora_id)?.size ?? 0,
     }))
-    .sort((a, b) => b.valorRecuperado - a.valorRecuperado)
+    .sort((a, b) => b.valorRecuperado - a.valorRecuperado || b.qtdOportunidades - a.qtdOportunidades || a.nome.localeCompare(b.nome, 'pt-BR'))
 
   // Valor recuperado por produto no mês (via avisos confirmados)
   const recomprasMesIds = recomprasMes.map(r => r.id)
@@ -523,7 +549,7 @@ export default async function DashboardPage() {
       return {
         nome,
         qtd: keys.size,
-        foto_url: produtoFotoMap.get(nome) ?? null,
+        foto_url: produtoFotoMap.get(nome) ?? produtoFotoByIdMap.get(nomeToProdutoIdMap.get(nome) ?? '') ?? null,
         valorRecuperadoMes: rec.valor,
         qtdRecomprasMes: rec.qtd,
         qtdElegiveis: elegiveisPorProdutoMap.get(nome)?.size ?? 0,

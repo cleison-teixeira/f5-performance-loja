@@ -37,14 +37,11 @@ export function ProdutoEmFocoCard({ produto }: Props) {
               Produto em foco
             </p>
             <p className="text-base font-bold truncate">{produto.nome}</p>
-            {produto.valorRecuperadoMes > 0 && (
-              <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {fmt(produto.valorRecuperadoMes)} em recompra este mês
-              </p>
-            )}
+            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+              {fmt(produto.valorRecuperadoMes)} em recompra este mês
+            </p>
             <p className="text-xs text-violet-600/80 dark:text-violet-400/80 mt-0.5">
-              {produto.qtd} oportunidade{produto.qtd !== 1 ? 's' : ''} na fila
-              {produto.qtdRecomprasMes > 0 && ` · ${produto.qtdRecomprasMes} recompra${produto.qtdRecomprasMes !== 1 ? 's' : ''} este mês`}
+              {produto.qtd} oportunidade{produto.qtd !== 1 ? 's' : ''} na fila · {produto.qtdRecomprasMes} recompra{produto.qtdRecomprasMes !== 1 ? 's' : ''} este mês
             </p>
           </div>
         </div>
