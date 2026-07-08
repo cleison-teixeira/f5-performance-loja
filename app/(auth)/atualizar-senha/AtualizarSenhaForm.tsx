@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
@@ -90,9 +90,8 @@ export function AtualizarSenhaForm() {
 
       <div className="space-y-2">
         <Label htmlFor="senha">Nova senha</Label>
-        <Input
+        <PasswordInput
           id="senha"
-          type="password"
           placeholder="••••••••"
           value={senha}
           onChange={e => setSenha(e.target.value)}
@@ -104,9 +103,8 @@ export function AtualizarSenhaForm() {
 
       <div className="space-y-2">
         <Label htmlFor="confirmar">Confirmar senha</Label>
-        <Input
+        <PasswordInput
           id="confirmar"
-          type="password"
           placeholder="••••••••"
           value={confirmar}
           onChange={e => setConfirmar(e.target.value)}
@@ -117,7 +115,7 @@ export function AtualizarSenhaForm() {
 
       {erro && <p className="text-sm text-destructive">{erro}</p>}
 
-      <Button type="submit" className="w-full" disabled={carregando}>
+      <Button type="submit" className="w-full h-11 px-6 font-semibold" disabled={carregando}>
         {carregando ? 'Atualizando...' : 'Atualizar senha'}
       </Button>
     </form>

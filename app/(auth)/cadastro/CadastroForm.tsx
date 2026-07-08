@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
@@ -102,9 +103,8 @@ export function CadastroForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="senha">Senha</Label>
-        <Input
+        <PasswordInput
           id="senha"
-          type="password"
           placeholder="••••••••"
           value={senha}
           onChange={e => setSenha(e.target.value)}
@@ -114,7 +114,7 @@ export function CadastroForm() {
         />
       </div>
       {erro && <p className="text-sm text-destructive">{erro}</p>}
-      <Button type="submit" className="w-full" disabled={carregando}>
+      <Button type="submit" className="w-full h-11 px-6 font-semibold" disabled={carregando}>
         {carregando ? 'Criando conta...' : 'Criar conta'}
       </Button>
       <p className="text-center text-sm text-muted-foreground">

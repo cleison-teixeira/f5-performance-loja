@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
@@ -107,9 +108,8 @@ export function LoginForm() {
             Esqueci minha senha
           </Link>
         </div>
-        <Input
+        <PasswordInput
           id="senha"
-          type="password"
           placeholder="••••••••"
           value={senha}
           onChange={e => setSenha(e.target.value)}
@@ -124,7 +124,7 @@ export function LoginForm() {
         </p>
       )}
 
-      <Button type="submit" className="w-full" disabled={carregando}>
+      <Button type="submit" className="w-full h-11 px-6 font-semibold" disabled={carregando}>
         {carregando ? 'Entrando...' : 'Entrar'}
       </Button>
 

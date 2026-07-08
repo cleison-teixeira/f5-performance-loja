@@ -12,7 +12,6 @@ export function RecuperarSenhaForm() {
   const [carregando, setCarregando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [erro, setErro] = useState('')
-  const [erroRaw, setErroRaw] = useState('')
   const [redirectTo, setRedirectTo] = useState('')
 
   useEffect(() => {
@@ -22,7 +21,6 @@ export function RecuperarSenhaForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
-    setErroRaw('')
     setCarregando(true)
 
     try {
@@ -32,25 +30,21 @@ export function RecuperarSenhaForm() {
       })
 
       if (error) {
-        setErroRaw(error.message)
-
         if (error.status === 429)
-          setErro('Limite de e-mails atingido. Aguarde alguns minutos (Supabase free tier: ~3/hora).')
+          setErro('Limite de e-mails atingido. Aguarde alguns minutos e tente novamente.')
         else {
           const m = error.message?.toLowerCase() ?? ''
           if (m.includes('fetch') || m.includes('network') || m.includes('failed to fetch') || m.includes('load failed'))
             setErro('Erro de conexão. Verifique sua internet e tente novamente.')
           else
-            setErro(`Não foi possível enviar o link. Erro: ${error.message}`)
+            setErro('Não foi possível enviar o link. Tente novamente em alguns instantes.')
         }
         setCarregando(false)
         return
       }
 
       setEnviado(true)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setErroRaw(msg)
+    } catch {
       setErro('Erro de conexão. Verifique sua internet e tente novamente.')
     } finally {
       setCarregando(false)
@@ -61,23 +55,16 @@ export function RecuperarSenhaForm() {
     return (
       <div className="space-y-4 text-center">
         <p className="text-sm text-muted-foreground">
-          Enviamos um link para <strong>{email}</strong>.
+          Se este e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.
           <br />
           Verifique sua caixa de entrada e o spam.
         </p>
         <p className="text-xs text-muted-foreground">
           Não recebeu? Aguarde 1 minuto — pode haver atraso no envio.
         </p>
-        <div className="rounded-lg bg-muted/50 p-3 text-left space-y-1">
-          <p className="text-[11px] font-semibold text-muted-foreground">Link de retorno enviado ao Supabase:</p>
-          <p className="text-[11px] font-mono text-muted-foreground break-all">{redirectTo}</p>
-          <p className="text-[11px] text-amber-600 mt-1">
-            Este endereço deve estar na lista de Redirect URLs do seu projeto no Supabase.
-          </p>
-        </div>
         <button
           type="button"
-          onClick={() => { setEnviado(false); setErro(''); setErroRaw('') }}
+          onClick={() => { setEnviado(false); setErro('') }}
           className="text-sm text-primary hover:underline block mx-auto"
         >
           Tentar outro e-mail
@@ -112,26 +99,13 @@ export function RecuperarSenhaForm() {
         />
       </div>
 
-      {redirectTo && (
-        <div className="rounded-md bg-muted/40 px-3 py-2 space-y-0.5">
-          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Link de retorno</p>
-          <p className="text-[11px] font-mono text-muted-foreground break-all">{redirectTo}</p>
-          <p className="text-[11px] text-amber-600">
-            Adicione este endereço nas Redirect URLs do Supabase.
-          </p>
-        </div>
-      )}
-
       {erro && (
-        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 space-y-1">
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
           <p className="text-sm text-destructive">{erro}</p>
-          {erroRaw && erroRaw !== erro && (
-            <p className="text-[11px] font-mono text-destructive/70">raw: {erroRaw}</p>
-          )}
         </div>
       )}
 
-      <Button type="submit" className="w-full" disabled={carregando}>
+      <Button type="submit" className="w-full h-11 px-6 font-semibold" disabled={carregando}>
         {carregando ? 'Enviando...' : 'Enviar link de recuperação'}
       </Button>
 
