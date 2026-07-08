@@ -1,21 +1,29 @@
 {
   "name": "F5 Recompra",
   "short_name": "F5 Recompra",
-  "start_url": "/dashboard",
+  "description": "Motor de recompra para lojas",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#101010",
+  "theme_color": "#16a34a",
   "icons": [
     {
-      "src": "/android-chrome-192x192.png?v=5",
+      "src": "/android-chrome-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/android-chrome-512x512.png?v=5",
+      "src": "/android-chrome-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

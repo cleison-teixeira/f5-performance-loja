@@ -12,15 +12,6 @@ export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: 'F5 Recompra',
   description: 'Motor de recompra para lojas',
-  icons: {
-    icon: [
-      { url: '/favicon.ico?v=6', sizes: 'any' },
-      { url: '/favicon.png?v=6', type: 'image/png' },
-    ],
-    shortcut: '/favicon.ico?v=6',
-    apple: '/apple-touch-icon.png?v=5',
-  },
-  manifest: '/site.webmanifest?v=5',
   openGraph: {
     title: 'F5 Recompra',
     description: 'Motor de recompra para lojas',
