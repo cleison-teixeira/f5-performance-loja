@@ -18,6 +18,8 @@ export interface MembroExibido {
   percentual_comissao: number
   pin_ativo: boolean
   tem_pin_hash: boolean
+  avatar_url: string | null
+  observacao_interna: string | null
 }
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
@@ -84,7 +86,7 @@ export default async function ConfigEquipePage() {
   const [{ data: membros }, { data: regrasData }] = await Promise.all([
     admin
       .from('membros_loja')
-      .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, perfis(nome, whatsapp)')
+      .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, observacao_interna, perfis(nome, whatsapp, avatar_url)')
       .eq('loja_id', loja_id)
       .order('role'),
     admin
@@ -98,7 +100,7 @@ export default async function ConfigEquipePage() {
   )
 
   const membrosExibidos: MembroExibido[] = (membros ?? []).map(m => {
-    const p = m.perfis as unknown as { nome: string; whatsapp: string | null } | Array<{ nome: string; whatsapp: string | null }>
+    const p = m.perfis as unknown as { nome: string; whatsapp: string | null; avatar_url?: string | null } | Array<{ nome: string; whatsapp: string | null; avatar_url?: string | null }>
     const perfil = Array.isArray(p) ? p[0] : p
     return {
       membro_id: m.id as string,
@@ -110,6 +112,8 @@ export default async function ConfigEquipePage() {
       percentual_comissao: comissaoPorId[m.perfil_id as string] ?? 0,
       pin_ativo: (m.pin_ativo as boolean) ?? false,
       tem_pin_hash: !!(m.pin_hash),  // boolean only — never expose the hash
+      avatar_url: perfil?.avatar_url ?? null,
+      observacao_interna: (m.observacao_interna as string | null) ?? null,
     }
   })
 

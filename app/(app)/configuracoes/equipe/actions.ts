@@ -11,6 +11,9 @@ export async function addMembro(dados: {
   telefone: string
   role: 'dono' | 'gerente' | 'vendedora'
   comissao: number
+  avatar_url?: string | null
+  observacao_interna?: string | null
+  pin?: string
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
     const supabase = await createClient()
@@ -81,16 +84,27 @@ export async function addMembro(dados: {
       perfil_id = newUser.user.id
 
       await admin.from('perfis').upsert(
-        { id: perfil_id, nome: dados.nome, whatsapp: dados.telefone || null },
+        { id: perfil_id, nome: dados.nome, whatsapp: dados.telefone || null, avatar_url: dados.avatar_url ?? null },
         { onConflict: 'id' }
       )
     }
 
-    const { error: membroErr } = await admin.from('membros_loja').upsert(
-      { loja_id: dados.loja_id, perfil_id, role: dados.role, ativo: true },
+    const { data: novoMembro, error: membroErr } = await admin.from('membros_loja').upsert(
+      { loja_id: dados.loja_id, perfil_id, role: dados.role, ativo: true, observacao_interna: dados.observacao_interna ?? null },
       { onConflict: 'loja_id,perfil_id' }
-    )
+    ).select('id').single()
     if (membroErr) return { ok: false, erro: membroErr.message }
+
+    // Salvar avatar para perfis existentes (que não passaram pelo upsert de perfil acima)
+    if (dados.avatar_url && perfisExistentes && perfisExistentes.length > 0) {
+      await admin.from('perfis').update({ avatar_url: dados.avatar_url }).eq('id', perfil_id)
+    }
+
+    // Salvar PIN se informado
+    if (dados.pin && /^\d{4}$/.test(dados.pin) && novoMembro?.id) {
+      const pin_hash = hashPin(dados.pin)
+      await admin.from('membros_loja').update({ pin_hash, pin_ativo: true }).eq('id', novoMembro.id)
+    }
 
     if (dados.role === 'vendedora' && dados.comissao > 0) {
       await admin.from('regras_comissao').upsert(
@@ -128,6 +142,8 @@ export async function editarMembro(dados: {
   role: 'dono' | 'gerente' | 'vendedora'
   ativo: boolean
   percentual_comissao?: number
+  avatar_url?: string | null
+  observacao_interna?: string | null
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
     const supabase = await createClient()
@@ -178,18 +194,16 @@ export async function editarMembro(dados: {
       }
     }
 
-    // Atualiza perfil (nome, whatsapp)
-    const { error: perfilErr } = await admin
-      .from('perfis')
-      .update({ nome: dados.nome.trim(), whatsapp: dados.telefone.trim() || null })
-      .eq('id', dados.perfil_id)
+    // Atualiza perfil (nome, whatsapp, avatar_url se fornecido)
+    const perfilUpdate: Record<string, unknown> = { nome: dados.nome.trim(), whatsapp: dados.telefone.trim() || null }
+    if ('avatar_url' in dados) perfilUpdate.avatar_url = dados.avatar_url ?? null
+    const { error: perfilErr } = await admin.from('perfis').update(perfilUpdate).eq('id', dados.perfil_id)
     if (perfilErr) return { ok: false, erro: perfilErr.message }
 
-    // Atualiza membro (role, ativo)
-    const { error: membroErr } = await admin
-      .from('membros_loja')
-      .update({ role: dados.role, ativo: dados.ativo })
-      .eq('id', dados.membro_id)
+    // Atualiza membro (role, ativo, observacao_interna se fornecido)
+    const membroUpdate: Record<string, unknown> = { role: dados.role, ativo: dados.ativo }
+    if ('observacao_interna' in dados) membroUpdate.observacao_interna = dados.observacao_interna ?? null
+    const { error: membroErr } = await admin.from('membros_loja').update(membroUpdate).eq('id', dados.membro_id)
     if (membroErr) return { ok: false, erro: membroErr.message }
 
     // Atualiza/cria regra de comissão padrão quando for vendedora
@@ -253,6 +267,51 @@ export async function salvarPinMembro(dados: {
       .from('membros_loja')
       .update({ pin_hash, pin_ativo: true })
       .eq('id', dados.membro_id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+export async function atualizarAvatarMembro(dados: {
+  perfil_id: string
+  loja_id: string
+  avatar_url: string | null
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Não autenticado.' }
+
+    const admin = createAdminClient()
+
+    const { data: callerMembro } = await admin
+      .from('membros_loja')
+      .select('role')
+      .eq('loja_id', dados.loja_id)
+      .eq('perfil_id', user.id)
+      .eq('ativo', true)
+      .maybeSingle()
+
+    const callerRole = callerMembro?.role as string | undefined
+    if (!callerRole || !['gerente', 'dono', 'admin_f5'].includes(callerRole)) {
+      return { ok: false, erro: 'Sem permissão para alterar foto.' }
+    }
+
+    const { data: alvo } = await admin
+      .from('membros_loja')
+      .select('id')
+      .eq('loja_id', dados.loja_id)
+      .eq('perfil_id', dados.perfil_id)
+      .maybeSingle()
+    if (!alvo) return { ok: false, erro: 'Membro não encontrado.' }
+
+    const { error } = await admin
+      .from('perfis')
+      .update({ avatar_url: dados.avatar_url })
+      .eq('id', dados.perfil_id)
 
     if (error) return { ok: false, erro: error.message }
     return { ok: true }

@@ -14,10 +14,25 @@ const FormEditarMembro = dynamic(
   () => import('./FormEditarMembro').then(m => ({ default: m.FormEditarMembro })),
   { ssr: false }
 )
-const FormPinMembro = dynamic(
-  () => import('./FormPinMembro').then(m => ({ default: m.FormPinMembro })),
-  { ssr: false }
-)
+
+function iniciais(nome: string): string {
+  return nome.split(' ').filter(Boolean).slice(0, 2).map(n => n[0].toUpperCase()).join('')
+}
+
+function AvatarCircle({ nome, avatar_url, size = 'sm' }: { nome: string; avatar_url: string | null; size?: 'sm' | 'md' }) {
+  const dim = size === 'md' ? 'w-10 h-10 text-sm' : 'w-8 h-8 text-xs'
+  if (avatar_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={avatar_url} alt={nome} className={`${dim} rounded-full object-cover border border-border flex-none`} />
+    )
+  }
+  return (
+    <div className={`${dim} rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground border border-border flex-none`}>
+      {iniciais(nome) || '?'}
+    </div>
+  )
+}
 
 interface Props {
   membros: MembroExibido[]
@@ -46,7 +61,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
   const [membros, setMembros] = useState<MembroExibido[]>(membrosIniciais)
   const [mostraForm, setMostraForm] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [configurandoPinId, setConfigurandoPinId] = useState<string | null>(null)
   const [desativando, setDesativando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -56,14 +70,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
 
   function podeEditarMembro(_m: MembroExibido) {
     if (!podeEditar) return false
-    // dono, gerente e admin_f5 editam qualquer membro (inclusive a si mesmos)
-    // proteção contra remover último dono fica no backend
     return userRole === 'dono' || userRole === 'gerente' || userRole === 'admin_f5'
-  }
-
-  function podePinMembro(_m: MembroExibido) {
-    // dono, gerente, admin_f5 configuram PIN para qualquer membro, inclusive si mesmos
-    return podeEditar
   }
 
   async function handleDesativar(membro_id: string) {
@@ -88,11 +95,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
     router.refresh()
   }
 
-  function handlePinConcluido() {
-    setConfigurandoPinId(null)
-    router.refresh()
-  }
-
   function PinBadge({ m }: { m: MembroExibido }) {
     if (m.pin_ativo) {
       return (
@@ -114,6 +116,9 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
       </span>
     )
   }
+
+  // suppress unused warning
+  void currentUserId
 
   return (
     <div className="space-y-4">
@@ -160,8 +165,12 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
           return (
             <div key={m.membro_id} className="rounded-lg border bg-card p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium">{m.nome || '—'}</p>
+                <div className="flex items-center gap-3">
+                  <AvatarCircle nome={m.nome} avatar_url={m.avatar_url} size="md" />
+                  <div>
+                    <p className="text-sm font-medium">{m.nome || '—'}</p>
+                    {m.telefone && <p className="text-xs text-muted-foreground">{formatarWhatsapp(m.telefone)}</p>}
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
@@ -172,33 +181,19 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                   </span>
                 </div>
               </div>
-              {m.telefone && (
-                <p className="text-xs text-muted-foreground">{formatarWhatsapp(m.telefone)}</p>
-              )}
               <div className="flex items-center gap-2">
                 <PinBadge m={m} />
               </div>
-              {(podeEditarMembro(m) || podePinMembro(m)) && (
+              {podeEditarMembro(m) && (
                 <div className="flex items-center gap-3 pt-1 flex-wrap">
-                  {podeEditarMembro(m) && (
-                    <button
-                      type="button"
-                      onClick={() => setEditandoId(m.membro_id)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Editar
-                    </button>
-                  )}
-                  {podePinMembro(m) && (
-                    <button
-                      type="button"
-                      onClick={() => setConfigurandoPinId(configurandoPinId === m.membro_id ? null : m.membro_id)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {configurandoPinId === m.membro_id ? 'Fechar PIN' : 'Configurar PIN'}
-                    </button>
-                  )}
-                  {podeEditarMembro(m) && m.ativo && (
+                  <button
+                    type="button"
+                    onClick={() => setEditandoId(m.membro_id)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Editar
+                  </button>
+                  {m.ativo && (
                     <button
                       type="button"
                       onClick={() => handleDesativar(m.membro_id)}
@@ -209,15 +204,6 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                     </button>
                   )}
                 </div>
-              )}
-              {configurandoPinId === m.membro_id && podePinMembro(m) && (
-                <FormPinMembro
-                  membro_id={m.membro_id}
-                  loja_id={loja_id}
-                  pin_ativo={m.pin_ativo}
-                  tem_pin_hash={m.tem_pin_hash}
-                  onConcluido={handlePinConcluido}
-                />
               )}
             </div>
           )
@@ -262,75 +248,56 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                 )
               }
               return (
-                <>
-                  <tr key={m.membro_id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium">{m.nome || '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{m.telefone ? formatarWhatsapp(m.telefone) : '—'}</td>
+                <tr key={m.membro_id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <AvatarCircle nome={m.nome} avatar_url={m.avatar_url} />
+                      <span className="font-medium">{m.nome || '—'}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{m.telefone ? formatarWhatsapp(m.telefone) : '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
+                      {roleLabel[m.role] ?? m.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${m.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {m.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <PinBadge m={m} />
+                  </td>
+                  {podeEditar && (
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
-                        {roleLabel[m.role] ?? m.role}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        {podeEditarMembro(m) && (
+                          <button
+                            type="button"
+                            onClick={() => setEditandoId(m.membro_id)}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Editar
+                          </button>
+                        )}
+                        {podeEditarMembro(m) && m.ativo && (
+                          <button
+                            type="button"
+                            onClick={() => handleDesativar(m.membro_id)}
+                            disabled={desativando === m.membro_id}
+                            className="text-xs text-destructive hover:underline disabled:opacity-50"
+                          >
+                            {desativando === m.membro_id ? 'Desativando…' : 'Desativar'}
+                          </button>
+                        )}
+                        {!podeEditarMembro(m) && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${m.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                        {m.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <PinBadge m={m} />
-                    </td>
-                    {podeEditar && (
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {podeEditarMembro(m) && (
-                            <button
-                              type="button"
-                              onClick={() => setEditandoId(m.membro_id)}
-                              className="text-xs text-primary hover:underline"
-                            >
-                              Editar
-                            </button>
-                          )}
-                          {podePinMembro(m) && (
-                            <button
-                              type="button"
-                              onClick={() => setConfigurandoPinId(configurandoPinId === m.membro_id ? null : m.membro_id)}
-                              className="text-xs text-primary hover:underline"
-                            >
-                              {configurandoPinId === m.membro_id ? 'Fechar' : 'PIN'}
-                            </button>
-                          )}
-                          {podeEditarMembro(m) && m.ativo && (
-                            <button
-                              type="button"
-                              onClick={() => handleDesativar(m.membro_id)}
-                              disabled={desativando === m.membro_id}
-                              className="text-xs text-destructive hover:underline disabled:opacity-50"
-                            >
-                              {desativando === m.membro_id ? 'Desativando…' : 'Desativar'}
-                            </button>
-                          )}
-                          {!podeEditarMembro(m) && !podePinMembro(m) && (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                  {configurandoPinId === m.membro_id && podePinMembro(m) && (
-                    <tr key={`${m.membro_id}-pin`} className="border-b last:border-0">
-                      <td colSpan={podeEditar ? 6 : 5} className="px-4 pb-3">
-                        <FormPinMembro
-                          membro_id={m.membro_id}
-                          loja_id={loja_id}
-                          pin_ativo={m.pin_ativo}
-                          tem_pin_hash={m.tem_pin_hash}
-                          onConcluido={handlePinConcluido}
-                        />
-                      </td>
-                    </tr>
                   )}
-                </>
+                </tr>
               )
             })}
           </tbody>
