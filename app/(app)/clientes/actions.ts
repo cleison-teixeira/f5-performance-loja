@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAppContext } from '@/lib/app/contexto'
+import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
 import type { ClienteItem } from './ClientesLista'
 
 const PAGE_SIZE = 50
@@ -107,7 +108,7 @@ export async function editarCliente(dados: {
   const { error: errCliente } = await admin
     .from('clientes')
     .update({
-      nome: nomeTrimado,
+      nome: normalizarNomePessoa(nomeTrimado),
       whatsapp: whatsappNormalizado,
       observacao: dados.observacao?.trim() || null,
     })

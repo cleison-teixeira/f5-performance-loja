@@ -51,7 +51,7 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
   const [fotoUrl, setFotoUrl] = useState<string | null>(produto?.foto_url ?? null)
   const [ativo, setAtivo] = useState(produto?.ativo ?? true)
   const [recorrente, setRecorrente] = useState(produto?.recorrente ?? true)
-  const [qtdMensagens, setQtdMensagens] = useState<1 | 2 | 3 | 4 | 5>(produto?.qtd_mensagens ?? 3)
+  const [qtdMensagens, setQtdMensagens] = useState<1 | 2 | 3 | 4 | 5>(produto?.qtd_mensagens ?? 5)
   
   const nichosHabilitados = lojaNichos.length > 0 ? lojaNichos : ['Outros']
   const defaultNicho = produto?.nicho ?? (nichosHabilitados.length === 1 ? nichosHabilitados[0] : '')
@@ -180,6 +180,10 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) return
+    if (recorrente && ciclo <= 0) {
+      setErro('Informe o ciclo de recompra em dias (mínimo 1).')
+      return
+    }
     setSalvando(true)
     setErro(null)
     const precoNum = parseBRL(preco)

@@ -14,7 +14,7 @@ export const TEMPLATES_PADRAO = [
   {
     ordem: 3 as const,
     tipo: 'recompra' as const,
-    dias_apos_venda: 25,
+    dias_apos_venda: 30,
     texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando em breve! Quer garantir já o próximo?',
   },
 ] as const

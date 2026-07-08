@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
+import { normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 
 export async function salvarProduto(dados: {
   loja_id: string
@@ -38,7 +39,7 @@ export async function salvarProduto(dados: {
       const { error } = await supabase
         .from('produtos')
         .update({
-          nome: dados.nome,
+          nome: normalizarNomeProduto(dados.nome),
           preco_sugerido: dados.preco_sugerido,
           foto_url: dados.foto_url || null,
           ativo: dados.ativo,
@@ -59,7 +60,7 @@ export async function salvarProduto(dados: {
         .from('produtos')
         .insert({
           loja_id: dados.loja_id,
-          nome: dados.nome,
+          nome: normalizarNomeProduto(dados.nome),
           preco_sugerido: dados.preco_sugerido,
           foto_url: dados.foto_url || null,
           ativo: dados.ativo,
@@ -78,9 +79,12 @@ export async function salvarProduto(dados: {
       if (error || !data) return { ok: false, erro: error?.message ?? 'Erro ao criar produto' }
       produtoId = data.id as string
 
-      // Auto-criar 3 templates padrão para o novo produto
+      // Auto-criar templates para o novo produto (5 se recorrente, 3 se não)
+      const templatesIniciais = dados.recorrente
+        ? [...TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP]
+        : [...TEMPLATES_PADRAO]
       await supabase.from('mensagens_produto').insert(
-        TEMPLATES_PADRAO.map(t => ({ produto_id: produtoId, ...t }))
+        templatesIniciais.map(t => ({ produto_id: produtoId, ...t }))
       )
     }
 

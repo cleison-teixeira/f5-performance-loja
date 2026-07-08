@@ -7,6 +7,7 @@ import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/men
 import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
+import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
 
 export async function buscarCliente(
   whatsapp: string,
@@ -134,7 +135,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     const { data: clienteData, error: clienteError } = await supabase
       .from('clientes')
       .upsert(
-        { loja_id: dados.loja_id, whatsapp: dados.cliente_whatsapp, nome: dados.cliente_nome },
+        { loja_id: dados.loja_id, whatsapp: dados.cliente_whatsapp, nome: normalizarNomePessoa(dados.cliente_nome) },
         { onConflict: 'loja_id,whatsapp' }
       )
       .select('id, nome')

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
+import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { getAppContext } from '@/lib/app/contexto'
 import type { RegistroListaEspera } from './ListaEsperaCards'
 
@@ -133,7 +134,7 @@ export async function criarListaEspera(
   const { data: clienteData } = await supabase
     .from('clientes')
     .upsert(
-      { loja_id: input.loja_id, whatsapp: whatsappDigits, nome: input.cliente_nome.trim() },
+      { loja_id: input.loja_id, whatsapp: whatsappDigits, nome: normalizarNomePessoa(input.cliente_nome) },
       { onConflict: 'loja_id,whatsapp' }
     )
     .select('id')
@@ -150,9 +151,9 @@ export async function criarListaEspera(
   const { error } = await supabase.from('lista_espera').insert({
     loja_id: input.loja_id,
     cliente_id: clienteId,
-    cliente_nome: input.cliente_nome.trim(),
+    cliente_nome: normalizarNomePessoa(input.cliente_nome),
     cliente_whatsapp: whatsappDigits,
-    produto_nome: input.produto_nome.trim(),
+    produto_nome: normalizarNomeProduto(input.produto_nome),
     produto_id: produtoId,
     categoria_id: input.categoria_id || null,
     valor_potencial: input.valor_potencial ?? null,
@@ -222,7 +223,7 @@ export async function editarListaEspera(
   const { data: clienteData } = await supabase
     .from('clientes')
     .upsert(
-      { loja_id: input.loja_id, whatsapp: whatsappDigits, nome: input.cliente_nome.trim() },
+      { loja_id: input.loja_id, whatsapp: whatsappDigits, nome: normalizarNomePessoa(input.cliente_nome) },
       { onConflict: 'loja_id,whatsapp' }
     )
     .select('id')
@@ -256,9 +257,9 @@ export async function editarListaEspera(
 
   const updatePayload: any = {
     cliente_id: clienteId,
-    cliente_nome: input.cliente_nome.trim(),
+    cliente_nome: normalizarNomePessoa(input.cliente_nome),
     cliente_whatsapp: whatsappDigits,
-    produto_nome: input.produto_nome.trim(),
+    produto_nome: normalizarNomeProduto(input.produto_nome),
     produto_id: produtoId,
     valor_potencial: input.valor_potencial ?? null,
     quantidade: input.quantidade,

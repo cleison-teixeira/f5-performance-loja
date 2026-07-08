@@ -5,6 +5,7 @@ import { buscarCliente, salvarVenda } from './actions'
 import { ResumoVenda } from './ResumoVenda'
 import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
+import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
 import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff } from 'lucide-react'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
@@ -72,7 +73,7 @@ function parseBRL(raw: string): number {
 }
 
 function novoItem(): ItemFormState {
-  return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30, qtd_mensagens: 3, modelo_fluxo: 'modelo_3_agrad_rel_rec' }
+  return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30, qtd_mensagens: 5, modelo_fluxo: 'modelo_5_follow_up' }
 }
 
 const inputClass =
@@ -118,7 +119,7 @@ export function FormNovaVenda({
         const encontrado = await buscarCliente(digits, loja_id)
         if (encontrado) {
           setClienteEncontrado(encontrado)
-          setClienteNome(encontrado.nome)
+          setClienteNome(normalizarNomePessoa(encontrado.nome))
         } else {
           setClienteEncontrado(null)
           setClienteNome('')
@@ -149,7 +150,7 @@ export function FormNovaVenda({
         return { ...item, produtoId: '', produtoNome: '', precoBRL: '' }
       }
       if (resultado.id) {
-        const defaultQtd = resultado.qtd_mensagens ?? 3
+        const defaultQtd = resultado.qtd_mensagens ?? 5
         return {
           ...item,
           produtoId: resultado.id,
@@ -222,11 +223,13 @@ export function FormNovaVenda({
     setCarregando(true)
     setErro('')
 
-    const vendedoraNome = vendedoraSelecionada?.nome ?? vendedora_logada_nome
+    const nomeClienteNormalizado = normalizarNomePessoa(clienteNome)
+    setClienteNome(nomeClienteNormalizado)
+    const vendedoraNome = normalizarNomePessoa(vendedoraSelecionada?.nome ?? vendedora_logada_nome)
 
     const resultado = await salvarVenda({
       loja_id,
-      cliente_nome: clienteNome.trim(),
+      cliente_nome: nomeClienteNormalizado,
       cliente_whatsapp: digits,
       data_compra: dataCompra,
       itens: itens.map(item => ({
@@ -354,6 +357,7 @@ export function FormNovaVenda({
               placeholder="Nome completo"
               value={clienteNome}
               onChange={e => setClienteNome(e.target.value)}
+              onBlur={e => setClienteNome(normalizarNomePessoa(e.target.value))}
               disabled={!!clienteEncontrado}
               className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
             />
@@ -470,7 +474,7 @@ export function FormNovaVenda({
                   <div className="space-y-1">
                     <label className="text-xs font-medium block">Modelo de contato desta compra</label>
                     <select
-                      value={item.modelo_fluxo || 'modelo_3_agrad_rel_rec'}
+                      value={item.modelo_fluxo || 'modelo_5_follow_up'}
                       onChange={e => atualizarItem(item.key, { modelo_fluxo: e.target.value })}
                       className="w-full text-xs rounded border border-input p-2 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
                     >
@@ -586,7 +590,7 @@ export function FormNovaVenda({
           className={inputClass}
         >
           {todasVendedoras.map(v => (
-            <option key={v.id} value={v.id}>{v.nome}</option>
+            <option key={v.id} value={v.id}>{normalizarNomePessoa(v.nome)}</option>
           ))}
         </select>
       </div>

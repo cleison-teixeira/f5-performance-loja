@@ -1,4 +1,5 @@
 import { interpolar } from '@/lib/mensagens/interpolador'
+import { extrairPrimeiroNome } from '@/lib/utils/normalizacao-texto'
 
 interface ContextoAviso {
   venda_id: string
@@ -105,12 +106,17 @@ export function gerarAvisos(
       : ctx.produto_nome
 
     // Mapeamento de variáveis para interpolação de templates comerciais
+    const primNomeCliente = extrairPrimeiroNome(ctx.cliente_nome)
+    const primNomeVendedora = extrairPrimeiroNome(ctx.vendedora_nome)
     const mapVariaveis: Record<string, string> = {
-      cliente: ctx.cliente_nome,
-      cliente_nome: ctx.cliente_nome,
-      primeiro_nome: ctx.cliente_nome.split(' ')[0] || '',
-      vendedora: ctx.vendedora_nome,
-      vendedora_nome: ctx.vendedora_nome,
+      cliente: primNomeCliente,
+      cliente_nome: primNomeCliente,
+      primeiro_nome: primNomeCliente,
+      'primeiro-nome': primNomeCliente,
+      cliente_nome_completo: ctx.cliente_nome,
+      vendedora: primNomeVendedora,
+      vendedora_nome: primNomeVendedora,
+      vendedora_nome_completo: ctx.vendedora_nome,
       loja: ctx.loja_nome,
       loja_nome: ctx.loja_nome,
       produto: produtoNomeEfetivo,

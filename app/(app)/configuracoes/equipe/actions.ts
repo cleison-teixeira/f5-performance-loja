@@ -1,6 +1,7 @@
 'use server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
 import { toE164 } from '@/lib/whatsapp/mask'
 import { hashPin } from '@/lib/pin/gestao'
 import { canAccessEquipe } from '@/lib/permissoes/roles'
@@ -84,7 +85,7 @@ export async function addMembro(dados: {
       perfil_id = newUser.user.id
 
       await admin.from('perfis').upsert(
-        { id: perfil_id, nome: dados.nome, whatsapp: dados.telefone || null, avatar_url: dados.avatar_url ?? null },
+        { id: perfil_id, nome: normalizarNomePessoa(dados.nome), whatsapp: dados.telefone || null, avatar_url: dados.avatar_url ?? null },
         { onConflict: 'id' }
       )
     }
@@ -195,7 +196,7 @@ export async function editarMembro(dados: {
     }
 
     // Atualiza perfil (nome, whatsapp, avatar_url se fornecido)
-    const perfilUpdate: Record<string, unknown> = { nome: dados.nome.trim(), whatsapp: dados.telefone.trim() || null }
+    const perfilUpdate: Record<string, unknown> = { nome: normalizarNomePessoa(dados.nome.trim()), whatsapp: dados.telefone.trim() || null }
     if ('avatar_url' in dados) perfilUpdate.avatar_url = dados.avatar_url ?? null
     const { error: perfilErr } = await admin.from('perfis').update(perfilUpdate).eq('id', dados.perfil_id)
     if (perfilErr) return { ok: false, erro: perfilErr.message }
