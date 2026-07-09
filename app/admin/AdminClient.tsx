@@ -26,6 +26,13 @@ type EditForm = {
   nome: string; whatsapp: string; valor: string; status: string; obs: string
 }
 
+type RedeGroup = {
+  email: string
+  lojas: Array<{ loja_id: string | null; loja_nome: string | null; loja_whatsapp: string | null }>
+  statusGeral: string
+  representante: LiberacaoRow
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPCOES = [
@@ -115,6 +122,34 @@ function maskWhatsApp(value: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
+function agruparRede(lista: LiberacaoRow[]): RedeGroup[] {
+  const map = new Map<string, {
+    email: string
+    lojas: Array<{ loja_id: string | null; loja_nome: string | null; loja_whatsapp: string | null }>
+    statuses: Set<string>
+    representante: LiberacaoRow
+  }>()
+  for (const l of lista) {
+    const key = l.email.toLowerCase()
+    if (!map.has(key)) {
+      map.set(key, { email: l.email, lojas: [], statuses: new Set(), representante: l })
+    }
+    const g = map.get(key)!
+    g.statuses.add(l.status)
+    if (l.loja_id || l.loja_nome) {
+      g.lojas.push({ loja_id: l.loja_id, loja_nome: l.loja_nome, loja_whatsapp: l.loja_whatsapp })
+    }
+  }
+  return Array.from(map.values()).map(g => {
+    let statusGeral: string
+    if (g.statuses.size === 1 && g.statuses.has('aplicado')) statusGeral = 'aplicado'
+    else if (g.statuses.has('pendente')) statusGeral = 'pendente'
+    else if (g.statuses.size === 1 && g.statuses.has('cancelado')) statusGeral = 'cancelado'
+    else statusGeral = 'aplicado'
+    return { email: g.email, lojas: g.lojas, statusGeral, representante: g.representante }
+  })
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function AdminClient({
@@ -183,6 +218,7 @@ export function AdminClient({
   // ── Listas separadas por tipo ──
   const liberacoesLoja = liberacoes.filter(l => l.tipo === 'loja')
   const liberacoesRede = liberacoes.filter(l => l.tipo === 'rede')
+  const redeGroups = agruparRede(liberacoesRede)
 
   function filtrar(lista: LiberacaoRow[]) {
     if (!busca.trim()) return lista
@@ -193,6 +229,23 @@ export function AdminClient({
       (l.loja_nome ?? '').toLowerCase().includes(q) ||
       (qd.length >= 4 && (l.loja_whatsapp ?? '').replace(/\D/g, '').includes(qd))
     )
+  }
+
+  function filtrarGrupos(grupos: RedeGroup[]): RedeGroup[] {
+    if (!busca.trim()) return grupos
+    const q = busca.toLowerCase()
+    const qd = busca.replace(/\D/g, '')
+    return grupos.filter(g =>
+      g.email.toLowerCase().includes(q) ||
+      g.lojas.some(l => (l.loja_nome ?? '').toLowerCase().includes(q)) ||
+      g.lojas.some(l => qd.length >= 4 && (l.loja_whatsapp ?? '').replace(/\D/g, '').includes(qd))
+    )
+  }
+
+  function openEditRede(g: RedeGroup) {
+    if (editandoId === g.representante.id) { setEditandoId(null); return }
+    setEditandoId(g.representante.id)
+    setEditForm({ nome: '', whatsapp: '', valor: '149,00', status: g.statusGeral, obs: g.representante.observacao ?? '' })
   }
 
   const lojasFiltradas = todasLojas.filter(l => {
@@ -792,49 +845,50 @@ export function AdminClient({
             <p className="text-xs text-zinc-400 mt-0.5">Acessos brinde · vincula dono/rede a lojas existentes sem cobrança</p>
           </div>
 
-          {filtrar(liberacoesRede).length === 0 && (
+          {filtrarGrupos(redeGroups).length === 0 && (
             <p className="text-sm text-zinc-400">
               {busca ? 'Nenhum resultado para a busca.' : 'Nenhuma licença de rede registrada.'}
             </p>
           )}
 
           <div className="divide-y divide-zinc-100">
-            {filtrar(liberacoesRede).map(l => (
-              <div key={l.id} className="py-3 space-y-3">
+            {filtrarGrupos(redeGroups).map(g => (
+              <div key={g.email} className="py-3 space-y-3">
 
                 {/* Linha principal */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-medium text-zinc-800 truncate">{l.email}</p>
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-medium text-zinc-800 truncate">{g.email}</p>
                     <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
-                      {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
-                      {l.loja_nome && <span className="text-zinc-300">·</span>}
                       <span className="bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded text-[10px] font-medium">Rede</span>
                       <span className="text-zinc-300">·</span>
-                      <span>{formatDate(l.criado_em)}</span>
+                      <span>{g.lojas.length} loja{g.lojas.length !== 1 ? 's' : ''} vinculada{g.lojas.length !== 1 ? 's' : ''}</span>
                     </div>
+                    {g.lojas.length > 0 && (
+                      <ul className="mt-1 space-y-0.5">
+                        {g.lojas.map((lj, i) => (
+                          <li key={lj.loja_id ?? i} className="text-xs text-zinc-500">
+                            – {lj.loja_nome ?? '(sem nome)'}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                    <StatusBadge value={l.status} />
-                    <button onClick={() => openEdit(l)} disabled={pending}
-                      className={`text-xs font-medium transition-colors ${editandoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                    <StatusBadge value={g.statusGeral} />
+                    <button onClick={() => openEditRede(g)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${editandoId === g.representante.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
                       Editar
                     </button>
-                    <button onClick={() => openAnexarLoja(l.id)} disabled={pending}
-                      className={`text-xs font-medium transition-colors ${anexandoRedeId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                    <button onClick={() => openAnexarLoja(g.representante.id)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${anexandoRedeId === g.representante.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
                       Anexar loja
                     </button>
-                    {l.status === 'pendente' && (
-                      <button onClick={() => handleCancelar(l.id)} disabled={pending}
-                        className="text-xs text-zinc-400 hover:text-red-600 transition-colors">
-                        Cancelar
-                      </button>
-                    )}
                   </div>
                 </div>
 
                 {/* Formulário: Editar (rede — só status e obs) */}
-                {editandoId === l.id && (
+                {editandoId === g.representante.id && (
                   <div className={formInline}>
                     <p className="text-xs font-semibold text-zinc-700">Editar acesso rede</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -849,7 +903,7 @@ export function AdminClient({
                         rows={2} className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none" />
                     </Field>
                     <div className="flex gap-2">
-                      <button onClick={() => submitEdit(l)} disabled={pending} className={btnPrimario}>
+                      <button onClick={() => submitEdit(g.representante)} disabled={pending} className={btnPrimario}>
                         {pending ? 'Salvando...' : 'Salvar'}
                       </button>
                       <button onClick={() => setEditandoId(null)} className={btnSecundario}>Cancelar</button>
@@ -858,11 +912,11 @@ export function AdminClient({
                 )}
 
                 {/* Formulário: Anexar loja */}
-                {anexandoRedeId === l.id && (
+                {anexandoRedeId === g.representante.id && (
                   <div className={formInline}>
                     <p className="text-xs font-semibold text-zinc-700">Anexar loja ao dono</p>
                     <p className="text-xs text-zinc-500">
-                      Dono: <span className="font-medium text-zinc-700">{l.email}</span>
+                      Dono: <span className="font-medium text-zinc-700">{g.email}</span>
                       <span className="ml-2 text-zinc-300">·</span>
                       <span className="ml-2 text-zinc-400">Acesso brinde — não gera cobrança</span>
                     </p>
@@ -926,7 +980,7 @@ export function AdminClient({
 
                     <div className="flex gap-2">
                       {resultadoAnexar === null && (
-                        <button onClick={() => submitAnexarLoja(l.email)}
+                        <button onClick={() => submitAnexarLoja(g.email)}
                           disabled={pending || lojasAnexar.length === 0} className={btnPrimario}>
                           {pending ? 'Anexando...' : `Anexar${lojasAnexar.length > 0 ? ` (${lojasAnexar.length})` : ''}`}
                         </button>

@@ -88,6 +88,7 @@ export default async function ConfigEquipePage() {
       .from('membros_loja')
       .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, observacao_interna, perfis(nome, whatsapp, avatar_url)')
       .eq('loja_id', loja_id)
+      .neq('role', 'dono')
       .order('role'),
     admin
       .from('regras_comissao')
