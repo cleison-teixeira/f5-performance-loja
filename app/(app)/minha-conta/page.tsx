@@ -57,7 +57,7 @@ export default async function MinhaContaPage() {
   const [{ data: membrosData }, { data: libData }] = await Promise.all([
     admin
       .from('membros_loja')
-      .select('role, loja_id, lojas(id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos, logo_url)')
+      .select('role, loja_id')
       .eq('perfil_id', user.id)
       .eq('ativo', true),
     admin
@@ -87,48 +87,37 @@ export default async function MinhaContaPage() {
   const ctx = await getContextoLoja(user.id, multiLoja)
   const mostrarVisaoRede = isRede && ctx.escopo === 'rede'
 
-  // Build deduplicated lojas
-  const seen = new Set<string>()
-  const todasLojas: LojaData[] = []
+  // Direct lojas query — avoids ORM JOIN that silently fails for some loja_ids
+  const membroLojaIds = [...new Set((membrosData).map(m => m.loja_id as string).filter(Boolean))]
+  const { data: lojasRaw } = await admin
+    .from('lojas')
+    .select('id, nome, documento, email, whatsapp, cidade, endereco, cep, rua, numero, bairro, estado, complemento, nichos, logo_url')
+    .in('id', membroLojaIds)
 
-  for (const m of membrosData) {
-    type LojaRaw = {
-      id: string; nome: string; documento: string | null; email: string | null
-      whatsapp: string | null; cidade: string | null; endereco: string | null
-      cep: string | null; rua: string | null; numero: string | null
-      bairro: string | null; estado: string | null; complemento: string | null
-      nichos: string[] | null; logo_url: string | null
-    }
-    const lojaRaw = m.lojas as unknown as LojaRaw | LojaRaw[] | null
-    const lojaItem = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
-    if (!lojaItem || seen.has(lojaItem.id)) continue
-    seen.add(lojaItem.id)
-
-    const rawNicho = Array.isArray(lojaItem.nichos) ? (lojaItem.nichos[0] ?? '') : ''
-
-    todasLojas.push({
-      id: lojaItem.id,
-      nome: lojaItem.nome,
-      documento: lojaItem.documento,
-      email: lojaItem.email,
-      whatsapp: lojaItem.whatsapp,
-      cidade: lojaItem.cidade,
-      endereco: lojaItem.endereco,
-      cep: lojaItem.cep,
-      rua: lojaItem.rua,
-      numero: lojaItem.numero,
-      bairro: lojaItem.bairro,
-      estado: lojaItem.estado,
-      complemento: lojaItem.complemento,
+  const todasLojas: LojaData[] = (lojasRaw ?? []).map(l => {
+    const rawNicho = Array.isArray(l.nichos) ? (l.nichos[0] ?? '') : ''
+    return {
+      id: l.id as string,
+      nome: l.nome as string,
+      documento: l.documento as string | null,
+      email: l.email as string | null,
+      whatsapp: l.whatsapp as string | null,
+      cidade: l.cidade as string | null,
+      endereco: l.endereco as string | null,
+      cep: l.cep as string | null,
+      rua: l.rua as string | null,
+      numero: l.numero as string | null,
+      bairro: l.bairro as string | null,
+      estado: l.estado as string | null,
+      complemento: l.complemento as string | null,
       nicho: normalizarNicho(rawNicho),
-      logo_url: lojaItem.logo_url ?? null,
-    })
-  }
+      logo_url: (l.logo_url as string | null) ?? null,
+    }
+  })
 
-  // When rede user has a specific loja selected (via cookie), show that loja; otherwise first loja.
-  const lojaParaEditar: LojaData | null = mostrarVisaoRede
-    ? (todasLojas[0] ?? null)
-    : (ctx.lojaId ? (todasLojas.find(l => l.id === ctx.lojaId) ?? todasLojas[0] ?? null) : (todasLojas[0] ?? null))
+  // Resolve loja to edit: cookie-selected loja takes priority; fallback to first available.
+  const lojaParaEditar: LojaData | null =
+    ctx.lojaId ? (todasLojas.find(l => l.id === ctx.lojaId) ?? todasLojas[0] ?? null) : (todasLojas[0] ?? null)
 
   // ctx.lojas é a fonte autoritativa: usa Set() para dedup de loja_id e busca direta na tabela lojas
   // (não depende do JOIN ORM que pode falhar quando a FK não resolve corretamente)
