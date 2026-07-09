@@ -52,6 +52,17 @@ export default async function ConfigEquipePage() {
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 
+  if (ctx.escopo === 'rede') {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Equipe</h1>
+        <p className="text-sm text-muted-foreground">
+          Selecione uma loja específica para visualizar ou editar a equipe.
+        </p>
+      </div>
+    )
+  }
+
   const loja_id = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
   const lojaNome = ctx.lojaId ? ctx.lojaNome : (ctx.lojas[0]?.nome ?? '')
 

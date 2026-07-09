@@ -292,7 +292,7 @@ export function FormMinhaConta({
         </section>
 
         {/* Assinatura */}
-        <AssinaturaCard assinatura={assinatura} lojasVinculadas={lojasVinculadas} card={card} />
+        <AssinaturaCard assinatura={assinatura} card={card} />
 
         {/* Sessão */}
         <SessaoCard card={card} onLogout={handleLogout} />
@@ -490,7 +490,7 @@ export function FormMinhaConta({
 
           {/* Coluna direita: Assinatura + PIN + Sessão */}
           <div className="space-y-5">
-            <AssinaturaCard assinatura={assinatura} lojasVinculadas={lojasVinculadas} card={card} />
+            <AssinaturaCard assinatura={assinatura} card={card} />
             {pinSlot}
             <SessaoCard card={card} onLogout={handleLogout} />
           </div>
@@ -507,12 +507,19 @@ export function FormMinhaConta({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function AssinaturaCard({
-  assinatura, lojasVinculadas, card,
+  assinatura, card,
 }: {
   assinatura: AssinaturaItem[]
-  lojasVinculadas: LojaVinculada[]
   card: string
 }) {
+  const lojaItems = assinatura.filter(a => a.tipo === 'loja')
+  const redeItems = assinatura.filter(a => a.tipo === 'rede')
+
+  const redeStatus = redeItems.length === 0 ? null
+    : redeItems.some(a => ['aplicado', 'ativo'].includes(a.status)) ? 'aplicado'
+    : redeItems.some(a => a.status === 'pendente') ? 'pendente'
+    : 'cancelado'
+
   return (
     <section className={card}>
       <h2 className="text-sm font-semibold text-foreground">Assinatura</h2>
@@ -521,81 +528,80 @@ function AssinaturaCard({
         <p className="text-sm text-muted-foreground">Nenhuma informação de assinatura encontrada.</p>
       ) : (
         <div className="space-y-3">
-          {assinatura.map(a => (
+          {/* Licenças de loja — uma por card */}
+          {lojaItems.map(a => (
             <div key={a.id} className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
-              {a.tipo === 'loja' ? (
-                <>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">F5 Recompra Loja</p>
-                      <p className="text-xs text-muted-foreground">{a.loja_nome ?? 'Licença de loja'}</p>
-                    </div>
-                    <StatusBadge status={a.status} />
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">F5 Recompra Loja</p>
+                  <p className="text-xs text-muted-foreground">{a.loja_nome ?? 'Licença de loja'}</p>
+                </div>
+                <StatusBadge status={a.status} />
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Tipo</p>
+                  <p className="font-medium text-foreground">Licença de loja</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Valor</p>
+                  <p className="font-medium text-foreground">
+                    {a.valor_pago != null ? `R$${Number(a.valor_pago).toLocaleString('pt-BR')}/mês` : 'R$149/mês'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Liberado em</p>
+                  <p className="font-medium text-foreground">{formatDate(a.criado_em)}</p>
+                </div>
+                {a.aplicado_em && (
+                  <div>
+                    <p className="text-muted-foreground mb-0.5">Ativado em</p>
+                    <p className="font-medium text-foreground">{formatDate(a.aplicado_em)}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
-                    <div>
-                      <p className="text-muted-foreground mb-0.5">Tipo</p>
-                      <p className="font-medium text-foreground">Licença de loja</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-0.5">Valor</p>
-                      <p className="font-medium text-foreground">
-                        {a.valor_pago != null ? `R$${Number(a.valor_pago).toLocaleString('pt-BR')}/mês` : 'R$149/mês'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-0.5">Liberado em</p>
-                      <p className="font-medium text-foreground">{formatDate(a.criado_em)}</p>
-                    </div>
-                    {a.aplicado_em && (
-                      <div>
-                        <p className="text-muted-foreground mb-0.5">Ativado em</p>
-                        <p className="font-medium text-foreground">{formatDate(a.aplicado_em)}</p>
-                      </div>
-                    )}
-                    {a.prazo_acesso && (
-                      <div className="col-span-2">
-                        <p className="text-muted-foreground mb-0.5">Trial até</p>
-                        <p className="font-medium text-foreground">{formatDate(a.prazo_acesso)}</p>
-                      </div>
-                    )}
+                )}
+                {a.prazo_acesso && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground mb-0.5">Trial até</p>
+                    <p className="font-medium text-foreground">{formatDate(a.prazo_acesso)}</p>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Acesso brinde multi-lojas</p>
-                      <p className="text-xs text-muted-foreground">Sem cobrança adicional</p>
-                    </div>
-                    <StatusBadge status={a.status} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
-                    <div>
-                      <p className="text-muted-foreground mb-0.5">Tipo</p>
-                      <p className="font-medium text-foreground">Acesso brinde</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-0.5">Liberado em</p>
-                      <p className="font-medium text-foreground">{formatDate(a.criado_em)}</p>
-                    </div>
-                  </div>
-                  {lojasVinculadas.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-muted-foreground">Lojas vinculadas</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {lojasVinculadas.map(lv => (
-                          <span key={lv.id} className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-foreground">
-                            {lv.nome}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+                )}
+              </div>
             </div>
           ))}
+
+          {/* Acesso rede — único card agrupado com status por loja */}
+          {redeStatus !== null && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Acesso brinde multi-lojas</p>
+                  <p className="text-xs text-muted-foreground">Sem cobrança adicional</p>
+                </div>
+                <StatusBadge status={redeStatus} />
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Tipo</p>
+                  <p className="font-medium text-foreground">Acesso brinde</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Liberado em</p>
+                  <p className="font-medium text-foreground">{formatDate(redeItems[0].criado_em)}</p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Lojas vinculadas</p>
+                <div className="space-y-1">
+                  {redeItems.map(a => (
+                    <div key={a.id} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-foreground">{a.loja_nome ?? '—'}</span>
+                      <StatusBadge status={a.status} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
