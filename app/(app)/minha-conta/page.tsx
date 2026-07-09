@@ -168,6 +168,7 @@ export default async function MinhaContaPage() {
   return (
     <PinGestaoGuard lojaId={guardLojaId} scope="minha_conta">
       <FormMinhaConta
+        key={lojaParaEditar?.id ?? 'rede'}
         emailConta={user.email ?? ''}
         loja={lojaParaEditar}
         todasLojas={todasLojas}
