@@ -1,6 +1,5 @@
 'use client'
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { setLojaContexto } from '@/lib/loja/actions'
 
 interface Props {
@@ -10,14 +9,13 @@ interface Props {
 
 export function SeletorLojaGlobal({ lojas, lojaAtiva }: Props) {
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
   const umaLoja = lojas.length === 1
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value
     startTransition(async () => {
       await setLojaContexto(val || null)
-      router.refresh()
+      window.location.reload()
     })
   }
 
