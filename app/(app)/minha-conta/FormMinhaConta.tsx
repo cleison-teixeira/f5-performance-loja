@@ -513,7 +513,12 @@ function AssinaturaCard({
   card: string
 }) {
   const lojaItems = assinatura.filter(a => a.tipo === 'loja')
-  const redeItems = assinatura.filter(a => a.tipo === 'rede')
+  // Dedup por loja_id (defesa adicional caso a dedup na página falhe)
+  const redeItemsRaw = assinatura.filter(a => a.tipo === 'rede')
+  const redeItems = redeItemsRaw.reduce<AssinaturaItem[]>((acc, a) => {
+    if (!a.loja_id || !acc.some(x => x.loja_id === a.loja_id)) acc.push(a)
+    return acc
+  }, [])
 
   const redeStatus = redeItems.length === 0 ? null
     : redeItems.some(a => ['aplicado', 'ativo'].includes(a.status)) ? 'aplicado'

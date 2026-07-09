@@ -47,6 +47,7 @@ const roleBadge: Record<string, string> = {
   gerente: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
   vendedora: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   admin_f5: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  loja_conta: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
 }
 
 const roleLabel: Record<string, string> = {
@@ -54,6 +55,7 @@ const roleLabel: Record<string, string> = {
   gerente: 'Gerente',
   vendedora: 'Vendedora',
   admin_f5: 'Admin F5',
+  loja_conta: 'Loja',
 }
 
 export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, userRole, currentUserId }: Props) {
@@ -173,8 +175,8 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
-                    {roleLabel[m.role] ?? m.role}
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.isContaLoja ? 'loja_conta' : m.role] ?? 'bg-muted text-muted-foreground'}`}>
+                    {roleLabel[m.isContaLoja ? 'loja_conta' : m.role] ?? m.role}
                   </span>
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${m.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                     {m.ativo ? 'Ativo' : 'Inativo'}
@@ -257,8 +259,8 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{m.telefone ? formatarWhatsapp(m.telefone) : '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.role] ?? 'bg-muted text-muted-foreground'}`}>
-                      {roleLabel[m.role] ?? m.role}
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[m.isContaLoja ? 'loja_conta' : m.role] ?? 'bg-muted text-muted-foreground'}`}>
+                      {roleLabel[m.isContaLoja ? 'loja_conta' : m.role] ?? m.role}
                     </span>
                   </td>
                   <td className="px-4 py-3">

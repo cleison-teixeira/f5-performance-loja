@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { normalizarNicho } from '@/lib/config/produtos-segmentos'
+import { getContextoLoja } from '@/lib/loja/contexto'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { FormMinhaConta } from './FormMinhaConta'
 import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
 
@@ -34,6 +36,7 @@ export type AssinaturaItem = {
   criado_em: string
   aplicado_em: string | null
   loja_nome: string | null
+  loja_id: string | null
 }
 
 export type LojaVinculada = {
@@ -80,6 +83,10 @@ export default async function MinhaContaPage() {
     l => l.tipo === 'rede' && ['aplicado', 'ativo'].includes(l.status as string)
   )
 
+  const multiLoja = !isAcessoLoja(role)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+  const mostrarVisaoRede = isRede && ctx.escopo === 'rede'
+
   // Build deduplicated lojas
   const seen = new Set<string>()
   const todasLojas: LojaData[] = []
@@ -118,38 +125,56 @@ export default async function MinhaContaPage() {
     })
   }
 
-  const loja = todasLojas[0] ?? null
+  // When rede user has a specific loja selected (via cookie), show that loja; otherwise first loja.
+  const lojaParaEditar: LojaData | null = mostrarVisaoRede
+    ? (todasLojas[0] ?? null)
+    : (ctx.lojaId ? (todasLojas.find(l => l.id === ctx.lojaId) ?? todasLojas[0] ?? null) : (todasLojas[0] ?? null))
 
-  // Build name map for assinatura
+  // ctx.lojas é a fonte autoritativa: usa Set() para dedup de loja_id e busca direta na tabela lojas
+  // (não depende do JOIN ORM que pode falhar quando a FK não resolve corretamente)
   const lojaNameMap: Record<string, string> = {}
-  todasLojas.forEach(l => { lojaNameMap[l.id] = l.nome })
+  ctx.lojas.forEach(l => { lojaNameMap[l.id] = l.nome })
 
-  const assinatura: AssinaturaItem[] = (libData ?? []).map(l => ({
-    id: l.id as string,
-    tipo: (l.tipo as string) === 'rede' ? 'rede' : 'loja',
-    status: l.status as string,
-    valor_pago: l.valor_pago as number | null,
-    prazo_acesso: l.prazo_acesso as string | null,
-    criado_em: l.criado_em as string,
-    aplicado_em: l.aplicado_em as string | null,
-    loja_nome: l.loja_id ? (lojaNameMap[l.loja_id as string] ?? null) : null,
-  }))
+  // Deduplica redeItems por loja_id: libData pode ter linhas duplicadas para o mesmo loja_id
+  const seenRedeLojaIds = new Set<string>()
+  const assinatura: AssinaturaItem[] = (libData ?? []).reduce<AssinaturaItem[]>((acc, l) => {
+    const lid = (l.loja_id as string | null) ?? null
+    const tipo: 'loja' | 'rede' = (l.tipo as string) === 'rede' ? 'rede' : 'loja'
+    if (tipo === 'rede' && lid) {
+      if (seenRedeLojaIds.has(lid)) return acc
+      seenRedeLojaIds.add(lid)
+    }
+    acc.push({
+      id: l.id as string,
+      tipo,
+      status: l.status as string,
+      valor_pago: l.valor_pago as number | null,
+      prazo_acesso: l.prazo_acesso as string | null,
+      criado_em: l.criado_em as string,
+      aplicado_em: l.aplicado_em as string | null,
+      loja_nome: lid ? (lojaNameMap[lid] ?? null) : null,
+      loja_id: lid,
+    })
+    return acc
+  }, [])
 
-  const lojasVinculadas: LojaVinculada[] = todasLojas.map(l => ({ id: l.id, nome: l.nome }))
+  // lojasVinculadas vem de ctx.lojas (dedupado via Set, ordenado por nome) — não de todasLojas
+  const lojasVinculadas: LojaVinculada[] = ctx.lojas.map(l => ({ id: l.id, nome: l.nome }))
+
 
   // Guard: somente Acesso Loja (single-loja). Rede e admin_f5 passam direto.
-  const guardLojaId = (role === 'admin_f5' || isRede) ? null : (loja?.id ?? null)
+  const guardLojaId = (role === 'admin_f5' || isRede) ? null : (lojaParaEditar?.id ?? null)
 
   return (
     <PinGestaoGuard lojaId={guardLojaId} scope="minha_conta">
       <FormMinhaConta
         emailConta={user.email ?? ''}
-        loja={loja}
+        loja={lojaParaEditar}
         todasLojas={todasLojas}
         podeEditar={podeEditar}
         assinatura={assinatura}
         lojasVinculadas={lojasVinculadas}
-        isRede={isRede}
+        isRede={mostrarVisaoRede}
       />
     </PinGestaoGuard>
   )

@@ -11,12 +11,12 @@ export async function setLojaContexto(lojaId: string | null): Promise<void> {
   const jar = await cookies()
 
   if (!lojaId) {
-    jar.set(COOKIE_LOJA, '', { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 })
+    jar.set(COOKIE_LOJA, '', { path: '/', httpOnly: true, sameSite: 'lax' })
     return
   }
 
   const ok = await validarLojaDoUsuario(user.id, lojaId)
   if (!ok) return
 
-  jar.set(COOKIE_LOJA, lojaId, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 })
+  jar.set(COOKIE_LOJA, lojaId, { path: '/', httpOnly: true, sameSite: 'lax' })
 }

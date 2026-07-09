@@ -20,6 +20,7 @@ export interface MembroExibido {
   tem_pin_hash: boolean
   avatar_url: string | null
   observacao_interna: string | null
+  isContaLoja: boolean
 }
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
@@ -125,6 +126,9 @@ export default async function ConfigEquipePage() {
       tem_pin_hash: !!(m.pin_hash),  // boolean only — never expose the hash
       avatar_url: perfil?.avatar_url ?? null,
       observacao_interna: (m.observacao_interna as string | null) ?? null,
+      isContaLoja: (m.role === 'dono') &&
+        (perfil?.nome ?? '').trim().toLowerCase() === lojaNome.trim().toLowerCase() &&
+        !perfil?.whatsapp,
     }
   })
 
