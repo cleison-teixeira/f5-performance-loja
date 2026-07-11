@@ -85,7 +85,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
     const res = await desativarMembro(membro_id)
     setDesativando(null)
     if (res.ok) {
-      setMembros(prev => prev.map(m => m.membro_id === membro_id ? { ...m, ativo: false } : m))
+      setMembros(prev => prev.filter(m => m.membro_id !== membro_id))
     } else {
       setErro(res.erro ?? 'Erro ao remover acesso')
     }
