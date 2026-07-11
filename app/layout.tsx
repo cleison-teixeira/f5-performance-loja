@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     siteName: 'F5 Recompra',
     images: [
       {
-        url: 'https://app.f5recompra.com.br/og-f5-recompra-v15.png',
+        url: 'https://app.f5recompra.com.br/og-f5-recompra.png',
         width: 1200,
         height: 630,
         alt: 'F5 Recompra - Motor de recompra para lojas',
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'F5 Recompra',
     description: 'Motor de recompra para lojas',
-    images: ['https://app.f5recompra.com.br/og-f5-recompra-v15.png'],
+    images: ['https://app.f5recompra.com.br/og-f5-recompra.png'],
   },
 }
 
