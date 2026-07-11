@@ -4,36 +4,27 @@ import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
-const appUrl =
-  process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-
 export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: new URL('https://app.f5recompra.com.br'),
   title: 'F5 Recompra',
   description: 'Motor de recompra para lojas',
-  manifest: '/manifest.webmanifest',
-  icons: {
-    icon: [
-      { url: '/favicon.ico?v=2', sizes: 'any' },
-      { url: '/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-16x16.png?v=2', sizes: '16x16', type: 'image/png' },
-      { url: '/icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png?v=2', sizes: '512x512', type: 'image/png' },
-    ],
-    shortcut: '/favicon.ico?v=2',
-    apple: [
-      { url: '/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png' },
-    ],
-  },
   openGraph: {
     title: 'F5 Recompra',
     description: 'Motor de recompra para lojas',
-    images: [{ url: '/branding/logo-icone-f5.png' }],
+    url: 'https://app.f5recompra.com.br',
+    siteName: 'F5 Recompra',
+    images: [
+      {
+        url: 'https://app.f5recompra.com.br/og-image.png?v=13',
+        width: 1200,
+        height: 630,
+        alt: 'F5 Recompra — Motor de recompra para lojas',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/branding/logo-icone-f5.png'],
+    images: ['https://app.f5recompra.com.br/og-image.png?v=13'],
   },
 }
 
