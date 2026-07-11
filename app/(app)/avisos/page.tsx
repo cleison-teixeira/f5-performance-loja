@@ -63,8 +63,7 @@ export default async function AvisosPage() {
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
       .in('mensagens_produto.tipo', ['recompra', 'oferta', 'follow_up'])
       .gte('data_aviso', dataInicio90)
-      .order('data_aviso', { ascending: true })
-      .limit(50),
+      .order('data_aviso', { ascending: true }),
     supabase
       .from('produtos')
       .select('id, nome, preco_sugerido, comissionavel_recompra')
@@ -222,7 +221,6 @@ export default async function AvisosPage() {
       <AvisosPageClient
         initialAvisos={avisos}
         initialItensVenda={itensVendaPorVenda}
-        initialNextCursor={(avisosRaw?.length ?? 0) === 50 ? '50' : null}
         hoje={hoje}
         catalogo={catalogo}
         percentuaisPorVendedora={percentuaisPorVendedora}

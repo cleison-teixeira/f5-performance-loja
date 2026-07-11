@@ -46,8 +46,7 @@ export default async function ListaEsperaPage() {
       .from('lista_espera')
       .select('id, cliente_id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id, clientes(nao_contatar)')
       .in('loja_id', ctx.lojaIds)
-      .order('criado_em', { ascending: false })
-      .limit(50),
+      .order('criado_em', { ascending: false }),
     ctx.escopo === 'loja'
       ? admin
           .from('categorias')
@@ -223,7 +222,7 @@ export default async function ListaEsperaPage() {
 
       <ListaEsperaPageClient
         initialRegistros={registros}
-        initialNextCursor={(registrosRes.data?.length ?? 0) === 50 ? '50' : null}
+
         defaultLojaNome={lojaNome}
         vendedoras={vendedoras}
         produtos={produtos}

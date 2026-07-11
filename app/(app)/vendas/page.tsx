@@ -68,7 +68,6 @@ export default async function VendasPage() {
     .in('loja_id', ctx.lojaIds)
     .order('data_compra', { ascending: false })
     .order('criado_em', { ascending: false })
-    .limit(50)
 
   if (isVendedora) {
     vendasQuery = vendasQuery.eq('vendedora_id', user.id)
@@ -145,7 +144,7 @@ export default async function VendasPage() {
       </div>
       <VendasPageClient
         initialVendas={vendas}
-        initialNextCursor={(vendasRaw?.length ?? 0) === 50 ? '50' : null}
+
         isVendedora={isVendedora}
         vendedoras={vendedoras}
         mostrarLoja={mostrarLoja}

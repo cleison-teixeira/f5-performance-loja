@@ -43,8 +43,7 @@ export default async function RelacionamentoPage() {
       `)
       .in('loja_id', ctx.lojaIds)
       .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
-      .order('data_aviso', { ascending: true })
-      .limit(50),
+      .order('data_aviso', { ascending: true }),
     admin
       .from('membros_loja')
       .select('perfil_id, perfis(nome)')
@@ -132,7 +131,7 @@ export default async function RelacionamentoPage() {
       {/* ── Lista (sem catálogo nem percentuais — não há ação de venda aqui) ── */}
       <RelacionamentoPageClient
         initialAvisos={avisos}
-        initialNextCursor={(avisosRes.data?.length ?? 0) === 50 ? '50' : null}
+
         hoje={hoje}
         vendedorasLoja={vendedorasLoja}
         loja_id={lojaIdFallback}
