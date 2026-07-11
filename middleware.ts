@@ -45,7 +45,8 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url)
     if (pathname !== '/') loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
+    // 302 evita que o browser preserve POST em redirects de middleware
+    return NextResponse.redirect(loginUrl, { status: 302 })
   }
 
   // /atualizar-senha NÃO está aqui: usuário autenticado via link de recovery

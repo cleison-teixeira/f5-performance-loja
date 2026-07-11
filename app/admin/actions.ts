@@ -572,16 +572,27 @@ export async function adicionarAcessoLoja(dados: {
       .eq('id', dados.loja_id)
       .single()
 
-    await admin.from('liberacoes_acesso').insert({
-      email,
-      nome: dados.nome.trim() || null,
-      empresa_id: lojaData?.empresa_id ?? null,
-      loja_id: dados.loja_id,
-      role: dados.role,
-      tipo: 'rede',
-      status: 'pendente',
-      criado_por: user.id,
-    })
+    // Evita duplicidade: só insere se não houver liberação pendente para o mesmo (email, loja_id)
+    const { data: existente } = await admin
+      .from('liberacoes_acesso')
+      .select('id')
+      .eq('email', email)
+      .eq('loja_id', dados.loja_id)
+      .eq('status', 'pendente')
+      .maybeSingle()
+
+    if (!existente) {
+      await admin.from('liberacoes_acesso').insert({
+        email,
+        nome: dados.nome.trim() || null,
+        empresa_id: lojaData?.empresa_id ?? null,
+        loja_id: dados.loja_id,
+        role: dados.role,
+        tipo: 'loja',
+        status: 'pendente',
+        criado_por: user.id,
+      })
+    }
 
     return { ok: true, resultado: 'pendente' }
   } catch (err) {
