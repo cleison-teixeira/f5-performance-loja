@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Motor de recompra para lojas',
     start_url: '/',
     scope: '/',
+    id: '/',
     display: 'standalone',
     background_color: '#052e1b',
     theme_color: '#052e1b',
