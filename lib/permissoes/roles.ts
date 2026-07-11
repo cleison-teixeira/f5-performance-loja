@@ -1,4 +1,4 @@
-const GESTAO = ['dono', 'gerente', 'admin_f5']
+const GESTAO = ['dono', 'gerente', 'lider', 'admin_f5']
 
 export function canAccessGestao(role: string): boolean {
   return GESTAO.includes(role)

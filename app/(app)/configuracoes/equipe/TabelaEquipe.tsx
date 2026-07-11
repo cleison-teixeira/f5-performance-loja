@@ -44,6 +44,7 @@ interface Props {
 
 const roleBadge: Record<string, string> = {
   dono: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  lider: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
   gerente: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
   vendedora: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   admin_f5: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
@@ -51,7 +52,8 @@ const roleBadge: Record<string, string> = {
 }
 
 const roleLabel: Record<string, string> = {
-  dono: 'Dono',
+  dono: 'Gestor(a)',
+  lider: 'Líder',
   gerente: 'Gerente',
   vendedora: 'Vendedora',
   admin_f5: 'Admin F5',
@@ -64,6 +66,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
   const [mostraForm, setMostraForm] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [desativando, setDesativando] = useState<string | null>(null)
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
   useEffect(() => {
@@ -75,7 +78,8 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
     return userRole === 'dono' || userRole === 'gerente' || userRole === 'admin_f5'
   }
 
-  async function handleDesativar(membro_id: string) {
+  async function handleConfirmarRemocao(membro_id: string) {
+    setConfirmandoId(null)
     setDesativando(membro_id)
     setErro(null)
     const res = await desativarMembro(membro_id)
@@ -83,7 +87,7 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
     if (res.ok) {
       setMembros(prev => prev.map(m => m.membro_id === membro_id ? { ...m, ativo: false } : m))
     } else {
-      setErro(res.erro ?? 'Erro ao desativar membro')
+      setErro(res.erro ?? 'Erro ao remover acesso')
     }
   }
 
@@ -195,16 +199,35 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                   >
                     Editar
                   </button>
-                  {m.ativo && (
+                  {m.ativo && confirmandoId === m.membro_id ? (
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Remover acesso deste membro? O histórico será preservado.</span>
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmarRemocao(m.membro_id)}
+                        disabled={desativando === m.membro_id}
+                        className="text-xs text-destructive font-medium hover:underline disabled:opacity-50"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoId(null)}
+                        className="text-xs text-muted-foreground hover:underline"
+                      >
+                        Cancelar
+                      </button>
+                    </span>
+                  ) : m.ativo ? (
                     <button
                       type="button"
-                      onClick={() => handleDesativar(m.membro_id)}
+                      onClick={() => setConfirmandoId(m.membro_id)}
                       disabled={desativando === m.membro_id}
                       className="text-xs text-destructive hover:underline disabled:opacity-50"
                     >
-                      {desativando === m.membro_id ? 'Desativando…' : 'Desativar'}
+                      {desativando === m.membro_id ? 'Removendo…' : 'Remover acesso'}
                     </button>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
@@ -283,19 +306,36 @@ export function TabelaEquipe({ membros: membrosIniciais, loja_id, podeEditar, us
                             Editar
                           </button>
                         )}
-                        {podeEditarMembro(m) && m.ativo && (
+                        {podeEditarMembro(m) && m.ativo && confirmandoId === m.membro_id ? (
+                          <span className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmarRemocao(m.membro_id)}
+                              disabled={desativando === m.membro_id}
+                              className="text-xs text-destructive font-medium hover:underline disabled:opacity-50"
+                            >
+                              Confirmar remoção
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmandoId(null)}
+                              className="text-xs text-muted-foreground hover:underline"
+                            >
+                              Cancelar
+                            </button>
+                          </span>
+                        ) : podeEditarMembro(m) && m.ativo ? (
                           <button
                             type="button"
-                            onClick={() => handleDesativar(m.membro_id)}
+                            onClick={() => setConfirmandoId(m.membro_id)}
                             disabled={desativando === m.membro_id}
                             className="text-xs text-destructive hover:underline disabled:opacity-50"
                           >
-                            {desativando === m.membro_id ? 'Desativando…' : 'Desativar'}
+                            {desativando === m.membro_id ? 'Removendo…' : 'Remover acesso'}
                           </button>
-                        )}
-                        {!podeEditarMembro(m) && (
+                        ) : !podeEditarMembro(m) ? (
                           <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        ) : null}
                       </div>
                     </td>
                   )}

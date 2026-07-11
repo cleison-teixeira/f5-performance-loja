@@ -20,7 +20,7 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
   // ── Dados ─────────────────────────────────────────────────────────────────
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
-  const [role, setRole] = useState<'dono' | 'gerente' | 'vendedora'>('vendedora')
+  const [role, setRole] = useState<'dono' | 'gerente' | 'lider' | 'vendedora'>('vendedora')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -147,10 +147,11 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="add-role">Função</label>
-            <select id="add-role" value={role} onChange={e => setRole(e.target.value as 'dono' | 'gerente' | 'vendedora')} className={inputCls}>
+            <select id="add-role" value={role} onChange={e => setRole(e.target.value as 'dono' | 'gerente' | 'lider' | 'vendedora')} className={inputCls}>
               <option value="vendedora">Vendedora</option>
+              <option value="lider">Líder</option>
               <option value="gerente">Gerente</option>
-              <option value="dono">Dono</option>
+              <option value="dono">Gestor(a)</option>
             </select>
           </div>
         </div>

@@ -19,10 +19,11 @@ const MAX_BYTES = 5 * 1024 * 1024
 
 const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
-const ROLES: { value: 'dono' | 'gerente' | 'vendedora'; label: string }[] = [
+const ROLES: { value: 'dono' | 'gerente' | 'lider' | 'vendedora'; label: string }[] = [
   { value: 'vendedora', label: 'Vendedora' },
+  { value: 'lider', label: 'Líder' },
   { value: 'gerente', label: 'Gerente' },
-  { value: 'dono', label: 'Dono' },
+  { value: 'dono', label: 'Gestor(a)' },
 ]
 
 function iniciais(nome: string): string {
@@ -33,7 +34,7 @@ export function FormEditarMembro({ membro, loja_id, onSalvo, onCancelar }: Props
   // ── Dados ────────────────────────────────────────────────────────────────────
   const [nome, setNome] = useState(membro.nome)
   const [telefone, setTelefone] = useState(membro.telefone)
-  const [role, setRole] = useState<'dono' | 'gerente' | 'vendedora'>(membro.role as 'dono' | 'gerente' | 'vendedora')
+  const [role, setRole] = useState<'dono' | 'gerente' | 'lider' | 'vendedora'>(membro.role as 'dono' | 'gerente' | 'lider' | 'vendedora')
   const [ativo, setAtivo] = useState(membro.ativo)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -189,7 +190,7 @@ export function FormEditarMembro({ membro, loja_id, onSalvo, onCancelar }: Props
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Função</label>
-            <select value={role} onChange={e => setRole(e.target.value as 'dono' | 'gerente' | 'vendedora')} className={inputCls}>
+            <select value={role} onChange={e => setRole(e.target.value as 'dono' | 'gerente' | 'lider' | 'vendedora')} className={inputCls}>
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>

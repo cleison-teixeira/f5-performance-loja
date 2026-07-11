@@ -49,7 +49,7 @@ export default async function ConfigEquipePage() {
 
   if (userRole === 'vendedora') redirect('/dashboard')
 
-  const podeEditar = ['gerente', 'dono', 'admin_f5'].includes(userRole)
+  const podeEditar = ['gerente', 'lider', 'dono', 'admin_f5'].includes(userRole)
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 

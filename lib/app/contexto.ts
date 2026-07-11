@@ -5,7 +5,7 @@ import { getMembrosAtivos, getContextoLoja, type ContextoLoja } from '@/lib/loja
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { measureAsync, startTimer } from '@/lib/performance/timing'
 
-const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, lider: 1, vendedora: 2 }
 
 export interface AppContext {
   user: { id: string; email: string | undefined }

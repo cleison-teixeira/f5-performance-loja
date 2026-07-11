@@ -3,6 +3,7 @@ export type PerfilProduto = 'acesso_loja' | 'acesso_multiloja' | 'admin_f5'
 const MAPA: Record<string, PerfilProduto> = {
   vendedora: 'acesso_loja',
   gerente: 'acesso_loja',
+  lider: 'acesso_loja',
   dono: 'acesso_multiloja',
   admin_f5: 'admin_f5',
 }

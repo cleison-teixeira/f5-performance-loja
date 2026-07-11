@@ -10,7 +10,7 @@ export async function addMembro(dados: {
   loja_id: string
   nome: string
   telefone: string
-  role: 'dono' | 'gerente' | 'vendedora'
+  role: 'dono' | 'gerente' | 'lider' | 'vendedora'
   comissao: number
   avatar_url?: string | null
   observacao_interna?: string | null
@@ -31,7 +31,7 @@ export async function addMembro(dados: {
       .eq('ativo', true)
       .single()
 
-    if (!callerMembro || !['gerente', 'dono', 'admin_f5'].includes(callerMembro.role as string)) {
+    if (!callerMembro || !['gerente', 'lider', 'dono', 'admin_f5'].includes(callerMembro.role as string)) {
       return { ok: false, erro: 'Sem permissão para adicionar membros a esta loja' }
     }
 
@@ -140,7 +140,7 @@ export async function editarMembro(dados: {
   perfil_id: string
   nome: string
   telefone: string
-  role: 'dono' | 'gerente' | 'vendedora'
+  role: 'dono' | 'gerente' | 'lider' | 'vendedora'
   ativo: boolean
   percentual_comissao?: number
   avatar_url?: string | null
@@ -163,7 +163,7 @@ export async function editarMembro(dados: {
       .single()
 
     const callerRole = callerMembro?.role as string | undefined
-    if (!callerRole || !['gerente', 'dono', 'admin_f5'].includes(callerRole)) {
+    if (!callerRole || !['gerente', 'lider', 'dono', 'admin_f5'].includes(callerRole)) {
       return { ok: false, erro: 'Sem permissão' }
     }
 
@@ -297,7 +297,7 @@ export async function atualizarAvatarMembro(dados: {
       .maybeSingle()
 
     const callerRole = callerMembro?.role as string | undefined
-    if (!callerRole || !['gerente', 'dono', 'admin_f5'].includes(callerRole)) {
+    if (!callerRole || !['gerente', 'lider', 'dono', 'admin_f5'].includes(callerRole)) {
       return { ok: false, erro: 'Sem permissão para alterar foto.' }
     }
 
