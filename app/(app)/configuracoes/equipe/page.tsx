@@ -94,8 +94,8 @@ export default async function ConfigEquipePage() {
     }
   }
 
-  // membros da equipe e regras não dependem um do outro — executar em paralelo
-  const [{ data: membros }, { data: regrasData }] = await Promise.all([
+  // membros, regras e dados da loja não dependem um do outro — executar em paralelo
+  const [{ data: membros }, { data: regrasData }, { data: lojaInfo }] = await Promise.all([
     admin
       .from('membros_loja')
       .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, observacao_interna, perfis(nome, whatsapp, avatar_url)')
@@ -106,29 +106,43 @@ export default async function ConfigEquipePage() {
       .select('vendedora_id, percentual')
       .eq('loja_id', loja_id)
       .eq('ativo', true),
+    admin
+      .from('lojas')
+      .select('nome, whatsapp, logo_url')
+      .eq('id', loja_id)
+      .single(),
   ])
   const comissaoPorId: Record<string, number> = Object.fromEntries(
     (regrasData ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
   )
 
+  // Nome canônico da loja para detectar a "conta loja" estrutural
+  const lojaCanonical = (lojaInfo?.nome ?? lojaNome).trim().toLowerCase()
+
   const membrosExibidos: MembroExibido[] = (membros ?? []).map(m => {
     const p = m.perfis as unknown as { nome: string; whatsapp: string | null; avatar_url?: string | null } | Array<{ nome: string; whatsapp: string | null; avatar_url?: string | null }>
     const perfil = Array.isArray(p) ? p[0] : p
+
+    // isContaLoja: perfil cujo nome coincide com o nome da loja (registro estrutural, não pessoa física)
+    // Não usar !perfil?.whatsapp pois contas loja podem ter whatsapp cadastrado
+    const isContaLoja = (m.role === 'dono') &&
+      (perfil?.nome ?? '').trim().toLowerCase() === lojaCanonical
+
     return {
       membro_id: m.id as string,
       perfil_id: m.perfil_id as string,
-      nome: perfil?.nome ?? '',
-      telefone: perfil?.whatsapp ?? '',
+      // Conta loja: espelha lojas.nome / lojas.whatsapp / lojas.logo_url
+      // Membro normal: usa dados do perfil
+      nome: isContaLoja ? (lojaInfo?.nome ?? perfil?.nome ?? '') : (perfil?.nome ?? ''),
+      telefone: isContaLoja ? (lojaInfo?.whatsapp ?? '') : (perfil?.whatsapp ?? ''),
+      avatar_url: isContaLoja ? ((lojaInfo?.logo_url as string | null) ?? null) : (perfil?.avatar_url ?? null),
       role: m.role as string,
       ativo: m.ativo as boolean,
       percentual_comissao: comissaoPorId[m.perfil_id as string] ?? 0,
       pin_ativo: (m.pin_ativo as boolean) ?? false,
       tem_pin_hash: !!(m.pin_hash),  // boolean only — never expose the hash
-      avatar_url: perfil?.avatar_url ?? null,
       observacao_interna: (m.observacao_interna as string | null) ?? null,
-      isContaLoja: (m.role === 'dono') &&
-        (perfil?.nome ?? '').trim().toLowerCase() === lojaNome.trim().toLowerCase() &&
-        !perfil?.whatsapp,
+      isContaLoja,
     }
   })
 
