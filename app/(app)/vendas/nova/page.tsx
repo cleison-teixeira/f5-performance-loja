@@ -66,8 +66,9 @@ export default async function NovaVendaPage() {
       .order('nome'),
     admin
       .from('membros_loja')
-      .select('perfil_id, perfis(id, nome)')
+      .select('perfil_id, role, perfis(id, nome)')
       .eq('loja_id', lojaId)
+      .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
       .eq('ativo', true),
     admin
       .from('comissao_fixa_produto')
@@ -137,14 +138,19 @@ export default async function NovaVendaPage() {
     regrasPorId[user.id] = regraLogada.percentual as number
   }
 
-  const vendedoras = (membrosVendedoras ?? []).map(m => {
+  const lojaCanonical = lojaNome.trim().toLowerCase()
+  const vendedoras = (membrosVendedoras ?? []).flatMap(m => {
     const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
     const perfisObj = Array.isArray(p) ? p[0] : p
-    return {
+    const nome = perfisObj?.nome ?? 'Vendedora sem nome'
+    const isContaLoja = (m as unknown as { role: string }).role === 'dono' &&
+      nome.trim().toLowerCase() === lojaCanonical
+    if (isContaLoja) return []
+    return [{
       id: m.perfil_id as string,
-      nome: perfisObj?.nome ?? 'Vendedora sem nome',
+      nome,
       percentual_comissao: regrasPorId[m.perfil_id as string] ?? 0,
-    }
+    }]
   })
 
   const fixasPorVendedoraProduto: Record<string, Record<string, number>> = {}

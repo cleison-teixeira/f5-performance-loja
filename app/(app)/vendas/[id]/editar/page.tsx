@@ -99,15 +99,20 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
   if (!isVendedora) {
     const { data: membros } = await supabase
       .from('membros_loja')
-      .select('perfil_id, perfis(nome)')
+      .select('perfil_id, role, perfis(nome)')
       .eq('loja_id', loja_id)
-      .eq('role', 'vendedora')
+      .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
       .eq('ativo', true)
 
-    vendedoras = (membros ?? []).map(m => {
+    const lojaCanonical = loja_nome.trim().toLowerCase()
+    vendedoras = (membros ?? []).flatMap(m => {
       const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }>
       const perfil = Array.isArray(p) ? p[0] : p
-      return { id: m.perfil_id as string, nome: perfil?.nome ?? 'Sem nome' }
+      const nome = perfil?.nome ?? 'Sem nome'
+      const isContaLoja = (m as unknown as { role: string }).role === 'dono' &&
+        nome.trim().toLowerCase() === lojaCanonical
+      if (isContaLoja) return []
+      return [{ id: m.perfil_id as string, nome }]
     })
   }
 
