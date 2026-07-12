@@ -206,7 +206,7 @@ export default async function DashboardPage() {
           clientes(nome, whatsapp),
           mensagens_produto(tipo),
           itens_venda(produto_nome, produto_id, subtotal),
-          vendas(valor)
+          vendas(valor, itens_venda(subtotal, recorrente))
         `)
         .in('loja_id', lojaIds)
         .or('status.in.(pendente,aberta,contato_feito,reagendada),and(status.eq.enviado,recompra_id.is.null)')
@@ -330,7 +330,15 @@ export default async function DashboardPage() {
     const cliente = a.clientes as unknown as { nome: string; whatsapp: string } | null
     const mensagem = a.mensagens_produto as unknown as { tipo: string } | null
     const itemVenda = a.itens_venda as unknown as { produto_nome: string; produto_id: string | null; subtotal: number | null } | null
-    const vendaRaw = (a as unknown as { vendas: { valor: number } | null }).vendas
+    const vendaRaw = (a as unknown as { vendas: { valor: number; itens_venda: Array<{ subtotal: number | null; recorrente: boolean }> | null } | null }).vendas
+
+    // Sum all recurring items in the venda — this is the correct "Dinheiro na mesa" value
+    // for mixed sales with multiple recurring products (e.g., 4 recurring items = sum of all 4)
+    const itensRecorrentes = (vendaRaw?.itens_venda ?? []).filter(i => i.recorrente)
+    const totalRecorrente = itensRecorrentes.length > 0
+      ? itensRecorrentes.reduce((s, i) => s + (i.subtotal ?? 0), 0)
+      : null
+
     return {
       id: a.id as string,
       data_aviso: a.data_aviso as string,
@@ -348,7 +356,7 @@ export default async function DashboardPage() {
       previsao_comissao: (a.previsao_comissao as number | null) ?? 0,
       valor_venda: vendaRaw?.valor ?? 0,
       produto_id: itemVenda?.produto_id ?? null,
-      valor_produto: itemVenda?.subtotal ?? 0,
+      valor_produto: totalRecorrente ?? itemVenda?.subtotal ?? 0,
     }
   })
 
