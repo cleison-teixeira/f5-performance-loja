@@ -58,11 +58,11 @@ export default async function ListaEsperaPage() {
     ctx.escopo === 'loja' && !isVendedora
       ? admin
           .from('membros_loja')
-          .select('perfil_id, perfis(id, nome)')
+          .select('perfil_id, role, perfis(id, nome)')
           .eq('loja_id', loja_id)
-          .eq('role', 'vendedora')
+          .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
           .eq('ativo', true)
-      : Promise.resolve({ data: [] as Array<{ perfil_id: unknown; perfis: unknown }> }),
+      : Promise.resolve({ data: [] as Array<{ perfil_id: unknown; role: unknown; perfis: unknown }> }),
     ctx.escopo === 'loja'
       ? admin
           .from('produtos')
@@ -120,12 +120,17 @@ export default async function ListaEsperaPage() {
     nao_contatar: clienteData?.nao_contatar ?? false,
   })})
 
+  const lojaCanonical = lojaNome.trim().toLowerCase()
   const vendedoras = isVendedora || ctx.escopo === 'rede'
     ? []
-    : (vendedorasRes.data ?? []).map(m => {
+    : (vendedorasRes.data ?? []).flatMap(m => {
         const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
         const perfil = Array.isArray(p) ? p[0] : p
-        return { id: m.perfil_id as string, nome: perfil?.nome ?? '—' }
+        const nome = perfil?.nome ?? '—'
+        const isContaLoja = (m as unknown as { role: string }).role === 'dono' &&
+          nome.trim().toLowerCase() === lojaCanonical
+        if (isContaLoja) return []
+        return [{ id: m.perfil_id as string, nome }]
       })
 
   const defaultVendedoraId = isVendedora
