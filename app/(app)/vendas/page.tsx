@@ -79,8 +79,9 @@ export default async function VendasPage() {
       ? Promise.resolve({ data: null })
       : admin
           .from('membros_loja')
-          .select('perfil_id, perfis(nome)')
+          .select('perfil_id, loja_id, role, perfis(nome)')
           .in('loja_id', ctx.lojaIds)
+          .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
           .eq('ativo', true),
   ]))
 
@@ -95,7 +96,14 @@ export default async function VendasPage() {
       seen.add(pid)
       const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }>
       const perfil = Array.isArray(p) ? p[0] : p
-      return [{ id: pid, nome: perfil?.nome ?? 'Sem nome' }]
+      const nome = perfil?.nome ?? 'Sem nome'
+      const memberRole = (m as unknown as { role: string }).role
+      const memberLojaId = (m as unknown as { loja_id: string }).loja_id
+      const lojaNome = lojaNomeMap.get(memberLojaId) ?? ''
+      const isContaLoja = memberRole === 'dono' &&
+        nome.trim().toLowerCase() === lojaNome.trim().toLowerCase()
+      if (isContaLoja) return []
+      return [{ id: pid, nome }]
     })
   }
 
