@@ -1,7 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const LEGACY_DOMAINS = new Set(['recway.com.br', 'www.recway.com.br'])
+const CANONICAL_ORIGIN = 'https://app.f5recompra.com.br'
+
 export async function middleware(request: NextRequest) {
+  // 301 redirect: recway.com.br → app.f5recompra.com.br (domain migration)
+  const host = request.headers.get('host') ?? ''
+  if (LEGACY_DOMAINS.has(host)) {
+    const target = new URL(CANONICAL_ORIGIN + request.nextUrl.pathname + request.nextUrl.search)
+    return NextResponse.redirect(target, { status: 301 })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
