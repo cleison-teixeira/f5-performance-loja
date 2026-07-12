@@ -184,8 +184,7 @@ export function DashboardDono({
       </div>
 
       {/* ══ 4. LISTA DE ESPERA ══ */}
-      {(listaEsperaInfo.potencialEmAberto > 0 || listaEsperaInfo.qtdAguardando > 0) && (
-        <div className="rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-5 shadow-sm">
+      <div className="rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center flex-none shadow-sm">
@@ -229,8 +228,7 @@ export function DashboardDono({
               <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Convertido</p>
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
       {/* ══ 5. RANKING DE RECUPERAÇÃO (full width) ══ */}
       <div className="rounded-2xl border bg-card shadow-sm p-5 flex flex-col gap-4">
