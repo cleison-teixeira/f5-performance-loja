@@ -18,7 +18,7 @@ interface TrainingItem {
   youtubeUrl?: string
 }
 
-const recwayItems: TrainingItem[] = [
+const treinamentoItems: TrainingItem[] = [
   {
     id: 'venda-rapida',
     title: 'Como usar o Registrar',
@@ -290,7 +290,7 @@ export default function TreinamentosPage() {
               subtitle="Fundamentos da plataforma para toda a equipe."
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {recwayItems.map(item => (
+              {treinamentoItems.map(item => (
                 <TrainingCard key={item.id} item={item} />
               ))}
             </div>
