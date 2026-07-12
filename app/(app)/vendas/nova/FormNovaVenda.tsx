@@ -88,10 +88,14 @@ export function FormNovaVenda({
   produtos,
   fixasPorVendedoraProduto,
 }: Props) {
+  const lojaCanonical = loja_nome.trim().toLowerCase()
+  const logadoEContaLoja = vendedora_logada_nome.trim().toLowerCase() === lojaCanonical
+  const safeVendedoraId = logadoEContaLoja ? (vendedoras[0]?.id ?? '') : vendedora_logada_id
+
   const [etapa, setEtapa] = useState<'form' | 'resumo'>('form')
   const [resumo, setResumo] = useState<ResumoData | null>(null)
 
-  const [vendedoraId, setVendedoraId] = useState<string>(vendedora_logada_id)
+  const [vendedoraId, setVendedoraId] = useState<string>(safeVendedoraId)
 
   function hojeLocal() {
     const d = new Date()
@@ -176,9 +180,11 @@ export function FormNovaVenda({
     }
   }
 
-  const todasVendedoras = vendedoras.some(v => v.id === vendedora_logada_id)
+  const todasVendedoras = logadoEContaLoja
     ? vendedoras
-    : [{ id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: 0 }, ...vendedoras]
+    : vendedoras.some(v => v.id === vendedora_logada_id)
+      ? vendedoras
+      : [{ id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: 0 }, ...vendedoras]
 
   const vendedoraSelecionada = todasVendedoras.find(v => v.id === vendedoraId)
     ?? { id: vendedora_logada_id, nome: vendedora_logada_nome, percentual_comissao: 0 }
@@ -275,7 +281,7 @@ export function FormNovaVenda({
     setDataCompra(hojeLocal())
     setItens([novoItem()])
     setErro('')
-    setVendedoraId(vendedora_logada_id)
+    setVendedoraId(safeVendedoraId)
   }
 
   if (etapa === 'resumo' && resumo) {
