@@ -32,14 +32,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   endLayout()
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar role={role} badgesMap={badgesMap} />
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header nomeUsuario={perfil?.nome ?? ''} role={role} notificacoes={notificacoes} userId={appCtx.user?.id} lojaLogoUrl={appCtx.lojaLogoUrl} />
         {isAcessoRede && ctx.lojas.length > 1 && (
           <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
         )}
-        <main className="flex-1 p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
           {children}
         </main>
       </div>
