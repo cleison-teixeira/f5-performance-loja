@@ -368,6 +368,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
                   href={linkWhatsApp}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={handleMarcarEnviado}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
                 >
                   <Send className="h-4 w-4 flex-none" />

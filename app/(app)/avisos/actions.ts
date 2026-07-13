@@ -17,6 +17,8 @@ export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; er
       .eq('id', aviso_id)
 
     if (error) return { ok: false, erro: error.message }
+    revalidatePath('/avisos')
+    revalidatePath('/relacionamento')
     return { ok: true }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
