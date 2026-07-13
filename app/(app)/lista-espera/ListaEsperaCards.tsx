@@ -8,6 +8,7 @@ import { atualizarStatusListaEspera, buscarMembrosAtivosLoja, type StatusListaEs
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
+import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import dynamic from 'next/dynamic'
 
@@ -296,7 +297,7 @@ function RegistroCard({
     <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold text-sm truncate">{registro.produto_nome}</p>
+          <p className="font-semibold text-sm truncate">{normalizarNomeProduto(registro.produto_nome)}</p>
           {registro.categoria_nome && (
             <p className="text-xs text-muted-foreground mt-0.5">{registro.categoria_nome}</p>
           )}
@@ -307,7 +308,7 @@ function RegistroCard({
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
         <div>
           <p className="text-muted-foreground">Cliente</p>
-          <p className="font-medium truncate">{registro.cliente_nome}</p>
+          <p className="font-medium truncate">{normalizarNomePessoa(registro.cliente_nome)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">WhatsApp</p>
@@ -511,7 +512,7 @@ export function ListaEsperaCards({
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold leading-snug line-clamp-2 flex-1">
-                    {g.produto_nome}
+                    {normalizarNomeProduto(g.produto_nome)}
                   </p>
                   {g.qtdAguardando > 0 && (
                     <span className="shrink-0 inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-medium">
@@ -569,7 +570,7 @@ export function ListaEsperaCards({
                   : 'border border-input bg-transparent text-foreground hover:bg-accent'
               }`}
             >
-              {g.produto_nome} ({g.qtdClientes})
+              {normalizarNomeProduto(g.produto_nome)} ({g.qtdClientes})
             </button>
           ))}
         </div>
