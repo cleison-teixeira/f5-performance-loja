@@ -253,9 +253,14 @@ export default function TreinamentosPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-semibold">Academia F5 Recompra</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">Academia F5 Recompra</h1>
+          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-800/40 dark:bg-amber-900/30 dark:text-amber-400">
+            Brinde
+          </span>
+        </div>
         <p className="text-sm text-muted-foreground">
-          Treinamentos para sua equipe vender mais, usar melhor a plataforma e aproveitar conteúdos de parceiros.
+          Conteúdos e treinamentos complementares para apoiar o uso do F5 Recompra.
         </p>
       </div>
 
