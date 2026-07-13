@@ -235,7 +235,7 @@ export function FormNovaVenda({
         comissionavel_recompra: item.comissionavel,
         quantidade: item.quantidade,
         preco_unitario: parseBRL(item.precoBRL),
-        ciclo_recompra_dias: item.recorrente ? item.ciclo_recompra_dias : null,
+        ciclo_recompra_dias: item.recorrente ? (item.ciclo_recompra_dias || 30) : null,
         modelo_fluxo: item.recorrente ? item.modelo_fluxo : null,
       })),
       vendedora_id: vendedoraId,
@@ -468,7 +468,12 @@ export function FormNovaVenda({
                         value={item.ciclo_recompra_dias || ''}
                         onChange={e => {
                           const val = parseInt(e.target.value.replace(/\D/g, ''), 10)
-                          atualizarItem(item.key, { ciclo_recompra_dias: isNaN(val) ? 1 : val })
+                          atualizarItem(item.key, { ciclo_recompra_dias: isNaN(val) ? 0 : val })
+                        }}
+                        onBlur={() => {
+                          if (!item.ciclo_recompra_dias || item.ciclo_recompra_dias < 1) {
+                            atualizarItem(item.key, { ciclo_recompra_dias: 30 })
+                          }
                         }}
                         className="w-16 px-2 py-1 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"
                         placeholder="Outro"
