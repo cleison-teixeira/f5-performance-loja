@@ -15,7 +15,7 @@ function hojeLocal() {
 }
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNome } from '@/lib/normalizar-nome'
-import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
+import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 
 interface Categoria {
   id: string
@@ -251,6 +251,7 @@ export function ListaEsperaForm({
               placeholder="Ex: Maria Silva"
               value={form.cliente_nome}
               onChange={e => set('cliente_nome', e.target.value)}
+              onBlur={e => set('cliente_nome', normalizarNomePessoa(e.target.value))}
             />
           </div>
         </div>
@@ -265,6 +266,7 @@ export function ListaEsperaForm({
             placeholder="Nome do produto que o cliente pediu"
             value={form.produto_nome}
             onChange={e => handleProdutoChange(e.target.value)}
+            onBlur={e => set('produto_nome', normalizarNomeProduto(e.target.value))}
           />
           {produtos.length > 0 && (
             <datalist id="lista-espera-produtos">

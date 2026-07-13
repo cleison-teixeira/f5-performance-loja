@@ -15,7 +15,7 @@ function hojeLocal() {
 }
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNome } from '@/lib/normalizar-nome'
-import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
+import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { STATUS_LABELS } from './StatusBadge'
 import type { RegistroListaEspera } from './ListaEsperaCards'
 
@@ -191,6 +191,7 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
             placeholder="Ex: Maria Silva"
             value={form.cliente_nome}
             onChange={e => set('cliente_nome', e.target.value)}
+            onBlur={e => set('cliente_nome', normalizarNomePessoa(e.target.value))}
           />
         </div>
       </div>
@@ -205,6 +206,7 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
           placeholder="Nome do produto"
           value={form.produto_nome}
           onChange={e => handleProdutoChange(e.target.value)}
+          onBlur={e => set('produto_nome', normalizarNomeProduto(e.target.value))}
         />
         {produtos.length > 0 && (
           <datalist id="edit-lista-espera-produtos">
