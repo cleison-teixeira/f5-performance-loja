@@ -106,6 +106,84 @@ export async function criarListaEspera(
   return { ok: true }
 }
 
+export interface ItemListaEspera {
+  produto_nome: string
+  categoria_id?: string
+  valor_potencial?: number | null
+  quantidade: number
+}
+
+export interface CriarListaEsperaMultiplosInput {
+  loja_id: string
+  cliente_nome: string
+  cliente_whatsapp: string
+  vendedora_id: string
+  data_registro: string
+  observacao?: string
+  itens: ItemListaEspera[]
+}
+
+export async function criarListaEsperaMultiplos(
+  input: CriarListaEsperaMultiplosInput
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Não autorizado.' }
+
+  const { data: membro } = await supabase
+    .from('membros_loja')
+    .select('role')
+    .eq('loja_id', input.loja_id)
+    .eq('perfil_id', user.id)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (!membro) return { ok: false, error: 'Você não pertence a esta loja.' }
+
+  const whatsappDigits = input.cliente_whatsapp.replace(/\D/g, '')
+  const clienteNomeNorm = normalizarNomePessoa(input.cliente_nome)
+
+  let clienteId: string | null = null
+  const { data: clienteData } = await supabase
+    .from('clientes')
+    .upsert(
+      { loja_id: input.loja_id, whatsapp: whatsappDigits, nome: clienteNomeNorm },
+      { onConflict: 'loja_id,whatsapp' }
+    )
+    .select('id')
+    .single()
+  clienteId = clienteData?.id ?? null
+
+  for (const item of input.itens) {
+    const produtoNomeNorm = normalizarNomeProduto(item.produto_nome)
+    let produtoId: string
+    try {
+      produtoId = await resolverProdutoId(produtoNomeNorm, input.loja_id)
+    } catch {
+      return { ok: false, error: `Não foi possível criar ou vincular o produto "${produtoNomeNorm}". Tente novamente.` }
+    }
+
+    const { error } = await supabase.from('lista_espera').insert({
+      loja_id: input.loja_id,
+      cliente_id: clienteId,
+      cliente_nome: clienteNomeNorm,
+      cliente_whatsapp: whatsappDigits,
+      produto_nome: produtoNomeNorm,
+      produto_id: produtoId,
+      categoria_id: item.categoria_id || null,
+      valor_potencial: item.valor_potencial ?? null,
+      quantidade: item.quantidade,
+      observacao: input.observacao?.trim() || null,
+      vendedora_id: input.vendedora_id,
+      data_registro: input.data_registro,
+      status: 'aguardando',
+    })
+    if (error) return { ok: false, error: error.message }
+  }
+
+  revalidatePath('/lista-espera')
+  return { ok: true }
+}
+
 export interface EditarListaEsperaInput {
   id: string
   loja_id: string
@@ -420,5 +498,6 @@ export async function atualizarStatusListaEspera(
     .update(updatePayload)
     .eq('id', id)
   if (error) return { ok: false, error: error.message }
+  revalidatePath('/lista-espera')
   return { ok: true }
 }

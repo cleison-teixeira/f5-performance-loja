@@ -33,6 +33,13 @@ interface Props {
 const inputClass =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
+function formatarValorBRL(raw: string): string {
+  if (!raw.trim()) return raw
+  const num = parseFloat(raw.replace(/\./g, '').replace(',', '.'))
+  if (isNaN(num)) return raw
+  return num.toFixed(2).replace('.', ',')
+}
+
 function encontrarSimilar(query: string, produtos: Produto[]): Produto | null {
   const normQ = normalizarNome(query)
   if (normQ.length < 3) return null
@@ -268,8 +275,10 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
         <input
           className={inputClass}
           placeholder="0,00"
+          inputMode="decimal"
           value={form.valor_potencial}
           onChange={e => set('valor_potencial', e.target.value)}
+          onBlur={e => set('valor_potencial', formatarValorBRL(e.target.value))}
         />
       </div>
 

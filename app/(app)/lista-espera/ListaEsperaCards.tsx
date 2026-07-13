@@ -239,6 +239,10 @@ function RegistroCard({
   const [statusTemp, setStatusTemp] = useState<string>(registro.status)
 
   useEffect(() => {
+    setStatusTemp(registro.status)
+  }, [registro.status])
+
+  useEffect(() => {
     if (statusTemp === 'convertido' && registro.status !== 'convertido' && membros.length === 0) {
       buscarMembrosAtivosLoja(registro.loja_id).then(res => {
         setMembros(res)
