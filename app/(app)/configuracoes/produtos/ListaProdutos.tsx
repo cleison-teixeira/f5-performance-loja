@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { salvarProduto, salvarMensagens, desativarProduto } from './actions'
+import { normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { UploadFotoProduto } from '@/components/ui/upload-foto-produto'
 import { ORDENS_POR_MODELO, MODELO_OPTIONS } from '@/lib/mensagens/modelos'
 import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP, getTextosParaEstiloEIncentivo } from '@/lib/mensagens/templates_padrao'
@@ -88,7 +89,7 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
     msgReferencia?.desconto_percentual != null ? String(msgReferencia.desconto_percentual) : ''
   )
   const [descontoValor, setDescontoValor] = useState<string>(
-    msgReferencia?.desconto_valor != null ? String(msgReferencia.desconto_valor) : ''
+    msgReferencia?.desconto_valor != null ? msgReferencia.desconto_valor.toFixed(2).replace('.', ',') : ''
   )
   const [beneficioTexto, setBeneficioTexto] = useState<string>(msgReferencia?.beneficio_texto ?? '')
   const [validadeOferta, setValidadeOferta] = useState<string>(msgReferencia?.validade_oferta ?? '')
@@ -250,6 +251,7 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
             autoFocus
             value={nome}
             onChange={e => setNome(e.target.value)}
+            onBlur={e => setNome(normalizarNomeProduto(e.target.value))}
             className={inputClass}
             placeholder="Nome do produto"
           />
@@ -491,6 +493,10 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
                         type="text"
                         value={descontoValor}
                         onChange={e => setDescontoValor(e.target.value)}
+                        onBlur={e => {
+                          const n = parseBRL(e.target.value)
+                          if (n !== null) setDescontoValor(n.toFixed(2).replace('.', ','))
+                        }}
                         placeholder="15,00"
                         className={inputClass}
                       />

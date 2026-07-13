@@ -5,7 +5,7 @@ import { buscarCliente, salvarVenda } from './actions'
 import { ResumoVenda } from './ResumoVenda'
 import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
-import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
+import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff } from 'lucide-react'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
@@ -72,6 +72,13 @@ function parseBRL(raw: string): number {
   return parseFloat(raw.replace(/\./g, '').replace(',', '.'))
 }
 
+function formatarValorBRL(raw: string): string {
+  if (!raw.trim()) return raw
+  const num = parseFloat(raw.replace(/\./g, '').replace(',', '.'))
+  if (isNaN(num)) return raw
+  return num.toFixed(2).replace('.', ',')
+}
+
 function novoItem(): ItemFormState {
   return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30, qtd_mensagens: 5, modelo_fluxo: 'modelo_5_follow_up' }
 }
@@ -86,7 +93,7 @@ export function FormNovaVenda({
   vendedora_logada_nome,
   vendedoras,
   produtos,
-  fixasPorVendedoraProduto,
+  fixasPorVendedoraProduto: _fixasPorVendedoraProduto,
 }: Props) {
   const lojaCanonical = loja_nome.trim().toLowerCase()
   const logadoEContaLoja = vendedora_logada_nome.trim().toLowerCase() === lojaCanonical
@@ -173,13 +180,6 @@ export function FormNovaVenda({
     }))
   }
 
-  function handlePrecoBlur(key: string, raw: string) {
-    const num = parseBRL(raw)
-    if (!isNaN(num) && num > 0) {
-      atualizarItem(key, { precoBRL: num.toFixed(2).replace('.', ',') })
-    }
-  }
-
   const todasVendedoras = logadoEContaLoja
     ? vendedoras
     : vendedoras.some(v => v.id === vendedora_logada_id)
@@ -194,21 +194,11 @@ export function FormNovaVenda({
     return acc + (isNaN(preco) ? 0 : preco * item.quantidade)
   }, 0)
 
-  // Previsão de comissão com lógica de prioridade (produto fixo > percentual padrão)
-  const fixasVendedora = fixasPorVendedoraProduto[vendedoraId] ?? {}
-  let previsaoFixa = 0
-  let previsaoBaseSemFixo = 0
-  for (const item of itens) {
-    if (!item.recorrente || !item.comissionavel) continue
+  const previsaoBase = itens.reduce((acc, item) => {
+    if (!item.recorrente) return acc
     const preco = parseBRL(item.precoBRL)
-    if (isNaN(preco) || preco <= 0) continue
-    const produtoFixo = item.produtoId ? fixasVendedora[item.produtoId] : undefined
-    if (produtoFixo != null) {
-      previsaoFixa += produtoFixo
-    } else {
-      previsaoBaseSemFixo += preco * item.quantidade
-    }
-  }
+    return acc + (isNaN(preco) || preco <= 0 ? 0 : preco * item.quantidade)
+  }, 0)
   const digits = normalizarWhatsapp(whatsapp)
   const itensValidos = itens.every(item => {
     const preco = parseBRL(item.precoBRL)
@@ -240,7 +230,7 @@ export function FormNovaVenda({
       data_compra: dataCompra,
       itens: itens.map(item => ({
         produto_id: item.produtoId === '' ? null : item.produtoId,
-        produto_nome: item.produtoNome.trim(),
+        produto_nome: normalizarNomeProduto(item.produtoNome.trim()),
         recorrente: item.recorrente,
         comissionavel_recompra: item.comissionavel,
         quantidade: item.quantidade,
@@ -411,13 +401,21 @@ export function FormNovaVenda({
                 </div>
               )}
 
-              <ProdutoSearchInput
-                produtos={produtos}
-                nome={item.produtoNome}
-                produtoId={item.produtoId}
-                onSelect={resultado => handleProdutoSelect(item.key, resultado)}
-                inputClass={inputClass}
-              />
+              <div
+                onBlur={e => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !item.produtoId && item.produtoNome.trim()) {
+                    atualizarItem(item.key, { produtoNome: normalizarNomeProduto(item.produtoNome) })
+                  }
+                }}
+              >
+                <ProdutoSearchInput
+                  produtos={produtos}
+                  nome={item.produtoNome}
+                  produtoId={item.produtoId}
+                  onSelect={resultado => handleProdutoSelect(item.key, resultado)}
+                  inputClass={inputClass}
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -438,7 +436,7 @@ export function FormNovaVenda({
                     placeholder="0,00"
                     value={item.precoBRL}
                     onChange={e => atualizarItem(item.key, { precoBRL: e.target.value })}
-                    onBlur={() => handlePrecoBlur(item.key, item.precoBRL)}
+                    onBlur={e => atualizarItem(item.key, { precoBRL: formatarValorBRL(e.target.value) })}
                     className={inputClass}
                   />
                 </div>
@@ -574,10 +572,10 @@ export function FormNovaVenda({
               <span className="text-muted-foreground">Total da venda</span>
               <span className="font-semibold">{formatarBRL(valorTotal)}</span>
             </div>
-            {previsaoBaseSemFixo > 0 && (previsaoBaseSemFixo + previsaoFixa) < valorTotal && (
+            {previsaoBase > 0 && (
               <div className="text-sm flex justify-between items-center">
                 <span className="text-muted-foreground">Base prevista de recompra</span>
-                <span className="font-medium">{formatarBRL(previsaoBaseSemFixo + previsaoFixa)}</span>
+                <span className="font-medium">{formatarBRL(previsaoBase)}</span>
               </div>
             )}
           </div>

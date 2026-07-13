@@ -45,6 +45,13 @@ function toBRL(v: number): string {
   return v.toFixed(2).replace('.', ',')
 }
 
+function formatarValorBRL(raw: string): string {
+  if (!raw.trim()) return raw
+  const num = parseFloat(raw.replace(/\./g, '').replace(',', '.'))
+  if (isNaN(num)) return raw
+  return num.toFixed(2).replace('.', ',')
+}
+
 function formatarBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -118,13 +125,6 @@ export function FormEditarVenda({
       })
     } else {
       atualizarItem(key, { produto_id: '', produto_nome: '', precoBRL: '', recorrente: true })
-    }
-  }
-
-  function handlePrecoBlur(key: string, raw: string) {
-    const num = parseBRL(raw)
-    if (!isNaN(num) && num > 0) {
-      atualizarItem(key, { precoBRL: toBRL(num) })
     }
   }
 
@@ -300,7 +300,7 @@ export function FormEditarVenda({
                     placeholder="0,00"
                     value={item.precoBRL}
                     onChange={e => atualizarItem(item.key, { precoBRL: e.target.value })}
-                    onBlur={() => handlePrecoBlur(item.key, item.precoBRL)}
+                    onBlur={e => atualizarItem(item.key, { precoBRL: formatarValorBRL(e.target.value) })}
                     className={inputClass}
                   />
                 </div>
