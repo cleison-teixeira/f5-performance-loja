@@ -15,6 +15,7 @@ function hojeLocal() {
 }
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNome } from '@/lib/normalizar-nome'
+import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
 
 interface Categoria {
   id: string
@@ -102,7 +103,7 @@ export function ListaEsperaForm({
     startBuscaTransition(async () => {
       const cliente = await buscarClienteListaEspera(digits, loja_id)
       if (cliente) {
-        setForm(f => ({ ...f, cliente_nome: cliente.nome }))
+        setForm(f => ({ ...f, cliente_nome: normalizarNomePessoa(cliente.nome) }))
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps

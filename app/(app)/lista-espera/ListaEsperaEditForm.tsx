@@ -15,6 +15,7 @@ function hojeLocal() {
 }
 import { formatarWhatsapp, normalizarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNome } from '@/lib/normalizar-nome'
+import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
 import { STATUS_LABELS } from './StatusBadge'
 import type { RegistroListaEspera } from './ListaEsperaCards'
 
@@ -79,7 +80,7 @@ export function ListaEsperaEditForm({ registro, vendedoras, produtos, onClose, o
     if (digits === original) return // no change
     startBuscaTransition(async () => {
       const cliente = await buscarClienteListaEspera(digits, registro.loja_id)
-      if (cliente) setForm(f => ({ ...f, cliente_nome: cliente.nome }))
+      if (cliente) setForm(f => ({ ...f, cliente_nome: normalizarNomePessoa(cliente.nome) }))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.cliente_whatsapp])

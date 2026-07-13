@@ -8,6 +8,7 @@ import { measureAsync } from '@/lib/performance/timing'
 import { ListaEsperaForm } from './ListaEsperaForm'
 import { ListaEsperaPageClient } from './ListaEsperaPageClient'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
+import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -101,9 +102,9 @@ export default async function ListaEsperaPage() {
     return ({
     id: r.id as string,
     loja_id: r.loja_id as string,
-    cliente_nome: r.cliente_nome as string,
+    cliente_nome: normalizarNomePessoa(r.cliente_nome as string),
     cliente_whatsapp: r.cliente_whatsapp as string,
-    produto_nome: r.produto_nome as string,
+    produto_nome: normalizarNomeProduto(r.produto_nome as string),
     produto_id: r.produto_id as string | null,
     categoria_nome:
       (r.categoria_id ? categoriaMap[r.categoria_id as string] : null) ??
