@@ -161,7 +161,7 @@ export function FormNovaVenda({
         return { ...item, produtoId: '', produtoNome: '', precoBRL: '' }
       }
       if (resultado.id) {
-        const defaultQtd = resultado.qtd_mensagens ?? 5
+        const defaultQtd = 5
         return {
           ...item,
           produtoId: resultado.id,
