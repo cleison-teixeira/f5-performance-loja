@@ -105,7 +105,7 @@ interface SecaoProps {
   icone: ReactNode
   valorPotencial: number
   onMarcado: (id: string, fecharOppKey?: string) => void
-  onReagendado: (vendaId: string, novaData: string) => void
+  onReagendado: (vendaId: string, novaData: string, observacao?: string) => void
   onGrupoMarcado: (venda_id: string) => void
   onGrupoReagendado: (venda_id: string, novaData: string) => void
   catalogo: CatalogoProduto[]
@@ -291,10 +291,10 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
     router.refresh()
   }
 
-  function handleReagendado(key: string, novaData: string) {
+  function handleReagendado(key: string, novaData: string, observacao?: string) {
     setLista(prev => prev.map(a =>
       oppKey(a) === key
-        ? { ...a, data_aviso: novaData, status: 'reagendada' as AvisoDetalhado['status'], atrasado: novaData < hoje }
+        ? { ...a, data_aviso: novaData, status: 'reagendada' as AvisoDetalhado['status'], atrasado: novaData < hoje, observacao_resultado: observacao ?? a.observacao_resultado }
         : a
     ))
     router.refresh()

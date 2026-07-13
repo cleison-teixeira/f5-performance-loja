@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
@@ -455,6 +456,7 @@ export async function reagendarOportunidade(dados: {
       .in('id', ids)
 
     if (error) return { ok: false, erro: error.message }
+    revalidatePath('/avisos')
     return { ok: true }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }

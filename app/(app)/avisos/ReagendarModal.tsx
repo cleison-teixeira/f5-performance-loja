@@ -7,7 +7,7 @@ import type { AvisoDetalhado } from './types'
 
 interface Props {
   aviso: AvisoDetalhado
-  onSucesso: (novaData: string) => void
+  onSucesso: (novaData: string, observacao?: string) => void
   onFechar: () => void
 }
 
@@ -43,7 +43,7 @@ export function ReagendarModal({ aviso, onSucesso, onFechar }: Props) {
     })
     setLoading(false)
     if (res.ok) {
-      onSucesso(novaData)
+      onSucesso(novaData, observacao.trim() || undefined)
     } else {
       setErro(res.erro ?? 'Erro ao reagendar')
     }

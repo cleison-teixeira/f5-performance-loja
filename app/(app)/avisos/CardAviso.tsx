@@ -27,7 +27,7 @@ import type { VendedoraLoja } from './AvisosLista'
 interface CardAvisoProps {
   aviso: AvisoDetalhado
   onMarcado: (id: string, fecharOppKey?: string) => void
-  onReagendado: (oppKey: string, novaData: string) => void
+  onReagendado: (oppKey: string, novaData: string, observacao?: string) => void
   catalogo: CatalogoProduto[]
   percentualComissao: number
   vendedorasLoja?: VendedoraLoja[]
@@ -479,7 +479,7 @@ export function CardAviso({ aviso, onMarcado, onReagendado, catalogo, percentual
       {modalReagendar && (
         <ReagendarModal
           aviso={aviso}
-          onSucesso={(novaData) => { setModalReagendar(false); onReagendado(oppKey, novaData) }}
+          onSucesso={(novaData, observacao) => { setModalReagendar(false); onReagendado(oppKey, novaData, observacao) }}
           onFechar={() => setModalReagendar(false)}
         />
       )}
