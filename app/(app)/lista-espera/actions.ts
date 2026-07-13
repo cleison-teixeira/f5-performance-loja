@@ -31,8 +31,8 @@ export async function buscarClienteListaEspera(
 
 async function resolverProdutoId(produtoNome: string, lojaId: string): Promise<string> {
   const { id } = await resolverOuCriarProduto(produtoNome, lojaId, {
-    recorrente: false,
-    comissionavel_recompra: false,
+    recorrente: true,
+    comissionavel_recompra: true,
   })
   return id
 }
@@ -368,8 +368,8 @@ async function processarConversaoVenda(
   if (!finalProdutoId) {
     try {
       const info = await resolverOuCriarProduto(produto_nome, loja_id, {
-        recorrente: false,
-        comissionavel_recompra: false,
+        recorrente: true,
+        comissionavel_recompra: true,
       })
       finalProdutoId = info.id
     } catch {
@@ -400,8 +400,8 @@ async function processarConversaoVenda(
     venda_id: newVendaId,
     produto_id: finalProdutoId,
     produto_nome: produto_nome,
-    recorrente: false,
-    comissionavel: false,
+    recorrente: true,
+    comissionavel: true,
     quantidade,
     valor_unitario: valPot,
     subtotal: valorTotal,

@@ -602,12 +602,13 @@ function FormProduto({ loja_id, lojaNichos, produto, onSucesso, onCancelar }: Fo
           ))}
           
           <input
-            type="number"
-            min="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             disabled={!recorrente}
             value={ciclo === 0 ? '' : ciclo}
             onChange={e => {
-              const val = parseInt(e.target.value, 10);
+              const val = parseInt(e.target.value.replace(/\D/g, ''), 10);
               setCiclo(isNaN(val) ? 0 : val);
             }}
             className={`w-24 px-3 py-1.5 text-sm rounded-md border focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none transition-colors ${
@@ -714,11 +715,11 @@ function FormMensagens({ produto_id, mensagensIniciais, qtdMensagens, onSucesso,
             <div className="flex items-center gap-1.5">
               <label className="text-xs text-muted-foreground">Dia</label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={0}
+                pattern="[0-9]*"
                 value={m.dias_apos_venda}
-                onChange={e => atualizar(m.ordem, 'dias_apos_venda', parseInt(e.target.value) || 0)}
+                onChange={e => atualizar(m.ordem, 'dias_apos_venda', parseInt(e.target.value.replace(/\D/g, '')) || 0)}
                 className="w-16 rounded border border-input bg-background px-2 py-1 text-base md:text-xs text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>

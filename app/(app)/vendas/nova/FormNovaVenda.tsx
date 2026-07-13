@@ -169,7 +169,7 @@ export function FormNovaVenda({
           precoBRL: resultado.preco_sugerido != null
             ? resultado.preco_sugerido.toFixed(2).replace('.', ',')
             : item.precoBRL,
-          recorrente: resultado.recorrente ?? item.recorrente,
+          recorrente: true,
           comissionavel: resultado.comissionavel_recompra ?? item.comissionavel,
           ciclo_recompra_dias: resultado.ciclo_padrao ?? item.ciclo_recompra_dias,
           qtd_mensagens: defaultQtd,
@@ -462,11 +462,12 @@ export function FormNovaVenda({
                         </button>
                       ))}
                       <input
-                        type="number"
-                        min="1"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={item.ciclo_recompra_dias || ''}
                         onChange={e => {
-                          const val = parseInt(e.target.value, 10)
+                          const val = parseInt(e.target.value.replace(/\D/g, ''), 10)
                           atualizarItem(item.key, { ciclo_recompra_dias: isNaN(val) ? 1 : val })
                         }}
                         className="w-16 px-2 py-1 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"

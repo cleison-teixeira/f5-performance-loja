@@ -1,6 +1,7 @@
 const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o', 'para', 'com'])
 
 const SIGLAS_PRODUTO: Record<string, string> = {
+  nac: 'NAC',
   dux: 'DUX',
   bcaa: 'BCAA',
   dha: 'DHA',
@@ -34,6 +35,10 @@ export function normalizarNomeProduto(input: string): string {
   return palavras
     .map((palavra, i) => {
       if (!palavra) return ''
+      // Preserva palavras que o usuário digitou toda em maiúsculo (ex: NAC, BCAA, EPA)
+      if (palavra.length > 1 && palavra === palavra.toUpperCase() && /[A-Za-z]/.test(palavra)) {
+        return palavra
+      }
       const lower = palavra.toLowerCase()
       if (SIGLAS_PRODUTO[lower]) return SIGLAS_PRODUTO[lower]
       if (i > 0 && i < palavras.length - 1 && CONECTORES.has(lower)) return lower
