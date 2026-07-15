@@ -94,8 +94,8 @@ export function DashboardVendedora({
         ind1Valor={fmt(totalRecomprasValorMes)}
         ind2Label="Oportunidades"
         ind2Valor={String(totalHoje)}
-        ind3Label="Próx. 7 dias"
-        ind3Valor={fmt(dinheiroMesaInfo.potencial7Dias)}
+        ind3Label="Ticket médio"
+        ind3Valor={fmt(dinheiroMesaInfo.qtdOportunidades > 0 ? dinheiroMesaInfo.totalPotencial / dinheiroMesaInfo.qtdOportunidades : 0)}
         ctaLabel="Ver meus avisos"
         ctaHref="/avisos"
       />

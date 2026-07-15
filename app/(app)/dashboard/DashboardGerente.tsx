@@ -62,7 +62,8 @@ export function DashboardGerente({
   qtdRecomprasMes,
   taxaConversao,
 }: Props) {
-  const { totalPotencial, qtdOportunidades, potencial7Dias, qtdClientes7Dias } = dinheiroMesaInfo
+  const { totalPotencial, qtdOportunidades, qtdClientes7Dias } = dinheiroMesaInfo
+  const ticketMedioRecompra = qtdOportunidades > 0 ? totalPotencial / qtdOportunidades : 0
 
   return (
     <div className="space-y-5 pb-10">
@@ -90,8 +91,8 @@ export function DashboardGerente({
         subtexto="em recompras no radar nos próximos 90 dias"
         ind1Label="Oportunidades"
         ind1Valor={String(qtdOportunidades)}
-        ind2Label="Próx. 7 dias"
-        ind2Valor={fmt(potencial7Dias)}
+        ind2Label="Ticket médio"
+        ind2Valor={fmt(ticketMedioRecompra)}
         ind3Label="Clientes vencendo"
         ind3Valor={String(qtdClientes7Dias)}
         ctaLabel="Ver fila de recompra"
