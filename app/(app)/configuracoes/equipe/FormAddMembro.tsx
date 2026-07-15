@@ -148,7 +148,7 @@ export function FormAddMembro({ loja_id, onSucesso, onCancelar }: Props) {
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="add-role">Função</label>
             <select id="add-role" value={role} onChange={e => setRole(e.target.value as 'dono' | 'gerente' | 'lider' | 'vendedora')} className={inputCls}>
-              <option value="vendedora">Vendedora</option>
+              <option value="vendedora">Vendedor(a)</option>
               <option value="lider">Líder</option>
               <option value="gerente">Gerente</option>
               <option value="dono">Gestor(a)</option>

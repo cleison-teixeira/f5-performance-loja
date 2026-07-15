@@ -20,7 +20,7 @@ const MAX_BYTES = 5 * 1024 * 1024
 const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
 const ROLES: { value: 'dono' | 'gerente' | 'lider' | 'vendedora'; label: string }[] = [
-  { value: 'vendedora', label: 'Vendedora' },
+  { value: 'vendedora', label: 'Vendedor(a)' },
   { value: 'lider', label: 'Líder' },
   { value: 'gerente', label: 'Gerente' },
   { value: 'dono', label: 'Gestor(a)' },

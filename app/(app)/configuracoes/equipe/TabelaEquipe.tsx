@@ -55,7 +55,7 @@ const roleLabel: Record<string, string> = {
   dono: 'Gestor(a)',
   lider: 'Líder',
   gerente: 'Gerente',
-  vendedora: 'Vendedora',
+  vendedora: 'Vendedor(a)',
   admin_f5: 'Admin F5',
   loja_conta: 'Loja',
 }
