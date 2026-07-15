@@ -41,6 +41,7 @@ interface ItemForm {
   quantidade: string
   produtoExiste: boolean | null
   sugestaoCatalogo: Produto | null
+  recorrente: boolean
 }
 
 interface Props {
@@ -89,6 +90,7 @@ function novoItem(): ItemForm {
     quantidade: '1',
     produtoExiste: null,
     sugestaoCatalogo: null,
+    recorrente: true,
   }
 }
 
@@ -208,6 +210,7 @@ export function ListaEsperaForm({
             categoria_id: item.categoria_id || undefined,
             valor_potencial: isNaN(v) ? null : v,
             quantidade: Math.max(1, parseInt(item.quantidade) || 1),
+            recorrente: item.recorrente,
           }
         }),
       })
@@ -411,6 +414,16 @@ export function ListaEsperaForm({
                   />
                 </div>
               </div>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={item.recorrente}
+                  onChange={e => updateItem(item.key, { recorrente: e.target.checked })}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-xs text-muted-foreground">Gerar recompra ao converter</span>
+              </label>
             </div>
           ))}
 

@@ -46,7 +46,7 @@ export default async function ListaEsperaPage() {
   const [registrosRes, categoriasRes, vendedorasRes, produtosRes, lojaEmailRes] = await measureAsync('lista-espera:queries', () => Promise.all([
     admin
       .from('lista_espera')
-      .select('id, cliente_id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id, clientes(nao_contatar)')
+      .select('id, cliente_id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id, grupo_pedido_id, recorrente, ciclo_recompra_dias, qtd_mensagens, clientes(nao_contatar)')
       .in('loja_id', ctx.lojaIds)
       .order('criado_em', { ascending: false }),
     ctx.escopo === 'loja'
@@ -125,6 +125,10 @@ export default async function ListaEsperaPage() {
     criado_em: r.criado_em as string,
     data_registro: (r as unknown as { data_registro: string | null }).data_registro ?? null,
     vendedora_id: r.vendedora_id as string | null,
+    grupo_pedido_id: (r as unknown as { grupo_pedido_id: string | null }).grupo_pedido_id ?? null,
+    recorrente: (r as unknown as { recorrente: boolean | null }).recorrente ?? true,
+    ciclo_recompra_dias: (r as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? 30,
+    qtd_mensagens: (r as unknown as { qtd_mensagens: number | null }).qtd_mensagens ?? 5,
     vendedora_nome: nomeMap[r.vendedora_id as string] ?? '—',
     loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
     nao_contatar: clienteData?.nao_contatar ?? false,

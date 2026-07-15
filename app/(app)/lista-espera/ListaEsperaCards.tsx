@@ -2,9 +2,14 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Pencil, Send, ClipboardList, ShieldOff } from 'lucide-react'
+import { Copy, Check, Pencil, Send, ClipboardList, ShieldOff, Package } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { atualizarStatusListaEspera, buscarMembrosAtivosLoja, type StatusListaEspera } from './actions'
+import {
+  atualizarStatusListaEspera,
+  atualizarStatusGrupoListaEspera,
+  buscarMembrosAtivosLoja,
+  type StatusListaEspera,
+} from './actions'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 import { StatusBadge, STATUS_LABELS } from './StatusBadge'
 import { normalizarNome } from '@/lib/normalizar-nome'
@@ -35,7 +40,13 @@ export interface RegistroListaEspera {
   vendedora_nome?: string
   loja_nome?: string
   nao_contatar?: boolean
+  grupo_pedido_id?: string | null
+  recorrente?: boolean
+  ciclo_recompra_dias?: number | null
+  qtd_mensagens?: number | null
 }
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type GrupoProduto = {
   key: string
@@ -50,8 +61,31 @@ type GrupoProduto = {
   lojas: string[]
 }
 
+type GrupoPedido = {
+  chave: string
+  grupo_pedido_id: string | null
+  loja_id: string
+  cliente_nome: string
+  cliente_whatsapp: string
+  vendedora_id: string | null
+  vendedora_nome: string
+  loja_nome?: string
+  data_registro: string | null
+  nao_contatar: boolean
+  itens: RegistroListaEspera[]
+  statusPrincipal: string
+  valorTotal: number
+}
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
 const ABERTO = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
 const COM_MENSAGEM = new Set(['aguardando', 'encontrado_outra_loja', 'avisado'])
+const STATUS_PRIORITY: Record<string, number> = {
+  aguardando: 0, encontrado_outra_loja: 1, avisado: 2, convertido: 3, perdido: 4,
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtData(iso: string) {
   const date = iso.includes('T') ? iso.split('T')[0] : iso
@@ -63,27 +97,39 @@ function fmtValor(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function gerarMensagem(registro: RegistroListaEspera, defaultLojaNome: string): string {
-  const vendedora = (registro.vendedora_nome && registro.vendedora_nome !== '—')
-    ? registro.vendedora_nome
-    : 'nossa equipe'
-  const loja = registro.loja_nome || defaultLojaNome
-  return `Oi ${registro.cliente_nome}, tudo bem? Aqui é ${vendedora} da ${loja}. O produto que você tinha pedido chegou: ${registro.produto_nome}. Consegui separar para você. Quer que eu deixe reservado até o fim do dia?`
+function gerarMensagemGrupo(grupo: GrupoPedido, defaultLojaNome: string): string {
+  const vendedora = grupo.vendedora_nome !== '—' ? grupo.vendedora_nome : 'nossa equipe'
+  const loja = grupo.loja_nome || defaultLojaNome
+  const primeiroNome = grupo.cliente_nome.split(' ')[0]
+
+  if (grupo.itens.length === 1) {
+    const item = grupo.itens[0]
+    return `Oi ${primeiroNome}, tudo bem? Aqui é ${vendedora} da ${loja}. O produto que você tinha pedido chegou: ${normalizarNomeProduto(item.produto_nome)}. Consegui separar para você. Quer que eu deixe reservado até o fim do dia?`
+  }
+
+  const listaProdutos = grupo.itens
+    .map(i => `- ${normalizarNomeProduto(i.produto_nome)}`)
+    .join('\n')
+  return `Oi ${primeiroNome}, tudo bem? Aqui é ${vendedora} da ${loja}.\nOs produtos que você tinha pedido chegaram:\n${listaProdutos}\n\nConsegui separar para você. Quer que eu deixe reservado até o fim do dia?`
 }
 
 const selectClass =
   'rounded-md border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
+// ─── MensagemSugerida ─────────────────────────────────────────────────────────
+
 function MensagemSugerida({
   mensagem,
   whatsapp,
-  itemId,
+  itemIds,
+  lojaId,
   status,
   naoContatar,
 }: {
   mensagem: string
   whatsapp: string
-  itemId: string
+  itemIds: string[]
+  lojaId: string
   status: string
   naoContatar?: boolean
 }) {
@@ -103,11 +149,6 @@ function MensagemSugerida({
     }).catch(() => {})
   }
 
-  function handleAbrirEdicao() {
-    setRascunho(textoAtual)
-    setEditando(true)
-  }
-
   function handleSalvarEdicao() {
     setTextoAtual(rascunho)
     setEditando(false)
@@ -117,7 +158,7 @@ function MensagemSugerida({
     window.open(linkWhatsApp, '_blank')
     if (status !== 'avisado') {
       startTransition(async () => {
-        await atualizarStatusListaEspera(itemId, 'avisado')
+        await atualizarStatusGrupoListaEspera(itemIds, 'avisado', lojaId)
         router.refresh()
       })
     }
@@ -147,7 +188,7 @@ function MensagemSugerida({
             )}
           </button>
           <button
-            onClick={handleAbrirEdicao}
+            onClick={() => { setRascunho(textoAtual); setEditando(true) }}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <Pencil className="h-3 w-3" />
@@ -217,14 +258,16 @@ function MensagemSugerida({
   )
 }
 
-function RegistroCard({
-  registro,
+// ─── GrupoPedidoCard ──────────────────────────────────────────────────────────
+
+function GrupoPedidoCard({
+  grupo,
   defaultLojaNome,
   vendedoras,
   produtos,
   podeEditar,
 }: {
-  registro: RegistroListaEspera
+  grupo: GrupoPedido
   defaultLojaNome: string
   vendedoras: Array<{ id: string; nome: string }>
   produtos: Array<{ id: string; nome: string }>
@@ -232,36 +275,36 @@ function RegistroCard({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [editando, setEditando] = useState(false)
-
+  const [editandoId, setEditandoId] = useState<string | null>(null)
   const [membros, setMembros] = useState<Array<{ id: string; nome: string }>>([])
-  const [responsavelId, setResponsavelId] = useState<string>(registro.vendedora_id || '')
-  const [statusTemp, setStatusTemp] = useState<string>(registro.status)
+  const [responsavelId, setResponsavelId] = useState<string>(grupo.vendedora_id || '')
+  const [statusTemp, setStatusTemp] = useState<string>(grupo.statusPrincipal)
+
+  useEffect(() => { setStatusTemp(grupo.statusPrincipal) }, [grupo.statusPrincipal])
 
   useEffect(() => {
-    setStatusTemp(registro.status)
-  }, [registro.status])
-
-  useEffect(() => {
-    if (statusTemp === 'convertido' && registro.status !== 'convertido' && membros.length === 0) {
-      buscarMembrosAtivosLoja(registro.loja_id).then(res => {
+    if (statusTemp === 'convertido' && grupo.statusPrincipal !== 'convertido' && membros.length === 0) {
+      buscarMembrosAtivosLoja(grupo.loja_id).then(res => {
         setMembros(res)
         if (res.length > 0 && !res.some(m => m.id === responsavelId)) {
           setResponsavelId(res[0].id)
         }
       }).catch(() => {})
     }
-  }, [statusTemp, registro.status, registro.loja_id, membros.length, responsavelId])
+  }, [statusTemp, grupo.statusPrincipal, grupo.loja_id, membros.length, responsavelId])
+
+  const ids = grupo.itens.map(i => i.id)
 
   function handleStatusChange(valor: string) {
     setStatusTemp(valor)
     if (valor !== 'convertido') {
       startTransition(async () => {
-        const res = await atualizarStatusListaEspera(registro.id, valor as StatusListaEspera)
+        const res = await atualizarStatusGrupoListaEspera(ids, valor as StatusListaEspera, grupo.loja_id)
         if (res.ok) {
           router.refresh()
         } else {
           alert(res.error || 'Erro ao atualizar status')
+          setStatusTemp(grupo.statusPrincipal)
         }
       })
     }
@@ -269,108 +312,151 @@ function RegistroCard({
 
   function handleSalvarConversao() {
     startTransition(async () => {
-      const res = await atualizarStatusListaEspera(registro.id, 'convertido', responsavelId)
+      const res = await atualizarStatusGrupoListaEspera(ids, 'convertido', grupo.loja_id, responsavelId)
       if (res.ok) {
         tocarCaixaRegistradora()
         router.refresh()
       } else {
         alert(res.error || 'Erro ao converter')
+        setStatusTemp(grupo.statusPrincipal)
       }
     })
   }
 
-  const mensagem = COM_MENSAGEM.has(registro.status)
-    ? gerarMensagem(registro, defaultLojaNome)
+  const mensagem = COM_MENSAGEM.has(grupo.statusPrincipal)
+    ? gerarMensagemGrupo(grupo, defaultLojaNome)
     : null
 
-  if (editando) {
-    return (
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <ListaEsperaEditForm
-          registro={registro}
-          vendedoras={vendedoras}
-          produtos={produtos}
-          onClose={() => setEditando(false)}
-          onSaved={() => setEditando(false)}
-        />
-      </div>
-    )
+  const isGrupo = grupo.itens.length > 1
+  const valorTotal = grupo.itens.reduce((acc, i) => acc + (i.valor_potencial ?? 0), 0)
+
+  // Se estiver editando um item específico
+  if (editandoId) {
+    const itemEditando = grupo.itens.find(i => i.id === editandoId)
+    if (itemEditando) {
+      return (
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <ListaEsperaEditForm
+            registro={itemEditando}
+            vendedoras={vendedoras}
+            produtos={produtos}
+            onClose={() => setEditandoId(null)}
+            onSaved={() => setEditandoId(null)}
+          />
+        </div>
+      )
+    }
   }
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+
+      {/* ── Cabeçalho ── */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold text-sm truncate">{normalizarNomeProduto(registro.produto_nome)}</p>
-          {registro.categoria_nome && (
-            <p className="text-xs text-muted-foreground mt-0.5">{registro.categoria_nome}</p>
-          )}
+          <p className="font-semibold text-sm truncate">
+            {normalizarNomePessoa(grupo.cliente_nome)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">{grupo.cliente_whatsapp}</p>
         </div>
-        <StatusBadge status={registro.status} />
+        <StatusBadge status={grupo.statusPrincipal} />
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-        <div>
-          <p className="text-muted-foreground">Cliente</p>
-          <p className="font-medium truncate">{normalizarNomePessoa(registro.cliente_nome)}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">WhatsApp</p>
-          <p className="font-medium">{registro.cliente_whatsapp}</p>
-        </div>
-        {registro.valor_potencial !== null && (
-          <div>
-            <p className="text-muted-foreground">Valor potencial</p>
-            <p className="font-medium text-emerald-600 dark:text-emerald-400">
-              {fmtValor(registro.valor_potencial)}
-            </p>
+      {/* ── Lista de produtos do pedido ── */}
+      <div className={`space-y-1.5 ${isGrupo ? 'rounded-lg bg-muted/40 p-3' : ''}`}>
+        {isGrupo && (
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2">
+            {grupo.itens.length} produtos neste pedido
+          </p>
+        )}
+        {grupo.itens.map(item => (
+          <div key={item.id} className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-tight truncate">
+                  {normalizarNomeProduto(item.produto_nome)}
+                </p>
+                {item.categoria_nome && (
+                  <p className="text-[11px] text-muted-foreground">{item.categoria_nome}</p>
+                )}
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
+              {item.quantidade > 1 && <span>×{item.quantidade}</span>}
+              {item.valor_potencial !== null && (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+                  {fmtValor(item.valor_potencial)}
+                </span>
+              )}
+              {podeEditar && (
+                <button
+                  onClick={() => setEditandoId(item.id)}
+                  className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {isGrupo && valorTotal > 0 && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/60">
+            <p className="text-xs text-muted-foreground">Valor total potencial</p>
+            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{fmtValor(valorTotal)}</p>
           </div>
         )}
-        <div>
-          <p className="text-muted-foreground">Qtd</p>
-          <p className="font-medium">{registro.quantidade}</p>
-        </div>
-        {registro.vendedora_nome && (
+      </div>
+
+      {/* ── Detalhes ── */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        {grupo.vendedora_nome && grupo.vendedora_nome !== '—' && (
           <div>
             <p className="text-muted-foreground">Vendedora</p>
-            <p className="font-medium truncate">{registro.vendedora_nome}</p>
+            <p className="font-medium truncate">{grupo.vendedora_nome}</p>
           </div>
         )}
-        {registro.loja_nome && (
+        {grupo.loja_nome && (
           <div>
             <p className="text-muted-foreground">Loja</p>
-            <p className="font-medium truncate">{registro.loja_nome}</p>
+            <p className="font-medium truncate">{grupo.loja_nome}</p>
           </div>
         )}
-        <div>
-          <p className="text-muted-foreground">Data do registro</p>
-          <p className="font-medium">{fmtData(registro.data_registro ?? registro.criado_em)}</p>
-        </div>
+        {grupo.data_registro && (
+          <div>
+            <p className="text-muted-foreground">Data do registro</p>
+            <p className="font-medium">{fmtData(grupo.data_registro)}</p>
+          </div>
+        )}
+        {grupo.itens[0]?.observacao && (
+          <div className="col-span-2">
+            <p className="text-muted-foreground">Observação</p>
+            <p className="leading-relaxed">{grupo.itens[0].observacao}</p>
+          </div>
+        )}
       </div>
 
-      {registro.observacao && (
-        <p className="text-xs text-muted-foreground border-t pt-2 leading-relaxed">
-          {registro.observacao}
-        </p>
-      )}
-
-      {registro.status === 'convertido' && (
-        <div className="text-xs bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-2 mt-1">
+      {/* ── Responsável pela venda convertida ── */}
+      {grupo.statusPrincipal === 'convertido' && (
+        <div className="text-xs bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-2">
           <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-wider">Responsável pela venda convertida</p>
-          <p className="font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5">{registro.vendedora_nome || '—'}</p>
+          <p className="font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5">{grupo.vendedora_nome || '—'}</p>
         </div>
       )}
 
+      {/* ── Mensagem e botão WhatsApp ── */}
       {mensagem && (
         <MensagemSugerida
           mensagem={mensagem}
-          whatsapp={registro.cliente_whatsapp}
-          itemId={registro.id}
-          status={registro.status}
-          naoContatar={registro.nao_contatar}
+          whatsapp={grupo.cliente_whatsapp}
+          itemIds={ids}
+          lojaId={grupo.loja_id}
+          status={grupo.statusPrincipal}
+          naoContatar={grupo.nao_contatar}
         />
       )}
 
+      {/* ── Controles de status ── */}
       <div className="flex items-center gap-2 border-t pt-2">
         <span className="text-xs text-muted-foreground shrink-0">Status:</span>
         <select
@@ -383,21 +469,11 @@ function RegistroCard({
             <option key={val} value={val}>{label}</option>
           ))}
         </select>
-        {isPending && (
-          <span className="text-xs text-muted-foreground">Salvando…</span>
-        )}
-        {podeEditar && (
-          <button
-            onClick={() => setEditando(true)}
-            className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Pencil className="h-3 w-3" />
-            Editar
-          </button>
-        )}
+        {isPending && <span className="text-xs text-muted-foreground">Salvando…</span>}
       </div>
 
-      {statusTemp === 'convertido' && registro.status !== 'convertido' && (
+      {/* ── Confirmação de conversão ── */}
+      {statusTemp === 'convertido' && grupo.statusPrincipal !== 'convertido' && (
         <div className="space-y-2">
           {membros.length > 1 && (
             <div>
@@ -429,6 +505,8 @@ function RegistroCard({
   )
 }
 
+// ─── Props e componente principal ─────────────────────────────────────────────
+
 interface Props {
   registros: RegistroListaEspera[]
   defaultLojaNome?: string
@@ -446,6 +524,7 @@ export function ListaEsperaCards({
 }: Props) {
   const [produtoFiltro, setProdutoFiltro] = useState('')
 
+  // ── "Listas por produto" — agrupamento para inteligência de compra ──────────
   const grupos = useMemo<GrupoProduto[]>(() => {
     const map = new Map<string, GrupoProduto>()
     for (const r of registros) {
@@ -476,13 +555,61 @@ export function ListaEsperaCards({
     )
   }, [registros])
 
-  const filtrados = useMemo(() => {
-    if (!produtoFiltro) return registros
-    return registros.filter(r => {
-      const key = r.produto_id ?? `nome:${normalizarNome(r.produto_nome)}`
-      return key === produtoFiltro
+  // ── Grupos de pedido — para exibição de cards agrupados ─────────────────────
+  const grupoPedidos = useMemo<GrupoPedido[]>(() => {
+    const map = new Map<string, GrupoPedido>()
+    for (const r of registros) {
+      // grupo_pedido_id preenchido = pedidos multi-produto novos
+      // null = fallback derivado por (loja + whatsapp + vendedora + data_registro)
+      const chave = r.grupo_pedido_id
+        ? `g:${r.grupo_pedido_id}`
+        : `d:${r.loja_id}:${r.cliente_whatsapp}:${r.vendedora_id ?? ''}:${r.data_registro ?? r.criado_em.split('T')[0]}`
+
+      const entry = map.get(chave) ?? {
+        chave,
+        grupo_pedido_id: r.grupo_pedido_id ?? null,
+        loja_id: r.loja_id,
+        cliente_nome: r.cliente_nome,
+        cliente_whatsapp: r.cliente_whatsapp,
+        vendedora_id: r.vendedora_id,
+        vendedora_nome: r.vendedora_nome ?? '—',
+        loja_nome: r.loja_nome,
+        data_registro: r.data_registro ?? null,
+        nao_contatar: r.nao_contatar ?? false,
+        itens: [],
+        statusPrincipal: r.status,
+        valorTotal: 0,
+      }
+      entry.itens.push(r)
+      entry.valorTotal += r.valor_potencial ?? 0
+      if (r.nao_contatar) entry.nao_contatar = true
+      map.set(chave, entry)
+    }
+
+    // statusPrincipal = status com maior prioridade de ação no grupo
+    return Array.from(map.values()).map(g => ({
+      ...g,
+      statusPrincipal: g.itens.reduce((best, item) => {
+        return (STATUS_PRIORITY[item.status] ?? 99) < (STATUS_PRIORITY[best] ?? 99)
+          ? item.status : best
+      }, g.itens[0].status),
+    })).sort((a, b) => {
+      const pa = STATUS_PRIORITY[a.statusPrincipal] ?? 99
+      const pb = STATUS_PRIORITY[b.statusPrincipal] ?? 99
+      return pa - pb || a.cliente_nome.localeCompare(b.cliente_nome)
     })
-  }, [registros, produtoFiltro])
+  }, [registros])
+
+  // ── Filtro por produto — exibe grupo completo se qualquer item bate ─────────
+  const grupoPedidosFiltrados = useMemo(() => {
+    if (!produtoFiltro) return grupoPedidos
+    return grupoPedidos.filter(g =>
+      g.itens.some(r => {
+        const key = r.produto_id ?? `nome:${normalizarNome(r.produto_nome)}`
+        return key === produtoFiltro
+      })
+    )
+  }, [grupoPedidos, produtoFiltro])
 
   if (registros.length === 0) {
     return (
@@ -580,25 +707,25 @@ export function ListaEsperaCards({
         </div>
       )}
 
-      {/* ── Clientes esperando ── */}
+      {/* ── Cards de pedidos agrupados ── */}
       <div className="space-y-1">
         {grupos.length > 1 && (
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             {produtoFiltro
-              ? `Clientes esperando · ${filtrados.length}`
-              : `Todos os itens · ${filtrados.length}`}
+              ? `Pedidos com este produto · ${grupoPedidosFiltrados.length}`
+              : `Pedidos em espera · ${grupoPedidos.length}`}
           </p>
         )}
-        {filtrados.length === 0 ? (
+        {grupoPedidosFiltrados.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            Nenhum item para este produto.
+            Nenhum pedido para este produto.
           </p>
         ) : (
           <div className="space-y-3 pt-1">
-            {filtrados.map(r => (
-              <RegistroCard
-                key={r.id}
-                registro={r}
+            {grupoPedidosFiltrados.map(g => (
+              <GrupoPedidoCard
+                key={g.chave}
+                grupo={g}
                 defaultLojaNome={defaultLojaNome}
                 vendedoras={vendedoras}
                 produtos={produtos}
