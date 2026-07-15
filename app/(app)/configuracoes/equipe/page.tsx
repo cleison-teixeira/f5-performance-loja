@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
 import { getMembrosAtivos, getContextoLoja } from '@/lib/loja/contexto'
 import { TabelaEquipe } from './TabelaEquipe'
 import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
@@ -95,7 +96,7 @@ export default async function ConfigEquipePage() {
   }
 
   // membros, regras e dados da loja não dependem um do outro — executar em paralelo
-  const [{ data: membros }, { data: regrasData }, { data: lojaInfo }] = await Promise.all([
+  const [{ data: membros }, { data: regrasData }, { data: lojaInfo }, lojaLibRes] = await Promise.all([
     admin
       .from('membros_loja')
       .select('id, role, ativo, perfil_id, pin_ativo, pin_hash, observacao_interna, perfis(nome, whatsapp, avatar_url)')
@@ -112,22 +113,42 @@ export default async function ConfigEquipePage() {
       .select('nome, whatsapp, logo_url')
       .eq('id', loja_id)
       .single(),
+    admin
+      .from('liberacoes_acesso')
+      .select('email')
+      .eq('loja_id', loja_id)
+      .eq('tipo', 'loja')
+      .order('criado_em', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ])
   const comissaoPorId: Record<string, number> = Object.fromEntries(
     (regrasData ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
   )
 
-  // Nome canônico da loja para detectar a "conta loja" estrutural
-  const lojaCanonical = (lojaInfo?.nome ?? lojaNome).trim().toLowerCase()
+  const lojaEmail = (lojaLibRes.data?.email as string | null) ?? null
+
+  // Buscar auth emails dos donos para Critério 2 (email_perfil === email_loja)
+  const donoIds = (membros ?? []).filter(m => m.role === 'dono').map(m => m.perfil_id as string)
+  const authEmailMap: Record<string, string> = {}
+  if (donoIds.length > 0) {
+    await Promise.all(donoIds.map(async pid => {
+      const { data: authData } = await admin.auth.admin.getUserById(pid)
+      if (authData?.user?.email) authEmailMap[pid] = authData.user.email
+    }))
+  }
 
   const membrosExibidos: MembroExibido[] = (membros ?? []).map(m => {
     const p = m.perfis as unknown as { nome: string; whatsapp: string | null; avatar_url?: string | null } | Array<{ nome: string; whatsapp: string | null; avatar_url?: string | null }>
     const perfil = Array.isArray(p) ? p[0] : p
 
-    // isContaLoja: perfil cujo nome coincide com o nome da loja (registro estrutural, não pessoa física)
-    // Não usar !perfil?.whatsapp pois contas loja podem ter whatsapp cadastrado
-    const isContaLoja = (m.role === 'dono') &&
-      (perfil?.nome ?? '').trim().toLowerCase() === lojaCanonical
+    const isContaLoja = isContaEstrutural({
+      role: m.role as string,
+      perfilNome: perfil?.nome ?? '',
+      perfilEmail: authEmailMap[m.perfil_id as string] ?? null,
+      lojaNome: lojaInfo?.nome ?? lojaNome,
+      lojaEmail,
+    })
 
     return {
       membro_id: m.id as string,

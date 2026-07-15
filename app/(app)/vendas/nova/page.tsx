@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
 import { getContextoLoja } from '@/lib/loja/contexto'
 import { FormNovaVenda } from './FormNovaVenda'
 
@@ -56,7 +57,7 @@ export default async function NovaVendaPage() {
   }
 
   // Parallelizar queries independentes após ctx
-  const [perfilRes, produtosRes, membrosRes, fixasRes] = await Promise.all([
+  const [perfilRes, produtosRes, membrosRes, fixasRes, lojaEmailRes] = await Promise.all([
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
     admin
       .from('produtos')
@@ -75,6 +76,14 @@ export default async function NovaVendaPage() {
       .select('vendedora_id, produto_id, valor_fixo')
       .eq('loja_id', lojaId)
       .eq('ativo', true),
+    admin
+      .from('liberacoes_acesso')
+      .select('email')
+      .eq('loja_id', lojaId)
+      .eq('tipo', 'loja')
+      .order('criado_em', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const perfil = perfilRes.data
@@ -138,14 +147,28 @@ export default async function NovaVendaPage() {
     regrasPorId[user.id] = regraLogada.percentual as number
   }
 
-  const lojaCanonical = lojaNome.trim().toLowerCase()
+  // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
+  const donoIds = [...new Set(
+    (membrosVendedoras ?? [])
+      .filter(m => (m as unknown as { role: string }).role === 'dono')
+      .map(m => m.perfil_id as string)
+  )]
+  const donoAuthEmails: Record<string, string> = {}
+  if (donoIds.length > 0) {
+    await Promise.all(donoIds.map(async pid => {
+      const { data } = await admin.auth.admin.getUserById(pid)
+      if (data?.user?.email) donoAuthEmails[pid] = data.user.email
+    }))
+  }
+
+  const lojaEmail = (lojaEmailRes.data?.email as string | null) ?? null
   const vendedoras = (membrosVendedoras ?? []).flatMap(m => {
     const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
     const perfisObj = Array.isArray(p) ? p[0] : p
     const nome = perfisObj?.nome ?? 'Vendedora sem nome'
-    const isContaLoja = (m as unknown as { role: string }).role === 'dono' &&
-      nome.trim().toLowerCase() === lojaCanonical
-    if (isContaLoja) return []
+    const role = (m as unknown as { role: string }).role
+    const perfilEmail = donoAuthEmails[m.perfil_id as string] ?? null
+    if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome, lojaEmail })) return []
     return [{
       id: m.perfil_id as string,
       nome,

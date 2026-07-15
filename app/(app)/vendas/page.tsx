@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { VendasPageClient } from './VendasPageClient'
 import { measureAsync } from '@/lib/performance/timing'
+import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
 
 export interface VendaItemExtrato {
   produto_nome: string
@@ -73,7 +74,7 @@ export default async function VendasPage() {
     vendasQuery = vendasQuery.eq('vendedora_id', user.id)
   }
 
-  const [vendasRes, membrosRes] = await measureAsync('vendas:queries', () => Promise.all([
+  const [vendasRes, membrosRes, lojaEmailsRes] = await measureAsync('vendas:queries', () => Promise.all([
     vendasQuery,
     isVendedora
       ? Promise.resolve({ data: null })
@@ -83,9 +84,39 @@ export default async function VendasPage() {
           .in('loja_id', ctx.lojaIds)
           .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
           .eq('ativo', true),
+    isVendedora
+      ? Promise.resolve({ data: [] as Array<{ loja_id: string; email: string }> })
+      : admin
+          .from('liberacoes_acesso')
+          .select('loja_id, email')
+          .in('loja_id', ctx.lojaIds)
+          .eq('tipo', 'loja')
+          .order('criado_em', { ascending: true }),
   ]))
 
   const vendasRaw = vendasRes.data
+
+  const lojaEmailMap = new Map<string, string>()
+  for (const row of lojaEmailsRes.data ?? []) {
+    const lid = row.loja_id as string
+    if (!lojaEmailMap.has(lid)) lojaEmailMap.set(lid, row.email as string)
+  }
+
+  // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
+  const donoIdsV = !isVendedora
+    ? [...new Set(
+        (membrosRes.data ?? [])
+          .filter(m => (m as unknown as { role: string }).role === 'dono')
+          .map(m => m.perfil_id as string)
+      )]
+    : []
+  const donoAuthEmailsV: Record<string, string> = {}
+  if (donoIdsV.length > 0) {
+    await Promise.all(donoIdsV.map(async pid => {
+      const { data } = await admin.auth.admin.getUserById(pid)
+      if (data?.user?.email) donoAuthEmailsV[pid] = data.user.email
+    }))
+  }
 
   let vendedoras: { id: string; nome: string }[] = []
   if (!isVendedora && membrosRes.data) {
@@ -100,9 +131,9 @@ export default async function VendasPage() {
       const memberRole = (m as unknown as { role: string }).role
       const memberLojaId = (m as unknown as { loja_id: string }).loja_id
       const lojaNome = lojaNomeMap.get(memberLojaId) ?? ''
-      const isContaLoja = memberRole === 'dono' &&
-        nome.trim().toLowerCase() === lojaNome.trim().toLowerCase()
-      if (isContaLoja) return []
+      const lojaEmail = lojaEmailMap.get(memberLojaId) ?? null
+      const perfilEmail = donoAuthEmailsV[pid] ?? null
+      if (isContaEstrutural({ role: memberRole, perfilNome: nome, perfilEmail, lojaNome, lojaEmail })) return []
       return [{ id: pid, nome }]
     })
   }

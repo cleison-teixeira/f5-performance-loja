@@ -104,6 +104,7 @@ export async function liberarAcesso(dados: {
         nome: dados.loja_nome.trim(),
         cidade: dados.cidade.trim() || null,
         whatsapp: dados.loja_whatsapp.trim() || null,
+        email: email,
         ativa: true,
       })
       .select('id')

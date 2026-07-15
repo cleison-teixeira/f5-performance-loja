@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { FormEditarVenda } from './FormEditarVenda'
+import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
 
 export interface ItemEditarInicial {
   item_venda_id: string
@@ -97,21 +99,47 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
   // Vendedoras disponíveis (para gerente/dono)
   let vendedoras: { id: string; nome: string }[] = []
   if (!isVendedora) {
-    const { data: membros } = await supabase
-      .from('membros_loja')
-      .select('perfil_id, role, perfis(nome)')
-      .eq('loja_id', loja_id)
-      .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
-      .eq('ativo', true)
+    const admin = createAdminClient()
+    const [{ data: membros }, lojaLibRes] = await Promise.all([
+      supabase
+        .from('membros_loja')
+        .select('perfil_id, role, perfis(nome)')
+        .eq('loja_id', loja_id)
+        .in('role', ['dono', 'gerente', 'lider', 'vendedora'])
+        .eq('ativo', true),
+      admin
+        .from('liberacoes_acesso')
+        .select('email')
+        .eq('loja_id', loja_id)
+        .eq('tipo', 'loja')
+        .order('criado_em', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ])
 
-    const lojaCanonical = loja_nome.trim().toLowerCase()
+    const lojaEmail = (lojaLibRes.data?.email as string | null) ?? null
+
+    // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
+    const donoIdsE = [...new Set(
+      (membros ?? [])
+        .filter(m => (m as unknown as { role: string }).role === 'dono')
+        .map(m => m.perfil_id as string)
+    )]
+    const donoAuthEmailsE: Record<string, string> = {}
+    if (donoIdsE.length > 0) {
+      await Promise.all(donoIdsE.map(async pid => {
+        const { data } = await admin.auth.admin.getUserById(pid)
+        if (data?.user?.email) donoAuthEmailsE[pid] = data.user.email
+      }))
+    }
+
     vendedoras = (membros ?? []).flatMap(m => {
       const p = m.perfis as unknown as { nome: string } | Array<{ nome: string }>
       const perfil = Array.isArray(p) ? p[0] : p
       const nome = perfil?.nome ?? 'Sem nome'
-      const isContaLoja = (m as unknown as { role: string }).role === 'dono' &&
-        nome.trim().toLowerCase() === lojaCanonical
-      if (isContaLoja) return []
+      const role = (m as unknown as { role: string }).role
+      const perfilEmail = donoAuthEmailsE[m.perfil_id as string] ?? null
+      if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome: loja_nome, lojaEmail })) return []
       return [{ id: m.perfil_id as string, nome }]
     })
   }

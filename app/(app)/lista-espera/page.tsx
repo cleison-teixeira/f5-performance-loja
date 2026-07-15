@@ -9,6 +9,7 @@ import { ListaEsperaForm } from './ListaEsperaForm'
 import { ListaEsperaPageClient } from './ListaEsperaPageClient'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
+import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -42,7 +43,7 @@ export default async function ListaEsperaPage() {
   const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
   const lojaNome = ctx.lojaNome ?? ''
 
-  const [registrosRes, categoriasRes, vendedorasRes, produtosRes] = await measureAsync('lista-espera:queries', () => Promise.all([
+  const [registrosRes, categoriasRes, vendedorasRes, produtosRes, lojaEmailRes] = await measureAsync('lista-espera:queries', () => Promise.all([
     admin
       .from('lista_espera')
       .select('id, cliente_id, cliente_nome, cliente_whatsapp, produto_nome, produto_id, categoria_id, categoria_nome, valor_potencial, quantidade, status, observacao, criado_em, data_registro, vendedora_id, loja_id, clientes(nao_contatar)')
@@ -72,6 +73,16 @@ export default async function ListaEsperaPage() {
           .eq('ativo', true)
           .order('nome')
       : Promise.resolve({ data: [] as Array<{ id: unknown; nome: unknown }> }),
+    ctx.escopo === 'loja' && !isVendedora
+      ? admin
+          .from('liberacoes_acesso')
+          .select('email')
+          .eq('loja_id', loja_id)
+          .eq('tipo', 'loja')
+          .order('criado_em', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]))
 
   const categoriaMap: Record<string, string> = {}
@@ -121,16 +132,30 @@ export default async function ListaEsperaPage() {
     nao_contatar: clienteData?.nao_contatar ?? false,
   })})
 
-  const lojaCanonical = lojaNome.trim().toLowerCase()
+  // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
+  const donoIdsLE = [...new Set(
+    (vendedorasRes.data ?? [])
+      .filter(m => (m as unknown as { role: string }).role === 'dono')
+      .map(m => m.perfil_id as string)
+  )]
+  const donoAuthEmailsLE: Record<string, string> = {}
+  if (donoIdsLE.length > 0 && !isVendedora && ctx.escopo !== 'rede') {
+    await Promise.all(donoIdsLE.map(async pid => {
+      const { data } = await admin.auth.admin.getUserById(pid)
+      if (data?.user?.email) donoAuthEmailsLE[pid] = data.user.email
+    }))
+  }
+
+  const lojaEmail = ((lojaEmailRes as { data: { email?: string | null } | null }).data?.email as string | null) ?? null
   const vendedoras = isVendedora || ctx.escopo === 'rede'
     ? []
     : (vendedorasRes.data ?? []).flatMap(m => {
         const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
         const perfil = Array.isArray(p) ? p[0] : p
         const nome = perfil?.nome ?? '—'
-        const isContaLoja = (m as unknown as { role: string }).role === 'dono' &&
-          nome.trim().toLowerCase() === lojaCanonical
-        if (isContaLoja) return []
+        const role = (m as unknown as { role: string }).role
+        const perfilEmail = donoAuthEmailsLE[m.perfil_id as string] ?? null
+        if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome, lojaEmail })) return []
         return [{ id: m.perfil_id as string, nome }]
       })
 
