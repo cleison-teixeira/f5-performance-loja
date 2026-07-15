@@ -33,7 +33,7 @@ export interface MetricasLoja {
 }
 
 export interface InfoFinanceira {
-  billing_status: string        // de empresas.billing_status
+  status_comercial: string      // de empresas.status_comercial
   trial_ends_at: string | null  // de empresas.trial_ends_at
   valor_pago: number | null     // de liberacoes_acesso.valor_pago
   prazo_acesso: string | null   // de liberacoes_acesso.prazo_acesso (DATE)
@@ -86,8 +86,8 @@ export default async function AdocaoPage() {
     libRes, planosRes,
     membrosLojaRes,
   ] = await Promise.all([
-    // Inclui billing_status e trial_ends_at via join com empresas
-    admin.from('lojas').select('id, nome, empresa_id, whatsapp, documento, email, empresas(billing_status, trial_ends_at, responsavel_email)')
+    // Inclui status_comercial e trial_ends_at via join com empresas
+    admin.from('lojas').select('id, nome, empresa_id, whatsapp, documento, email, empresas(status_comercial, trial_ends_at, responsavel_email)')
       .eq('ativa', true).eq('admin_only', false).order('nome'),
     admin.from('empresas').select('id, nome'),
     admin.from('lojas_metas_adocao').select('*'),
@@ -219,10 +219,10 @@ export default async function AdocaoPage() {
     const metaRaw = metaMap.get(lojaId) ?? null
 
     // Dados financeiros: empresas (via join) + liberacoes_acesso
-    const empresaJoin = (l as unknown as { empresas: { billing_status: string; trial_ends_at: string | null; responsavel_email: string | null } | null }).empresas
+    const empresaJoin = (l as unknown as { empresas: { status_comercial: string; trial_ends_at: string | null; responsavel_email: string | null } | null }).empresas
     const lib = liberacaoMap.get(lojaId) ?? null
     const financeiro: InfoFinanceira | null = empresaJoin ? {
-      billing_status: empresaJoin.billing_status ?? 'trial',
+      status_comercial: empresaJoin.status_comercial ?? 'em_implantacao',
       trial_ends_at: empresaJoin.trial_ends_at ?? null,
       valor_pago: lib?.valor_pago ?? null,
       prazo_acesso: lib?.prazo_acesso ?? null,

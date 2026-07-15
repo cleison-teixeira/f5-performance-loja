@@ -20,6 +20,7 @@ export interface AppContext {
   lojaLogoUrl: string | null
   lojas: { id: string; nome: string; logo_url?: string | null }[]
   hasMembros: boolean
+  acessoBloqueado: boolean
 }
 
 // cache() do React deduplica chamadas por request — layout e page compartilham o mesmo resultado.
@@ -66,6 +67,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
       lojaLogoUrl: null,
       lojas: [],
       hasMembros: false,
+      acessoBloqueado: false,
     }
   }
 
@@ -82,6 +84,23 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     getContextoLoja(user.id, multiLoja)
   )
 
+  // Bloqueia acesso se TODAS as lojas do usuário têm empresa suspenso ou cancelado.
+  // admin_f5 nunca é bloqueado.
+  let acessoBloqueado = false
+  if (role !== 'admin_f5' && ctx.lojaIds.length > 0) {
+    const { data: empRows } = await admin
+      .from('lojas')
+      .select('empresas(status_comercial)')
+      .in('id', ctx.lojaIds)
+    const statuses = (empRows ?? []).flatMap(r => {
+      const emp = (r as unknown as { empresas: { status_comercial: string | null } | null }).empresas
+      return emp?.status_comercial ? [emp.status_comercial] : []
+    })
+    if (statuses.length > 0) {
+      acessoBloqueado = statuses.every(s => s === 'suspenso' || s === 'cancelado')
+    }
+  }
+
   endTotal()
 
   return {
@@ -97,5 +116,6 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     lojaLogoUrl: ctx.lojas.find(l => l.id === ctx.lojaId)?.logo_url ?? null,
     lojas: ctx.lojas,
     hasMembros: true,
+    acessoBloqueado,
   }
 })

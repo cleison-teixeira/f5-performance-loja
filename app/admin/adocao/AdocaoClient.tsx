@@ -41,16 +41,22 @@ function Badge({ status }: { status: string }) {
 
 // ── Helpers financeiros ───────────────────────────────────────────────────────
 
-type StatusFinanceiro = 'em_dia' | 'atrasada' | 'trial' | 'cortesia' | 'cancelada' | 'pendente' | 'parceiro' | 'sem_plano'
+type StatusFinanceiro = 'em_dia' | 'atrasada' | 'trial' | 'cortesia' | 'cancelada' | 'pendente' | 'implantacao' | 'sem_plano'
 
 function calcStatusFinanceiro(fin: InfoFinanceira | null, hoje: string): StatusFinanceiro {
   if (!fin) return 'sem_plano'
-  const bs = fin.billing_status
-  if (bs === 'trial') return 'trial'
-  if (bs === 'cortesia') return 'cortesia'
-  if (bs === 'parceiro') return 'parceiro'
-  if (bs === 'cancelado') return 'cancelada'
-  if (bs === 'suspenso' || bs === 'inadimplente') return 'atrasada'
+  const sc = fin.status_comercial
+  if (sc === 'em_implantacao') return 'implantacao'
+  if (sc === 'trial') return 'trial'
+  if (sc === 'cortesia') return 'cortesia'
+  if (sc === 'cancelado') return 'cancelada'
+  if (sc === 'suspenso' || sc === 'vencido') return 'atrasada'
+  if (sc === 'pagante') {
+    if (fin.prazo_acesso && fin.prazo_acesso < hoje) return 'atrasada'
+    if (fin.liberacao_status === 'cancelado') return 'cancelada'
+    if (fin.liberacao_status === 'pendente' && !fin.prazo_acesso) return 'pendente'
+    return 'em_dia'
+  }
   if (fin.prazo_acesso && fin.prazo_acesso < hoje) return 'atrasada'
   if (fin.liberacao_status === 'cancelado') return 'cancelada'
   if (fin.liberacao_status === 'pendente' && !fin.prazo_acesso) return 'pendente'
@@ -69,14 +75,14 @@ function fmtData(d: string | null) {
 }
 
 const FIN_STATUS_CONFIG: Record<StatusFinanceiro, { label: string; cls: string }> = {
-  em_dia:    { label: 'Em dia',    cls: 'bg-green-100 text-green-700' },
-  atrasada:  { label: 'Atrasada',  cls: 'bg-red-100 text-red-700' },
-  trial:     { label: 'Trial',     cls: 'bg-blue-100 text-blue-700' },
-  cortesia:  { label: 'Cortesia',  cls: 'bg-zinc-100 text-zinc-500' },
-  cancelada: { label: 'Cancelada', cls: 'bg-zinc-200 text-zinc-500 line-through' },
-  pendente:  { label: 'Pendente',  cls: 'bg-amber-100 text-amber-700' },
-  parceiro:  { label: 'Parceiro',  cls: 'bg-purple-100 text-purple-700' },
-  sem_plano: { label: 'Sem plano', cls: 'bg-zinc-100 text-zinc-400' },
+  em_dia:      { label: 'Pagante',       cls: 'bg-green-100 text-green-700' },
+  atrasada:    { label: 'Vencido',       cls: 'bg-red-100 text-red-700' },
+  trial:       { label: 'Trial',         cls: 'bg-blue-100 text-blue-700' },
+  cortesia:    { label: 'Cortesia',      cls: 'bg-purple-100 text-purple-700' },
+  cancelada:   { label: 'Cancelado',     cls: 'bg-zinc-200 text-zinc-500 line-through' },
+  pendente:    { label: 'Pendente',      cls: 'bg-amber-100 text-amber-700' },
+  implantacao: { label: 'Implantação',   cls: 'bg-orange-100 text-orange-700' },
+  sem_plano:   { label: 'Sem plano',     cls: 'bg-zinc-100 text-zinc-400' },
 }
 
 function BadgeFinanceiro({ statusFin }: { statusFin: StatusFinanceiro }) {
@@ -88,14 +94,15 @@ function BadgeFinanceiro({ statusFin }: { statusFin: StatusFinanceiro }) {
   )
 }
 
-type Filtro = 'todos' | 'atrasadas' | 'trial' | 'sem_meta' | 'critico' | 'em_dia'
+type Filtro = 'todos' | 'atrasadas' | 'trial' | 'sem_meta' | 'critico' | 'em_dia' | 'implantacao'
 const FILTROS: { key: Filtro; label: string }[] = [
-  { key: 'todos',    label: 'Todas' },
-  { key: 'em_dia',   label: 'Em dia' },
-  { key: 'atrasadas', label: 'Atrasadas' },
-  { key: 'trial',    label: 'Trial' },
-  { key: 'sem_meta', label: 'Sem meta' },
-  { key: 'critico',  label: 'Crítico' },
+  { key: 'todos',       label: 'Todas' },
+  { key: 'em_dia',      label: 'Pagante' },
+  { key: 'implantacao', label: 'Implantação' },
+  { key: 'trial',       label: 'Trial' },
+  { key: 'atrasadas',   label: 'Vencidas' },
+  { key: 'sem_meta',    label: 'Sem meta' },
+  { key: 'critico',     label: 'Crítico' },
 ]
 
 function fmt(n: number) { return n.toLocaleString('pt-BR') }
@@ -377,11 +384,12 @@ export function AdocaoClient({ lojas, hoje }: Props) {
     return linhas.filter(({ loja, statusFin, statusKey }) => {
       // filtro de status
       if (filtro !== 'todos') {
-        if (filtro === 'atrasadas' && statusFin !== 'atrasada') return false
-        if (filtro === 'trial' && statusFin !== 'trial') return false
-        if (filtro === 'em_dia' && statusFin !== 'em_dia') return false
-        if (filtro === 'sem_meta' && statusKey !== 'sem_meta') return false
-        if (filtro === 'critico' && statusKey !== 'critico') return false
+        if (filtro === 'atrasadas'   && statusFin !== 'atrasada')    return false
+        if (filtro === 'trial'       && statusFin !== 'trial')       return false
+        if (filtro === 'em_dia'      && statusFin !== 'em_dia')      return false
+        if (filtro === 'implantacao' && statusFin !== 'implantacao') return false
+        if (filtro === 'sem_meta'    && statusKey !== 'sem_meta')    return false
+        if (filtro === 'critico'     && statusKey !== 'critico')     return false
       }
       // busca textual
       if (termo) {

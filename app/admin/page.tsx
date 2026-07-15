@@ -18,6 +18,10 @@ export interface LiberacaoRow {
   prazo_acesso: string | null
   observacao: string | null
   criado_em: string
+  empresa_id: string | null
+  empresa_status_comercial: string | null
+  empresa_data_inicio_cobranca: string | null
+  empresa_valor_mensal: number | null
 }
 
 export interface LojaSimples {
@@ -63,10 +67,10 @@ export default async function AdminPage() {
       .order('nome'),
     admin
       .from('empresas')
-      .select('id, nome'),
+      .select('id, nome, status_comercial, data_inicio_cobranca, valor_mensal'),
     admin
       .from('liberacoes_acesso')
-      .select('id, email, nome, status, tipo, loja_id, valor_pago, origem, prazo_acesso, criado_em, observacao')
+      .select('id, email, nome, status, tipo, loja_id, empresa_id, valor_pago, origem, prazo_acesso, criado_em, observacao')
       .order('criado_em', { ascending: false })
       .limit(50),
     admin
@@ -75,7 +79,16 @@ export default async function AdminPage() {
   ])
 
   const empresaMap: Record<string, string> = {}
-  ;(empresasRes.data ?? []).forEach(e => { empresaMap[e.id as string] = e.nome as string })
+  type EmpresaComercial = { status_comercial: string | null; data_inicio_cobranca: string | null; valor_mensal: number | null }
+  const empresaComercialMap: Record<string, EmpresaComercial> = {}
+  ;(empresasRes.data ?? []).forEach(e => {
+    empresaMap[e.id as string] = e.nome as string
+    empresaComercialMap[e.id as string] = {
+      status_comercial: (e.status_comercial as string | null) ?? null,
+      data_inicio_cobranca: (e.data_inicio_cobranca as string | null) ?? null,
+      valor_mensal: (e.valor_mensal as number | null) ?? null,
+    }
+  })
 
   const lojaMap: Record<string, string> = {}
   const lojaWhatsappMap: Record<string, string> = {}
@@ -132,20 +145,28 @@ export default async function AdminPage() {
       .map(l => (l.email as string).toLowerCase())
   )
 
-  const liberacoes: LiberacaoRow[] = (liberacoesRes.data ?? []).map(l => ({
-    id: l.id as string,
-    email: l.email as string,
-    nome: l.nome as string | null,
-    status: l.status as string,
-    tipo: (l.tipo as string | null) ?? 'loja',
-    loja_id: (l.loja_id as string | null) ?? null,
-    loja_nome: l.loja_id ? (lojaMap[l.loja_id as string] ?? null) : null,
-    loja_whatsapp: l.loja_id ? (lojaWhatsappMap[l.loja_id as string] ?? null) : null,
-    valor_pago: l.valor_pago as number | null,
-    prazo_acesso: l.prazo_acesso as string | null,
-    observacao: (l.observacao as string | null) ?? null,
-    criado_em: l.criado_em as string,
-  }))
+  const liberacoes: LiberacaoRow[] = (liberacoesRes.data ?? []).map(l => {
+    const empId = (l.empresa_id as string | null) ?? null
+    const empComercial = empId ? (empresaComercialMap[empId] ?? null) : null
+    return {
+      id: l.id as string,
+      email: l.email as string,
+      nome: l.nome as string | null,
+      status: l.status as string,
+      tipo: (l.tipo as string | null) ?? 'loja',
+      loja_id: (l.loja_id as string | null) ?? null,
+      loja_nome: l.loja_id ? (lojaMap[l.loja_id as string] ?? null) : null,
+      loja_whatsapp: l.loja_id ? (lojaWhatsappMap[l.loja_id as string] ?? null) : null,
+      valor_pago: l.valor_pago as number | null,
+      prazo_acesso: l.prazo_acesso as string | null,
+      observacao: (l.observacao as string | null) ?? null,
+      criado_em: l.criado_em as string,
+      empresa_id: empId,
+      empresa_status_comercial: empComercial?.status_comercial ?? null,
+      empresa_data_inicio_cobranca: empComercial?.data_inicio_cobranca ?? null,
+      empresa_valor_mensal: empComercial?.valor_mensal ?? null,
+    }
+  })
 
   const stats: AdminStats = {
     lojas_ativas: lojasAtivasSet.size,

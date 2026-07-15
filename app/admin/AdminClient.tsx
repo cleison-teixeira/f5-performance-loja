@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { LiberacaoRow, LojaSimples, AdminStats } from './page'
 import {
   liberarAcesso, cancelarLiberacao, liberarRede,
-  adicionarAcessoLoja, editarLicenca,
+  adicionarAcessoLoja, editarLicenca, atualizarStatusComercial,
 } from './actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -26,6 +26,12 @@ type EditForm = {
   nome: string; whatsapp: string; valor: string; status: string; obs: string
 }
 
+type EditComercialForm = {
+  status_comercial: string
+  data_inicio_cobranca: string
+  valor_mensal: string
+}
+
 type RedeGroup = {
   email: string
   lojas: Array<{ loja_id: string | null; loja_nome: string | null; loja_whatsapp: string | null }>
@@ -36,11 +42,13 @@ type RedeGroup = {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPCOES = [
-  { value: 'ativo', label: 'Ativo' },
-  { value: 'trial', label: 'Trial (7 dias automático)' },
-  { value: 'cortesia', label: 'Cortesia' },
-  { value: 'suspenso', label: 'Suspenso' },
-  { value: 'cancelado', label: 'Cancelado' },
+  { value: 'em_implantacao', label: 'Em implantação (onboarding assistido)' },
+  { value: 'trial', label: 'Trial (prazo definido)' },
+  { value: 'pagante', label: 'Pagante (cobrança ativa)' },
+  { value: 'cortesia', label: 'Cortesia (sem cobrança)' },
+  { value: 'vencido', label: 'Vencido (pagamento atrasado)' },
+  { value: 'suspenso', label: 'Suspenso (bloqueia acesso)' },
+  { value: 'cancelado', label: 'Cancelado (bloqueia acesso)' },
 ]
 
 const STATUS_LICENCA = [
@@ -50,17 +58,19 @@ const STATUS_LICENCA = [
 ]
 
 const STATUS_EMPRESA: Record<string, string> = {
-  trial: 'trial', ativo: 'ativa', cortesia: 'ativa', suspenso: 'inativa', cancelado: 'inativa',
+  em_implantacao: 'ativa', trial: 'trial', pagante: 'ativa',
+  cortesia: 'ativa', vencido: 'ativa', suspenso: 'inativa', cancelado: 'inativa',
 }
 
 const VAZIO_LOJA: LojaForm = {
   email: '', loja_nome: '', loja_whatsapp: '',
-  valor_mensal: '149,00', status: 'ativo', observacao: '',
+  valor_mensal: '149,00', status: 'em_implantacao', observacao: '',
 }
 
 const VAZIO_REDE: RedeForm = { email: '', rede_nome: '', whatsapp: '', observacao: '' }
 
 const VAZIO_EDIT: EditForm = { nome: '', whatsapp: '', valor: '149,00', status: 'aplicado', obs: '' }
+const VAZIO_COMERCIAL: EditComercialForm = { status_comercial: 'em_implantacao', data_inicio_cobranca: '', valor_mensal: '149,00' }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,19 +93,24 @@ function Inp({ value, onChange, type = 'text', placeholder = '', disabled = fals
   )
 }
 
+const STATUS_BADGE_MAP: Record<string, { cls: string; label: string }> = {
+  pendente:      { cls: 'bg-yellow-100 text-yellow-700', label: 'Pendente' },
+  aplicado:      { cls: 'bg-green-100 text-green-700',   label: 'Aplicado' },
+  ativo:         { cls: 'bg-green-100 text-green-700',   label: 'Ativo' },
+  em_implantacao:{ cls: 'bg-orange-100 text-orange-700', label: 'Em implantação' },
+  trial:         { cls: 'bg-blue-100 text-blue-700',     label: 'Trial' },
+  pagante:       { cls: 'bg-green-100 text-green-700',   label: 'Pagante' },
+  cortesia:      { cls: 'bg-purple-100 text-purple-700', label: 'Cortesia' },
+  vencido:       { cls: 'bg-amber-100 text-amber-700',   label: 'Vencido' },
+  suspenso:      { cls: 'bg-red-100 text-red-700',       label: 'Suspenso' },
+  cancelado:     { cls: 'bg-zinc-100 text-zinc-500',     label: 'Cancelado' },
+}
+
 function StatusBadge({ value }: { value: string }) {
-  const map: Record<string, string> = {
-    pendente: 'bg-yellow-100 text-yellow-700',
-    aplicado: 'bg-green-100 text-green-700',
-    ativo: 'bg-green-100 text-green-700',
-    trial: 'bg-blue-100 text-blue-700',
-    cortesia: 'bg-purple-100 text-purple-700',
-    suspenso: 'bg-red-100 text-red-700',
-    cancelado: 'bg-zinc-100 text-zinc-500',
-  }
+  const cfg = STATUS_BADGE_MAP[value] ?? { cls: 'bg-zinc-100 text-zinc-600', label: value }
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${map[value] ?? 'bg-zinc-100 text-zinc-600'}`}>
-      {value}
+    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${cfg.cls}`}>
+      {cfg.label}
     </span>
   )
 }
@@ -184,6 +199,10 @@ export function AdminClient({
   // ── Editar licença ──
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditForm>(VAZIO_EDIT)
+
+  // ── Editar status comercial da empresa ──
+  const [editandoComercialId, setEditandoComercialId] = useState<string | null>(null)
+  const [comercialForm, setComercialForm] = useState<EditComercialForm>(VAZIO_COMERCIAL)
 
   // ── Adicionar acesso (em Licença de Loja) ──
   const [adicionandoAcessoId, setAdicionandoAcessoId] = useState<string | null>(null)
@@ -284,7 +303,7 @@ export function AdminClient({
         nicho: '',
         plano_id: '',
         status: STATUS_EMPRESA[lojaForm.status] ?? 'em_onboarding',
-        billing_status: lojaForm.status,
+        status_comercial: lojaForm.status,
         loja_nome: lojaForm.loja_nome,
         loja_whatsapp: lojaForm.loja_whatsapp,
         cidade: '',
@@ -371,6 +390,37 @@ export function AdminClient({
         router.refresh()
       } else {
         showMsg('erro', res.erro ?? 'Erro ao editar.')
+      }
+    })
+  }
+
+  // ── Handlers: Comercial ──
+
+  function openEditComercial(l: LiberacaoRow) {
+    if (editandoComercialId === l.id) { setEditandoComercialId(null); return }
+    setEditandoComercialId(l.id)
+    setComercialForm({
+      status_comercial: l.empresa_status_comercial ?? 'em_implantacao',
+      data_inicio_cobranca: l.empresa_data_inicio_cobranca ?? '',
+      valor_mensal: l.empresa_valor_mensal != null ? String(l.empresa_valor_mensal).replace('.', ',') : '149,00',
+    })
+  }
+
+  function submitComercial(l: LiberacaoRow) {
+    if (!l.empresa_id) return showMsg('erro', 'Empresa não identificada para esta licença.')
+    startTransition(async () => {
+      const res = await atualizarStatusComercial({
+        empresa_id: l.empresa_id!,
+        status_comercial: comercialForm.status_comercial,
+        data_inicio_cobranca: comercialForm.data_inicio_cobranca,
+        valor_mensal: comercialForm.valor_mensal,
+      })
+      if (res.ok) {
+        setEditandoComercialId(null)
+        showMsg('ok', 'Status comercial atualizado.')
+        router.refresh()
+      } else {
+        showMsg('erro', res.erro ?? 'Erro ao atualizar.')
       }
     })
   }
@@ -584,7 +634,17 @@ export function AdminClient({
 
               {lojaForm.status === 'trial' && (
                 <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
-                  Trial automático: acesso válido por 7 dias a partir da liberação (até {trialAte()}).
+                  Trial: acesso com prazo definido a partir da liberação (até {trialAte()}).
+                </p>
+              )}
+              {lojaForm.status === 'em_implantacao' && (
+                <p className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded-md px-3 py-2">
+                  Em implantação: acesso liberado sem prazo, não conta como trial, não suspende automaticamente.
+                </p>
+              )}
+              {(lojaForm.status === 'suspenso' || lojaForm.status === 'cancelado') && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+                  Atenção: status "{lojaForm.status === 'suspenso' ? 'Suspenso' : 'Cancelado'}" bloqueia o acesso ao app.
                 </p>
               )}
 
@@ -741,10 +801,15 @@ export function AdminClient({
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    {l.empresa_status_comercial && <StatusBadge value={l.empresa_status_comercial} />}
                     <StatusBadge value={l.status} />
+                    <button onClick={() => openEditComercial(l)} disabled={pending}
+                      className={`text-xs font-medium transition-colors ${editandoComercialId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                      Comercial
+                    </button>
                     <button onClick={() => openEdit(l)} disabled={pending}
                       className={`text-xs font-medium transition-colors ${editandoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
-                      Editar
+                      Licença
                     </button>
                     <button onClick={() => openAdicionarAcesso(l.id)} disabled={pending}
                       className={`text-xs font-medium transition-colors ${adicionandoAcessoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
@@ -759,7 +824,61 @@ export function AdminClient({
                   </div>
                 </div>
 
-                {/* Formulário: Editar */}
+                {/* Formulário: Status Comercial */}
+                {editandoComercialId === l.id && (
+                  <div className={formInline}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-zinc-700">Status comercial</p>
+                      {!l.empresa_id && (
+                        <p className="text-xs text-red-500">Empresa não vinculada — não é possível editar.</p>
+                      )}
+                    </div>
+                    {l.empresa_id && (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <Field label="Status comercial">
+                            <select value={comercialForm.status_comercial}
+                              onChange={e => setComercialForm(p => ({ ...p, status_comercial: e.target.value }))}
+                              className={selectCls}>
+                              {STATUS_OPCOES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
+                          </Field>
+                          <Field label="Data início cobrança">
+                            <Inp value={comercialForm.data_inicio_cobranca}
+                              onChange={v => setComercialForm(p => ({ ...p, data_inicio_cobranca: v }))}
+                              type="date" />
+                          </Field>
+                          <Field label="Valor mensal (R$)">
+                            <Inp value={comercialForm.valor_mensal}
+                              onChange={v => setComercialForm(p => ({ ...p, valor_mensal: v }))}
+                              placeholder="149,00" />
+                          </Field>
+                        </div>
+                        {(comercialForm.status_comercial === 'suspenso' || comercialForm.status_comercial === 'cancelado') && (
+                          <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2.5 py-1.5">
+                            Atenção: este status bloqueia o acesso ao app.
+                          </p>
+                        )}
+                        {comercialForm.status_comercial === 'pagante' && (
+                          <p className="text-xs text-green-600 bg-green-50 border border-green-100 rounded px-2.5 py-1.5">
+                            Pagante: acesso liberado. Informe a data de início da cobrança para controle comercial.
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <button onClick={() => submitComercial(l)} disabled={pending} className={btnPrimario}>
+                            {pending ? 'Salvando...' : 'Salvar'}
+                          </button>
+                          <button onClick={() => setEditandoComercialId(null)} className={btnSecundario}>Cancelar</button>
+                        </div>
+                      </>
+                    )}
+                    {!l.empresa_id && (
+                      <button onClick={() => setEditandoComercialId(null)} className={btnSecundario}>Fechar</button>
+                    )}
+                  </div>
+                )}
+
+                {/* Formulário: Editar licença */}
                 {editandoId === l.id && (
                   <div className={formInline}>
                     <p className="text-xs font-semibold text-zinc-700">Editar licença</p>

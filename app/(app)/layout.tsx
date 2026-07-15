@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const appCtx = await getAppContext()
   if (!appCtx) redirect('/login')
   if (!appCtx.hasMembros) redirect('/sem-acesso')
+  if (appCtx.acessoBloqueado) redirect('/conta-suspensa')
 
   const { perfil, role, isAcessoRede, ctx } = appCtx
 

@@ -23,6 +23,12 @@ async function verificarAdminF5() {
 
 // ── Liberar acesso (ação principal) ──────────────────────────────────────────
 
+// Mapa de status_comercial → billing_status (retrocompat)
+const BILLING_STATUS_MAP: Record<string, string> = {
+  em_implantacao: 'trial', trial: 'trial', pagante: 'ativo',
+  cortesia: 'cortesia', vencido: 'inadimplente', suspenso: 'suspenso', cancelado: 'cancelado',
+}
+
 export async function liberarAcesso(dados: {
   empresa_nome: string
   empresa_existente_id: string
@@ -32,7 +38,7 @@ export async function liberarAcesso(dados: {
   nicho: string
   plano_id: string
   status: string
-  billing_status: string
+  status_comercial: string
   loja_nome: string
   loja_whatsapp: string
   cidade: string
@@ -67,6 +73,7 @@ export async function liberarAcesso(dados: {
     if (dados.empresa_existente_id.trim()) {
       empresa_id = dados.empresa_existente_id.trim()
     } else {
+      const sc = dados.status_comercial || 'em_implantacao'
       const { data: empresaData, error: empresaErr } = await admin
         .from('empresas')
         .insert({
@@ -77,7 +84,8 @@ export async function liberarAcesso(dados: {
           nicho: dados.nicho.trim() || null,
           plano_id: dados.plano_id || null,
           status: dados.status || 'em_onboarding',
-          billing_status: dados.billing_status || 'trial',
+          status_comercial: sc,
+          billing_status: BILLING_STATUS_MAP[sc] ?? 'trial',
         })
         .select('id')
         .single()
@@ -164,8 +172,10 @@ export async function criarEmpresa(dados: {
   nicho: string
   plano_id: string
   status: string
-  billing_status: string
+  status_comercial: string
   notas_internas: string
+  data_inicio_cobranca: string
+  valor_mensal: string
 }): Promise<{ ok: boolean; id?: string; erro?: string }> {
   try {
     const user = await verificarAdminF5()
@@ -173,6 +183,7 @@ export async function criarEmpresa(dados: {
     if (!dados.nome.trim()) return { ok: false, erro: 'Nome obrigatório' }
 
     const admin = createAdminClient()
+    const sc = dados.status_comercial || 'em_implantacao'
     const { data, error } = await admin
       .from('empresas')
       .insert({
@@ -183,8 +194,11 @@ export async function criarEmpresa(dados: {
         nicho: dados.nicho.trim() || null,
         plano_id: dados.plano_id || null,
         status: dados.status || 'em_onboarding',
-        billing_status: dados.billing_status || 'trial',
+        status_comercial: sc,
+        billing_status: BILLING_STATUS_MAP[sc] ?? 'trial',
         notas_internas: dados.notas_internas.trim() || null,
+        data_inicio_cobranca: dados.data_inicio_cobranca || null,
+        valor_mensal: dados.valor_mensal ? parseFloat(dados.valor_mensal.replace(',', '.')) : null,
       })
       .select('id')
       .single()
@@ -205,8 +219,10 @@ export async function atualizarEmpresa(dados: {
   nicho: string
   plano_id: string
   status: string
-  billing_status: string
+  status_comercial: string
   notas_internas: string
+  data_inicio_cobranca: string
+  valor_mensal: string
 }): Promise<{ ok: boolean; erro?: string }> {
   try {
     const user = await verificarAdminF5()
@@ -214,6 +230,7 @@ export async function atualizarEmpresa(dados: {
     if (!dados.nome.trim()) return { ok: false, erro: 'Nome obrigatório' }
 
     const admin = createAdminClient()
+    const sc = dados.status_comercial || 'em_implantacao'
     const { error } = await admin
       .from('empresas')
       .update({
@@ -224,8 +241,11 @@ export async function atualizarEmpresa(dados: {
         nicho: dados.nicho.trim() || null,
         plano_id: dados.plano_id || null,
         status: dados.status,
-        billing_status: dados.billing_status,
+        status_comercial: sc,
+        billing_status: BILLING_STATUS_MAP[sc] ?? 'trial',
         notas_internas: dados.notas_internas.trim() || null,
+        data_inicio_cobranca: dados.data_inicio_cobranca || null,
+        valor_mensal: dados.valor_mensal ? parseFloat(dados.valor_mensal.replace(',', '.')) : null,
       })
       .eq('id', dados.id)
 
@@ -420,6 +440,38 @@ export async function cancelarLiberacao(id: string): Promise<{ ok: boolean; erro
       .update({ status: 'cancelado' })
       .eq('id', id)
       .eq('status', 'pendente')
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+// ── Status comercial da empresa ───────────────────────────────────────────────
+
+export async function atualizarStatusComercial(dados: {
+  empresa_id: string
+  status_comercial: string
+  data_inicio_cobranca: string
+  valor_mensal: string
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const user = await verificarAdminF5()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+    if (!dados.empresa_id) return { ok: false, erro: 'Empresa não identificada' }
+
+    const admin = createAdminClient()
+    const sc = dados.status_comercial || 'em_implantacao'
+    const { error } = await admin
+      .from('empresas')
+      .update({
+        status_comercial: sc,
+        billing_status: BILLING_STATUS_MAP[sc] ?? 'trial',
+        data_inicio_cobranca: dados.data_inicio_cobranca || null,
+        valor_mensal: dados.valor_mensal ? parseFloat(dados.valor_mensal.replace(',', '.')) : null,
+      })
+      .eq('id', dados.empresa_id)
 
     if (error) return { ok: false, erro: error.message }
     return { ok: true }
