@@ -42,7 +42,7 @@ const configuracaoDrawerVendedora = [
 ]
 
 const aprenderDrawer = [
-  { href: '/treinamentos', label: 'Academia F5', icon: GraduationCap },
+  { href: '/treinamentos', label: 'F5 Academy', icon: GraduationCap },
 ]
 
 const parceirosDrawer = [

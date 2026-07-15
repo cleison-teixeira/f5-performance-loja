@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Star, ArrowRight, PlayCircle, Package } from 'lucide-react'
+import { Star, ArrowRight, PlayCircle, Package, Megaphone } from 'lucide-react'
 import { piuvitaPerfil } from '@/lib/config/parceiros/piuvita'
 
 export default async function ParceirosPage() {
@@ -72,15 +72,17 @@ export default async function ParceirosPage() {
         >
           <div className="flex items-start gap-4">
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoUrl}
-                alt="PiùVita"
-                className="w-14 h-14 rounded-lg object-contain border bg-white p-1.5 shrink-0"
-              />
+              <div className="rounded-lg border bg-white px-2.5 py-1.5 flex items-center justify-center shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={logoUrl}
+                  alt="PiùVita"
+                  className="h-9 w-auto max-w-[100px] object-contain"
+                />
+              </div>
             ) : (
-              <div className="w-14 h-14 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 text-emerald-700 dark:text-emerald-400 font-bold text-xl">
-                P
+              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 text-emerald-700 dark:text-emerald-400 font-bold text-sm px-3 py-2">
+                PiùVita
               </div>
             )}
             <div className="flex-1 min-w-0">
@@ -90,7 +92,7 @@ export default async function ParceirosPage() {
                   {piuvitaPerfil.categoria}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{piuvitaPerfil.descricao}</p>
+              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">Catálogo, capacitações e campanhas para ajudar as lojas a vender melhor os produtos da marca.</p>
               <div className="flex flex-wrap gap-4 mt-3">
                 {produtosCount > 0 && (
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -101,6 +103,10 @@ export default async function ParceirosPage() {
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <PlayCircle className="h-3.5 w-3.5" />
                   {totalCapacitacoes} capacitações
+                </span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Megaphone className="h-3.5 w-3.5" />
+                  Campanhas e materiais disponíveis
                 </span>
               </div>
             </div>

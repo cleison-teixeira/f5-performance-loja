@@ -38,7 +38,7 @@ const configuracaoItemsVendedora = [
 ]
 
 const aprenderItems = [
-  { href: '/treinamentos', label: 'Academia F5', icon: GraduationCap },
+  { href: '/treinamentos', label: 'F5 Academy', icon: GraduationCap },
 ]
 
 const parceirosItems = [

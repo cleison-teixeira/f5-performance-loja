@@ -44,7 +44,7 @@ const DETALHES_BIBLIOTECA = [
   'Fotos dos produtos',
   'Preços sugeridos',
   'Ciclos configurados',
-  '5 mensagens prontas',
+  '5 avisos configurados',
 ]
 
 export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: instaladosArr, multiLoja }: Props) {
@@ -292,7 +292,7 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
                   <p className="font-semibold text-sm">F5 Recompra</p>
                   <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-green-50 dark:bg-green-950/30 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-400">
                     <CheckCircle2 className="h-3 w-3" />
-                    Já disponível na Academia
+                    Já disponível na F5 Academy
                   </span>
                 </div>
               </div>
@@ -306,7 +306,7 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
                   href="/treinamentos"
                   className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary text-primary text-sm font-semibold py-2.5 hover:bg-primary/5 transition-colors"
                 >
-                  Abrir Academia
+                  Abrir F5 Academy
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
@@ -322,7 +322,7 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
                   <p className="font-semibold text-sm">PiùVita Treinamentos</p>
                   <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-green-50 dark:bg-green-950/30 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-400">
                     <CheckCircle2 className="h-3 w-3" />
-                    Disponível na Academia
+                    Disponível na F5 Academy
                   </span>
                 </div>
               </div>
