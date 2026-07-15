@@ -6,7 +6,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
   Building2, UsersRound,
-  ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen
+  ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +45,10 @@ const aprenderDrawer = [
   { href: '/treinamentos', label: 'Academia F5', icon: GraduationCap },
 ]
 
+const parceirosDrawer = [
+  { href: '/parceiros', label: 'F5 Partners', icon: Star },
+]
+
 interface Props {
   role: string
   badgesMap?: Record<string, number>
@@ -63,6 +67,7 @@ export function BottomNav({ role, badgesMap = {} }: Props) {
     { label: 'Gestão', items: gestaoDrawer },
     { label: 'Configuração', items: configuracaoDrawer },
     { label: 'Aprender', items: aprenderDrawer },
+    { label: 'Parceiros', items: parceirosDrawer },
   ]
 
   const allDrawerItems = drawerSections.flatMap(s => s.items)

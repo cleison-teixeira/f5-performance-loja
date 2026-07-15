@@ -333,10 +333,10 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
               </div>
               <div className="p-4 border-t">
                 <Link
-                  href="/treinamentos?secao=piuvita"
+                  href="/parceiros/piuvita"
                   className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary text-primary text-sm font-semibold py-2.5 hover:bg-primary/5 transition-colors"
                 >
-                  Abrir treinamentos
+                  Acessar portal PiùVita
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>

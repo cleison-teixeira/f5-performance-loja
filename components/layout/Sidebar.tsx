@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   Building2, UsersRound,
-  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen,
+  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -39,6 +39,10 @@ const configuracaoItemsVendedora = [
 
 const aprenderItems = [
   { href: '/treinamentos', label: 'Academia F5', icon: GraduationCap },
+]
+
+const parceirosItems = [
+  { href: '/parceiros', label: 'F5 Partners', icon: Star },
 ]
 
 type NavItem = { href: string; label: string; icon: React.ElementType }
@@ -113,6 +117,7 @@ export function Sidebar({ role, badgesMap = {} }: Props) {
         <Section label="Gestão" Icon={Building2} items={gestaoItems} />
         <Section label="Configuração" Icon={Settings} items={configuracaoItems} />
         <Section label="Aprender" Icon={GraduationCap} items={aprenderItems} />
+        <Section label="Parceiros" Icon={Star} items={parceirosItems} />
       </nav>
     </aside>
   )

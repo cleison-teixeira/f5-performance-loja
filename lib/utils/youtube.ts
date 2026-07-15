@@ -1,3 +1,13 @@
+export function youtubeVideoId(url: string): string | null {
+  const shorts = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/)
+  if (shorts) return shorts[1]
+  const short = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+  if (short) return short[1]
+  const watch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/)
+  if (watch) return watch[1]
+  return null
+}
+
 export function youtubeEmbedUrl(url: string): string | null {
   // youtube.com/shorts/VIDEO_ID
   const shorts = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/)

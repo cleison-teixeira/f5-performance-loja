@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { getContextoLoja } from '@/lib/loja/contexto'
+import Link from 'next/link'
+import { Star } from 'lucide-react'
 import { BibliotecasClient } from './BibliotecasClient'
 import { PinGestaoGuard } from '@/components/pin/PinGestaoGuard'
 
@@ -138,10 +140,23 @@ export default async function ConfigBibliotecasPage() {
     <PinGestaoGuard lojaId={guardLojaId} scope="bibliotecas">
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold">Bibliotecas</h1>
+          <h1 className="text-xl font-semibold">Bibliotecas de Produtos</h1>
           <p className="text-sm text-muted-foreground">
-            Instale produtos prontos e libere treinamentos para acelerar a recompra na sua loja.
+            Instale catálogos prontos com produtos, fotos, ciclos de recompra e mensagens comerciais configuradas.
           </p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4 flex items-start gap-3">
+          <Star className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Os treinamentos e materiais institucionais das marcas agora estão disponíveis no F5 Partners.</p>
+            <Link
+              href="/parceiros"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              Acessar marcas parceiras
+            </Link>
+          </div>
         </div>
         <BibliotecasClient
           bibliotecas={bibliotecas}
