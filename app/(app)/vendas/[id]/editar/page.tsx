@@ -112,12 +112,11 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
         .select('email')
         .eq('loja_id', loja_id)
         .eq('tipo', 'loja')
-        .order('criado_em', { ascending: true })
-        .limit(1)
-        .maybeSingle(),
+        .order('criado_em', { ascending: true }),
     ])
 
-    const lojaEmail = (lojaLibRes.data?.email as string | null) ?? null
+    const lojaLibEmails = (lojaLibRes.data ?? []).map(r => r.email as string).filter(Boolean)
+    const lojaEmail = lojaLibEmails[0] ?? null
 
     // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
     const donoIdsE = [...new Set(
@@ -139,7 +138,7 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
       const nome = perfil?.nome ?? 'Sem nome'
       const role = (m as unknown as { role: string }).role
       const perfilEmail = donoAuthEmailsE[m.perfil_id as string] ?? null
-      if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome: loja_nome, lojaEmail })) return []
+      if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome: loja_nome, lojaEmail, lojaLibEmails })) return []
       return [{ id: m.perfil_id as string, nome }]
     })
   }

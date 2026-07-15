@@ -97,9 +97,13 @@ export default async function VendasPage() {
   const vendasRaw = vendasRes.data
 
   const lojaEmailMap = new Map<string, string>()
+  const lojaLibEmailsMap = new Map<string, string[]>()
   for (const row of lojaEmailsRes.data ?? []) {
     const lid = row.loja_id as string
     if (!lojaEmailMap.has(lid)) lojaEmailMap.set(lid, row.email as string)
+    const arr = lojaLibEmailsMap.get(lid) ?? []
+    arr.push(row.email as string)
+    lojaLibEmailsMap.set(lid, arr)
   }
 
   // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
@@ -132,8 +136,9 @@ export default async function VendasPage() {
       const memberLojaId = (m as unknown as { loja_id: string }).loja_id
       const lojaNome = lojaNomeMap.get(memberLojaId) ?? ''
       const lojaEmail = lojaEmailMap.get(memberLojaId) ?? null
+      const lojaLibEmails = lojaLibEmailsMap.get(memberLojaId) ?? null
       const perfilEmail = donoAuthEmailsV[pid] ?? null
-      if (isContaEstrutural({ role: memberRole, perfilNome: nome, perfilEmail, lojaNome, lojaEmail })) return []
+      if (isContaEstrutural({ role: memberRole, perfilNome: nome, perfilEmail, lojaNome, lojaEmail, lojaLibEmails })) return []
       return [{ id: pid, nome }]
     })
   }

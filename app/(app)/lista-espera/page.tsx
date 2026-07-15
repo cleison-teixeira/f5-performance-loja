@@ -80,9 +80,7 @@ export default async function ListaEsperaPage() {
           .eq('loja_id', loja_id)
           .eq('tipo', 'loja')
           .order('criado_em', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: [] as Array<{ email: string }> }),
   ]))
 
   const categoriaMap: Record<string, string> = {}
@@ -146,7 +144,8 @@ export default async function ListaEsperaPage() {
     }))
   }
 
-  const lojaEmail = ((lojaEmailRes as { data: { email?: string | null } | null }).data?.email as string | null) ?? null
+  const lojaLibEmails = ((lojaEmailRes as { data: Array<{ email: string }> | null }).data ?? []).map(r => r.email as string).filter(Boolean)
+  const lojaEmail = lojaLibEmails[0] ?? null
   const vendedoras = isVendedora || ctx.escopo === 'rede'
     ? []
     : (vendedorasRes.data ?? []).flatMap(m => {
@@ -155,7 +154,7 @@ export default async function ListaEsperaPage() {
         const nome = perfil?.nome ?? '—'
         const role = (m as unknown as { role: string }).role
         const perfilEmail = donoAuthEmailsLE[m.perfil_id as string] ?? null
-        if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome, lojaEmail })) return []
+        if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome, lojaEmail, lojaLibEmails })) return []
         return [{ id: m.perfil_id as string, nome }]
       })
 

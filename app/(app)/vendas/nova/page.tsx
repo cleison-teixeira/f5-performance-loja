@@ -81,9 +81,7 @@ export default async function NovaVendaPage() {
       .select('email')
       .eq('loja_id', lojaId)
       .eq('tipo', 'loja')
-      .order('criado_em', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .order('criado_em', { ascending: true }),
   ])
 
   const perfil = perfilRes.data
@@ -161,14 +159,15 @@ export default async function NovaVendaPage() {
     }))
   }
 
-  const lojaEmail = (lojaEmailRes.data?.email as string | null) ?? null
+  const lojaLibEmails = ((lojaEmailRes as { data: Array<{ email: string }> | null }).data ?? []).map(r => r.email as string).filter(Boolean)
+  const lojaEmail = lojaLibEmails[0] ?? null
   const vendedoras = (membrosVendedoras ?? []).flatMap(m => {
     const p = m.perfis as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
     const perfisObj = Array.isArray(p) ? p[0] : p
     const nome = perfisObj?.nome ?? 'Vendedora sem nome'
     const role = (m as unknown as { role: string }).role
     const perfilEmail = donoAuthEmails[m.perfil_id as string] ?? null
-    if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome, lojaEmail })) return []
+    if (isContaEstrutural({ role, perfilNome: nome, perfilEmail, lojaNome, lojaEmail, lojaLibEmails })) return []
     return [{
       id: m.perfil_id as string,
       nome,

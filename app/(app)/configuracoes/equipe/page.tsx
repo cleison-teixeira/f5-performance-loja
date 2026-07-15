@@ -118,15 +118,14 @@ export default async function ConfigEquipePage() {
       .select('email')
       .eq('loja_id', loja_id)
       .eq('tipo', 'loja')
-      .order('criado_em', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .order('criado_em', { ascending: true }),
   ])
   const comissaoPorId: Record<string, number> = Object.fromEntries(
     (regrasData ?? []).map(r => [r.vendedora_id as string, r.percentual as number])
   )
 
-  const lojaEmail = (lojaLibRes.data?.email as string | null) ?? null
+  const lojaLibEmails = (lojaLibRes.data ?? []).map(r => r.email as string).filter(Boolean)
+  const lojaEmail = lojaLibEmails[0] ?? null
 
   // Buscar auth emails dos donos para Critério 2 (email_perfil === email_loja)
   const donoIds = (membros ?? []).filter(m => m.role === 'dono').map(m => m.perfil_id as string)
@@ -148,6 +147,7 @@ export default async function ConfigEquipePage() {
       perfilEmail: authEmailMap[m.perfil_id as string] ?? null,
       lojaNome: lojaInfo?.nome ?? lojaNome,
       lojaEmail,
+      lojaLibEmails,
     })
 
     return {
