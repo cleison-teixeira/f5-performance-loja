@@ -6,9 +6,11 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package, MoreHorizontal, X,
   Building2, UsersRound,
-  ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star
+  ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star, Network, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+type DrawerItem = { href: string; label: string; icon: React.ElementType; newBadge?: string }
 
 const mainItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
@@ -17,35 +19,36 @@ const mainItems = [
   { href: '/produtos', label: 'Produtos', icon: Package },
 ]
 
-const operacaoDrawer = [
+const operacaoDrawer: DrawerItem[] = [
   { href: '/relacionamento', label: 'Relacionamento', icon: MessageCircle },
   { href: '/perdas', label: 'Recompras perdidas', icon: TrendingDown },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
   { href: '/clientes', label: 'Carteira de Clientes', icon: Users },
   { href: '/lista-espera', label: 'Pedidos em Espera', icon: Clock },
+  { href: '/demandas-rede', label: 'Demandas da Rede', icon: Network, newBadge: 'Novo' },
 ]
 
-const gestaoDrawerBase = [
+const gestaoDrawerBase: DrawerItem[] = [
   { href: '/minha-conta', label: 'Minha Conta', icon: Building2 },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: UsersRound },
 ]
 
-const gestaoDrawerVendedora: typeof gestaoDrawerBase = []
+const gestaoDrawerVendedora: DrawerItem[] = []
 
-const configuracaoDrawerBase = [
+const configuracaoDrawerBase: DrawerItem[] = [
   { href: '/configuracoes/produtos', label: 'Produtos e Mensagens', icon: Package },
   { href: '/configuracoes/bibliotecas', label: 'Bibliotecas', icon: BookOpen },
 ]
 
-const configuracaoDrawerVendedora = [
+const configuracaoDrawerVendedora: DrawerItem[] = [
   { href: '/configuracoes/produtos', label: 'Produtos e Mensagens', icon: Package },
 ]
 
-const aprenderDrawer = [
+const aprenderDrawer: DrawerItem[] = [
   { href: '/treinamentos', label: 'F5 Academy', icon: GraduationCap },
 ]
 
-const parceirosDrawer = [
+const parceirosDrawer: DrawerItem[] = [
   { href: '/parceiros', label: 'F5 Partners', icon: Star },
 ]
 
@@ -143,7 +146,7 @@ export function BottomNav({ role, badgesMap = {} }: Props) {
                   <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {section.label}
                   </p>
-                  {section.items.map(({ href, label, icon: Icon }) => {
+                  {section.items.map(({ href, label, icon: Icon, newBadge }) => {
                     const active = pathname === href || pathname.startsWith(href + '/')
                     return (
                       <Link
@@ -158,7 +161,13 @@ export function BottomNav({ role, badgesMap = {} }: Props) {
                         )}
                       >
                         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        {label}
+                        <span className="flex-1">{label}</span>
+                        {newBadge && (
+                          <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded px-1 py-0.5 leading-none">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            {newBadge}
+                          </span>
+                        )}
                       </Link>
                     )
                   })}
