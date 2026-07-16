@@ -66,7 +66,7 @@ export function CampanhaDetalheClient({ campanha, resultado, lojaId, podeGerenci
 
   const pctLoja = metaLoja ? pct(isDiaria ? resultado.unidades_hoje : resultado.total_unidades, metaLoja) : null
   const vendaLinkQuery = itensAtivos.length === 1
-    ? `?produto_id=${itensAtivos[0].produto_id}&campanha_id=${campanha.id}`
+    ? `?produto_id=${itensAtivos[0].produto_id}&campanha_id=${campanha.id}&campanha_item_id=${itensAtivos[0].id}`
     : `?campanha_id=${campanha.id}`
 
   return (

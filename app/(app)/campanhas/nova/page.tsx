@@ -28,7 +28,7 @@ export default async function NovaCampanhaPage({
   // Carregar produtos ativos da loja
   const { data: produtos } = await admin
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, ciclo_recompra_dias, recorrente')
+    .select('id, nome, preco_sugerido, foto_url, recorrente')
     .eq('loja_id', lojaId)
     .eq('ativo', true)
     .order('nome')

@@ -6,11 +6,16 @@ import { redirect } from 'next/navigation'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
 import { getContextoLoja } from '@/lib/loja/contexto'
-import { FormNovaVenda } from './FormNovaVenda'
+import { FormNovaVenda, type CampanhaProdutoInfo, type CampanhaPreSelecionada } from './FormNovaVenda'
 
 const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, vendedora: 2 }
 
-export default async function NovaVendaPage() {
+export default async function NovaVendaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ produto_id?: string; campanha_id?: string; campanha_item_id?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -56,8 +61,10 @@ export default async function NovaVendaPage() {
     )
   }
 
+  const hj = new Date().toISOString().slice(0, 10)
+
   // Parallelizar queries independentes após ctx
-  const [perfilRes, produtosRes, membrosRes, fixasRes, lojaEmailRes] = await Promise.all([
+  const [perfilRes, produtosRes, membrosRes, fixasRes, lojaEmailRes, campanhaItensRes] = await Promise.all([
     supabase.from('perfis').select('nome').eq('id', user.id).single(),
     admin
       .from('produtos')
@@ -82,6 +89,14 @@ export default async function NovaVendaPage() {
       .eq('loja_id', lojaId)
       .eq('tipo', 'loja')
       .order('criado_em', { ascending: true }),
+    admin
+      .from('campanhas_venda_itens')
+      .select('id, produto_id, preco_campanha, campanha_id, campanhas_venda!inner(id, nome, status, data_inicio, data_fim, loja_id)')
+      .eq('campanhas_venda.loja_id', lojaId)
+      .eq('campanhas_venda.status', 'ativa')
+      .lte('campanhas_venda.data_inicio', hj)
+      .gte('campanhas_venda.data_fim', hj)
+      .eq('ativo', true),
   ])
 
   const perfil = perfilRes.data
@@ -114,6 +129,68 @@ export default async function NovaVendaPage() {
     qtd_mensagens: (p as any).qtd_mensagens ?? 3,
     ciclo_padrao: cicloMap[p.id as string] ?? 30,
   }))
+
+  // Construir mapa produto_id → campanha (apenas campanhas ativas da loja)
+  const campanhaProdutoMap: Record<string, CampanhaProdutoInfo> = {}
+  for (const row of (campanhaItensRes.data ?? []) as unknown[]) {
+    const r = row as Record<string, unknown>
+    const cv = r.campanhas_venda as Record<string, unknown>
+    const prodId = r.produto_id as string
+    if (!campanhaProdutoMap[prodId]) {
+      campanhaProdutoMap[prodId] = {
+        campanhaId: cv.id as string,
+        campanhaItemId: r.id as string,
+        campanhaNome: cv.nome as string,
+        preco: Number(r.preco_campanha),
+      }
+    }
+  }
+
+  // Validar e montar pré-seleção de campanha a partir dos query params
+  let campanhaPreSelecionada: CampanhaPreSelecionada | null = null
+  const paramCampanhaId = params.campanha_id
+  const paramProdutoId = params.produto_id
+
+  if (paramCampanhaId) {
+    // Verificar se a campanha está válida (está no mapa = ativa, da loja correta, no período)
+    const entradaCampanha = Object.values(campanhaProdutoMap).find(v => v.campanhaId === paramCampanhaId)
+
+    if (entradaCampanha) {
+      if (paramProdutoId && campanhaProdutoMap[paramProdutoId]?.campanhaId === paramCampanhaId) {
+        // Único SKU pré-selecionado via URL
+        const info = campanhaProdutoMap[paramProdutoId]
+        campanhaPreSelecionada = {
+          campanhaId: info.campanhaId,
+          campanhaNome: info.campanhaNome,
+          produtoId: paramProdutoId,
+          campanhaItemId: info.campanhaItemId,
+          preco: info.preco,
+        }
+      } else if (!paramProdutoId) {
+        // Multi-SKU: montar picker com todos os itens da campanha
+        const itensParaPicker = Object.entries(campanhaProdutoMap)
+          .filter(([, v]) => v.campanhaId === paramCampanhaId)
+          .map(([prodId, v]) => {
+            const produto = produtosMapeados.find(p => p.id === prodId)
+            return {
+              id: v.campanhaItemId,
+              produto_id: prodId,
+              produto_nome: produto?.nome ?? '',
+              preco_campanha: v.preco,
+            }
+          })
+          .filter(i => i.produto_nome !== '')
+
+        if (itensParaPicker.length > 0) {
+          campanhaPreSelecionada = {
+            campanhaId: paramCampanhaId,
+            campanhaNome: entradaCampanha.campanhaNome,
+            itensParaPicker,
+          }
+        }
+      }
+    }
+  }
 
   const vendedoraIds = (membrosVendedoras ?? []).map(m => m.perfil_id as string)
 
@@ -197,6 +274,8 @@ export default async function NovaVendaPage() {
         vendedoras={vendedoras}
         produtos={produtosMapeados}
         fixasPorVendedoraProduto={fixasPorVendedoraProduto}
+        campanhaProdutoMap={campanhaProdutoMap}
+        campanhaPreSelecionada={campanhaPreSelecionada}
       />
     </div>
   )

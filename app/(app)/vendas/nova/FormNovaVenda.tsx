@@ -6,7 +6,7 @@ import { ResumoVenda } from './ResumoVenda'
 import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
-import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff } from 'lucide-react'
+import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff, Megaphone } from 'lucide-react'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 interface Vendedora {
@@ -26,6 +26,29 @@ interface ProdutoCatalogo {
   qtd_mensagens?: number | null
 }
 
+export interface CampanhaProdutoInfo {
+  campanhaId: string
+  campanhaItemId: string
+  campanhaNome: string
+  preco: number
+}
+
+export interface CampanhaItemParaVenda {
+  id: string
+  produto_id: string
+  produto_nome: string
+  preco_campanha: number
+}
+
+export interface CampanhaPreSelecionada {
+  campanhaId: string
+  campanhaNome: string
+  produtoId?: string
+  campanhaItemId?: string
+  preco?: number
+  itensParaPicker?: CampanhaItemParaVenda[]
+}
+
 interface Props {
   loja_id: string
   loja_nome: string
@@ -34,6 +57,8 @@ interface Props {
   vendedoras: Vendedora[]
   produtos: ProdutoCatalogo[]
   fixasPorVendedoraProduto: Record<string, Record<string, number>>
+  campanhaProdutoMap?: Record<string, CampanhaProdutoInfo>
+  campanhaPreSelecionada?: CampanhaPreSelecionada | null
 }
 
 interface ItemFormState {
@@ -47,6 +72,7 @@ interface ItemFormState {
   ciclo_recompra_dias: number
   qtd_mensagens: number
   modelo_fluxo?: string
+  campanhaNome?: string
 }
 
 type ResumoData = {
@@ -79,6 +105,14 @@ function formatarValorBRL(raw: string): string {
   return num.toFixed(2).replace('.', ',')
 }
 
+function obterDefaultModeloFluxo(qtd: number): string {
+  if (qtd === 1 || qtd === 2) return 'modelo_2_agrad_rec'
+  if (qtd === 3) return 'modelo_3_agrad_rel_rec'
+  if (qtd === 4) return 'modelo_4_completo'
+  if (qtd === 5) return 'modelo_5_follow_up'
+  return 'modelo_3_agrad_rel_rec'
+}
+
 function novoItem(): ItemFormState {
   return { key: crypto.randomUUID(), produtoId: '', produtoNome: '', quantidade: 1, precoBRL: '', recorrente: true, comissionavel: true, ciclo_recompra_dias: 30, qtd_mensagens: 5, modelo_fluxo: 'modelo_5_follow_up' }
 }
@@ -94,6 +128,8 @@ export function FormNovaVenda({
   vendedoras,
   produtos,
   fixasPorVendedoraProduto: _fixasPorVendedoraProduto,
+  campanhaProdutoMap = {},
+  campanhaPreSelecionada,
 }: Props) {
   const lojaCanonical = loja_nome.trim().toLowerCase()
   const logadoEContaLoja = vendedora_logada_nome.trim().toLowerCase() === lojaCanonical
@@ -118,7 +154,36 @@ export function FormNovaVenda({
   const [dataCompra, setDataCompra] = useState(hojeLocal)
   const [buscandoCliente, startBuscaTransition] = useTransition()
 
-  const [itens, setItens] = useState<ItemFormState[]>([novoItem()])
+  // Picker ativo quando campanha com múltiplos SKUs é passada via URL
+  const [pickerAtivo, setPickerAtivo] = useState(
+    () => !!(campanhaPreSelecionada?.itensParaPicker?.length)
+  )
+
+  // Inicializar com produto pré-selecionado (1 SKU via URL)
+  const [itens, setItens] = useState<ItemFormState[]>(() => {
+    if (campanhaPreSelecionada?.produtoId && !campanhaPreSelecionada.itensParaPicker) {
+      const p = produtos.find(prod => prod.id === campanhaPreSelecionada!.produtoId)
+      if (p) {
+        const defaultQtd = 5
+        return [{
+          key: crypto.randomUUID(),
+          produtoId: p.id,
+          produtoNome: p.nome,
+          precoBRL: campanhaPreSelecionada!.preco != null
+            ? campanhaPreSelecionada!.preco.toFixed(2).replace('.', ',')
+            : (p.preco_sugerido != null ? p.preco_sugerido.toFixed(2).replace('.', ',') : ''),
+          quantidade: 1,
+          recorrente: true,
+          comissionavel: p.comissionavel_recompra,
+          ciclo_recompra_dias: p.ciclo_padrao ?? 30,
+          qtd_mensagens: defaultQtd,
+          modelo_fluxo: obterDefaultModeloFluxo(defaultQtd),
+          campanhaNome: campanhaPreSelecionada!.campanhaNome,
+        }]
+      }
+    }
+    return [novoItem()]
+  })
 
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
@@ -146,38 +211,53 @@ export function FormNovaVenda({
     setItens(prev => prev.map(item => item.key === key ? { ...item, ...patch } : item))
   }
 
-  function obterDefaultModeloFluxo(qtd: number): string {
-    if (qtd === 1 || qtd === 2) return 'modelo_2_agrad_rec'
-    if (qtd === 3) return 'modelo_3_agrad_rel_rec'
-    if (qtd === 4) return 'modelo_4_completo'
-    if (qtd === 5) return 'modelo_5_follow_up'
-    return 'modelo_3_agrad_rel_rec'
-  }
-
   function handleProdutoSelect(key: string, resultado: ProdutoSelecionadoResult) {
     setItens(prev => prev.map(item => {
       if (item.key !== key) return item
       if (!resultado.nome.trim()) {
-        return { ...item, produtoId: '', produtoNome: '', precoBRL: '' }
+        return { ...item, produtoId: '', produtoNome: '', precoBRL: '', campanhaNome: undefined }
       }
       if (resultado.id) {
         const defaultQtd = 5
+        const campInfo = campanhaProdutoMap[resultado.id]
         return {
           ...item,
           produtoId: resultado.id,
           produtoNome: resultado.nome,
-          precoBRL: resultado.preco_sugerido != null
-            ? resultado.preco_sugerido.toFixed(2).replace('.', ',')
-            : item.precoBRL,
+          precoBRL: campInfo?.preco != null
+            ? campInfo.preco.toFixed(2).replace('.', ',')
+            : (resultado.preco_sugerido != null
+              ? resultado.preco_sugerido.toFixed(2).replace('.', ',')
+              : item.precoBRL),
           recorrente: true,
           comissionavel: resultado.comissionavel_recompra ?? item.comissionavel,
           ciclo_recompra_dias: resultado.ciclo_padrao ?? item.ciclo_recompra_dias,
           qtd_mensagens: defaultQtd,
           modelo_fluxo: obterDefaultModeloFluxo(defaultQtd),
+          campanhaNome: campInfo?.campanhaNome,
         }
       }
-      return { ...item, produtoId: '', produtoNome: resultado.nome }
+      return { ...item, produtoId: '', produtoNome: resultado.nome, campanhaNome: undefined }
     }))
+  }
+
+  function handlePickerSelect(pickerItem: CampanhaItemParaVenda) {
+    const p = produtos.find(prod => prod.id === pickerItem.produto_id)
+    const defaultQtd = 5
+    setItens(prev => [{
+      ...prev[0],
+      produtoId: pickerItem.produto_id,
+      produtoNome: pickerItem.produto_nome,
+      precoBRL: pickerItem.preco_campanha.toFixed(2).replace('.', ','),
+      quantidade: 1,
+      recorrente: true,
+      comissionavel: p?.comissionavel_recompra ?? prev[0].comissionavel,
+      ciclo_recompra_dias: p?.ciclo_padrao ?? prev[0].ciclo_recompra_dias,
+      qtd_mensagens: defaultQtd,
+      modelo_fluxo: obterDefaultModeloFluxo(defaultQtd),
+      campanhaNome: campanhaPreSelecionada?.campanhaNome,
+    }, ...prev.slice(1)])
+    setPickerAtivo(false)
   }
 
   const todasVendedoras = logadoEContaLoja
@@ -289,6 +369,39 @@ export function FormNovaVenda({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+
+      {/* Picker multi-SKU de campanha */}
+      {pickerAtivo && campanhaPreSelecionada?.itensParaPicker && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-primary">{campanhaPreSelecionada.campanhaNome}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Escolha o produto para registrar nesta campanha:</p>
+          <div className="space-y-2">
+            {campanhaPreSelecionada.itensParaPicker.map(ci => (
+              <button
+                key={ci.id}
+                type="button"
+                onClick={() => handlePickerSelect(ci)}
+                className="w-full text-left rounded-lg border bg-card hover:bg-accent transition-colors p-3 flex items-center justify-between gap-2"
+              >
+                <span className="text-sm font-medium">{ci.produto_nome}</span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {ci.preco_campanha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setPickerAtivo(false)}
+            className="text-xs text-muted-foreground underline underline-offset-2"
+          >
+            Registrar venda normal (sem campanha)
+          </button>
+        </div>
+      )}
 
       {/* Bloco: Cliente */}
       <div className="rounded-xl border bg-card p-4 space-y-3">
@@ -416,6 +529,13 @@ export function FormNovaVenda({
                   inputClass={inputClass}
                 />
               </div>
+
+              {item.campanhaNome && (
+                <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 px-2.5 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+                  <Megaphone className="h-3 w-3 shrink-0" />
+                  <span>Participante da campanha: <strong>{item.campanhaNome}</strong></span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
