@@ -12,6 +12,12 @@ interface Props {
   vendedoras: Array<{ id: string; nome: string }>
   produtos: Array<{ id: string; nome: string }>
   podeEditar: boolean
+  temRedeMultiLoja?: boolean
+  lojaId?: string
+  lojaNome?: string
+  empresaId?: string
+  userId?: string
+  userNome?: string
 }
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -45,6 +51,12 @@ export function ListaEsperaPageClient({
   vendedoras,
   produtos,
   podeEditar,
+  temRedeMultiLoja = false,
+  lojaId = '',
+  lojaNome = '',
+  empresaId = '',
+  userId = '',
+  userNome = '',
 }: Props) {
   const [registros, setRegistros] = useState<RegistroListaEspera[]>(initialRegistros)
   const [busca, setBusca] = useState('')
@@ -249,6 +261,12 @@ export function ListaEsperaPageClient({
           vendedoras={vendedoras}
           produtos={produtos}
           podeEditar={podeEditar}
+          temRedeMultiLoja={temRedeMultiLoja}
+          lojaId={lojaId}
+          lojaNome={lojaNome}
+          empresaId={empresaId}
+          userId={userId}
+          userNome={userNome}
         />
       )}
     </div>

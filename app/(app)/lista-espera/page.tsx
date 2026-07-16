@@ -43,6 +43,24 @@ export default async function ListaEsperaPage() {
   const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
   const lojaNome = ctx.lojaNome ?? ''
 
+  // Empresa e rede multi-loja
+  let empresaId = ''
+  let temRedeMultiLoja = false
+  if (ctx.escopo === 'loja') {
+    const { data: lojaData } = await admin.from('lojas').select('empresa_id').eq('id', loja_id).single()
+    if (lojaData) {
+      empresaId = (lojaData as { empresa_id: string }).empresa_id
+      const { data: outrasLojas } = await admin
+        .from('lojas')
+        .select('id')
+        .eq('empresa_id', empresaId)
+        .eq('ativa', true)
+        .eq('admin_only', false)
+        .neq('id', loja_id)
+      temRedeMultiLoja = (outrasLojas?.length ?? 0) > 0
+    }
+  }
+
   const [registrosRes, categoriasRes, vendedorasRes, produtosRes, lojaEmailRes] = await measureAsync('lista-espera:queries', () => Promise.all([
     admin
       .from('lista_espera')
@@ -106,6 +124,26 @@ export default async function ListaEsperaPage() {
     for (const p of perfisData ?? []) nomeMap[p.id as string] = p.nome as string
   }
 
+  // Demandas ativas por item (para badge "Em busca na rede")
+  const listaEsperaIds = (registrosRes.data ?? []).map(r => r.id as string)
+  const demandasAtivasMap = new Map<string, { id: string; status: string }>()
+  if (temRedeMultiLoja && listaEsperaIds.length > 0) {
+    const { data: demandasAtivas } = await admin
+      .from('demandas_rede')
+      .select('id, lista_espera_id, status')
+      .eq('loja_origem_id', loja_id)
+      .in('status', ['em_busca', 'encontrado', 'separado'])
+      .in('lista_espera_id', listaEsperaIds)
+    for (const d of demandasAtivas ?? []) {
+      const leId = (d as { lista_espera_id: string | null }).lista_espera_id
+      if (leId) demandasAtivasMap.set(leId, { id: d.id as string, status: d.status as string })
+    }
+  }
+
+  // Nome do usuário para aparecer nas respostas de demanda
+  const { data: perfilData } = await admin.from('perfis').select('nome').eq('id', user.id).maybeSingle()
+  const userNome = (perfilData as { nome: string } | null)?.nome ?? user.email ?? ''
+
   const registros: RegistroListaEspera[] = (registrosRes.data ?? []).map(r => {
     const clienteData = (r as unknown as { clientes: { nao_contatar: boolean } | null }).clientes
     return ({
@@ -132,6 +170,7 @@ export default async function ListaEsperaPage() {
     vendedora_nome: nomeMap[r.vendedora_id as string] ?? '—',
     loja_nome: mostrarLoja ? (lojaNomeMap.get(r.loja_id as string) ?? '') : undefined,
     nao_contatar: clienteData?.nao_contatar ?? false,
+    demanda_ativa: demandasAtivasMap.get(r.id as string) ?? null,
   })})
 
   // Buscar auth email dos donos para Critério 2 (email perfil === email loja)
@@ -256,11 +295,16 @@ export default async function ListaEsperaPage() {
 
       <ListaEsperaPageClient
         initialRegistros={registros}
-
         defaultLojaNome={lojaNome}
         vendedoras={vendedoras}
         produtos={produtos}
         podeEditar={ctx.escopo === 'loja'}
+        temRedeMultiLoja={temRedeMultiLoja}
+        lojaId={loja_id}
+        lojaNome={lojaNome}
+        empresaId={empresaId}
+        userId={user.id}
+        userNome={userNome}
       />
     </div>
   )

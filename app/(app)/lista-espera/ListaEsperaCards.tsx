@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Pencil, Send, ClipboardList, ShieldOff, Package } from 'lucide-react'
+import { Copy, Check, Pencil, Send, ClipboardList, ShieldOff, Package, Network } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import {
   atualizarStatusListaEspera,
@@ -19,6 +19,11 @@ import dynamic from 'next/dynamic'
 
 const ListaEsperaEditForm = dynamic(
   () => import('./ListaEsperaEditForm').then(m => ({ default: m.ListaEsperaEditForm })),
+  { ssr: false }
+)
+
+const BuscarNaRedeModal = dynamic(
+  () => import('./BuscarNaRedeModal').then(m => ({ default: m.BuscarNaRedeModal })),
   { ssr: false }
 )
 
@@ -44,6 +49,7 @@ export interface RegistroListaEspera {
   recorrente?: boolean
   ciclo_recompra_dias?: number | null
   qtd_mensagens?: number | null
+  demanda_ativa?: { id: string; status: string } | null
 }
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -260,18 +266,86 @@ function MensagemSugerida({
 
 // ─── GrupoPedidoCard ──────────────────────────────────────────────────────────
 
+function BuscarNaRedeButton({
+  item,
+  lojaId,
+  lojaNome,
+  empresaId,
+  userId,
+  userNome,
+}: {
+  item: RegistroListaEspera
+  lojaId: string
+  lojaNome: string
+  empresaId: string
+  userId: string
+  userNome: string
+}) {
+  const [aberto, setAberto] = useState(false)
+  const demandaAtiva = item.demanda_ativa ?? null
+
+  return (
+    <>
+      {aberto && (
+        <BuscarNaRedeModal
+          itemId={item.id}
+          produtoNome={item.produto_nome}
+          produtoId={item.produto_id}
+          quantidade={item.quantidade}
+          lojaId={lojaId}
+          lojaNome={lojaNome}
+          empresaId={empresaId}
+          responsavelId={item.vendedora_id}
+          responsavelNome={item.vendedora_nome ?? '—'}
+          demandaAtiva={demandaAtiva}
+          onClose={() => setAberto(false)}
+        />
+      )}
+      {demandaAtiva ? (
+        <button
+          onClick={() => setAberto(true)}
+          className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+        >
+          <Network className="h-3 w-3" />
+          Em busca na rede
+        </button>
+      ) : (
+        <button
+          onClick={() => setAberto(true)}
+          className="inline-flex items-center gap-1 rounded-md border border-input px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          <Network className="h-3 w-3" />
+          Buscar na rede
+        </button>
+      )}
+    </>
+  )
+}
+
 function GrupoPedidoCard({
   grupo,
   defaultLojaNome,
   vendedoras,
   produtos,
   podeEditar,
+  temRedeMultiLoja,
+  lojaId,
+  lojaNome,
+  empresaId,
+  userId,
+  userNome,
 }: {
   grupo: GrupoPedido
   defaultLojaNome: string
   vendedoras: Array<{ id: string; nome: string }>
   produtos: Array<{ id: string; nome: string }>
   podeEditar: boolean
+  temRedeMultiLoja: boolean
+  lojaId: string
+  lojaNome: string
+  empresaId: string
+  userId: string
+  userNome: string
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -388,6 +462,16 @@ function GrupoPedidoCard({
                 <span className="text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
                   {fmtValor(item.valor_potencial)}
                 </span>
+              )}
+              {temRedeMultiLoja && podeEditar && (
+                <BuscarNaRedeButton
+                  item={item}
+                  lojaId={lojaId}
+                  lojaNome={lojaNome}
+                  empresaId={empresaId}
+                  userId={userId}
+                  userNome={userNome}
+                />
               )}
               {podeEditar && (
                 <button
@@ -513,6 +597,12 @@ interface Props {
   vendedoras?: Array<{ id: string; nome: string }>
   produtos?: Array<{ id: string; nome: string }>
   podeEditar?: boolean
+  temRedeMultiLoja?: boolean
+  lojaId?: string
+  lojaNome?: string
+  empresaId?: string
+  userId?: string
+  userNome?: string
 }
 
 export function ListaEsperaCards({
@@ -521,6 +611,12 @@ export function ListaEsperaCards({
   vendedoras = [],
   produtos = [],
   podeEditar = false,
+  temRedeMultiLoja = false,
+  lojaId = '',
+  lojaNome = '',
+  empresaId = '',
+  userId = '',
+  userNome = '',
 }: Props) {
   const [produtoFiltro, setProdutoFiltro] = useState('')
 
@@ -730,6 +826,12 @@ export function ListaEsperaCards({
                 vendedoras={vendedoras}
                 produtos={produtos}
                 podeEditar={podeEditar}
+                temRedeMultiLoja={temRedeMultiLoja}
+                lojaId={lojaId}
+                lojaNome={lojaNome}
+                empresaId={empresaId}
+                userId={userId}
+                userNome={userNome}
               />
             ))}
           </div>
