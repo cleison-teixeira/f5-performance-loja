@@ -19,7 +19,7 @@ const operacaoItems = [
   { href: '/clientes', label: 'Carteira de Clientes', icon: Users },
   { href: '/lista-espera', label: 'Pedidos em Espera', icon: Clock },
   { href: '/demandas-rede', label: 'Demandas da Rede', icon: Network, newBadge: 'Novo' },
-  { href: '/campanhas', label: 'Campanhas', icon: Megaphone },
+  { href: '/campanhas', label: 'Campanhas', icon: Megaphone, newBadge: 'Novo' },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
 ]
 
