@@ -10,6 +10,7 @@ import { calcularTaxaRecompraGeral } from '@/lib/metricas/taxa-conversao'
 import { getAppContext } from '@/lib/app/contexto'
 import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
 import { measureAsync } from '@/lib/performance/timing'
+import { CampanhaCardVendedor, CampanhaCardGestor } from './CampanhaAtivaBanner'
 
 export interface DashboardAviso {
   id: string
@@ -150,7 +151,7 @@ export default async function DashboardPage() {
     )
   }
 
-  const { role, ctx } = appCtx
+  const { role, ctx, user } = appCtx
   const admin = createAdminClient()
 
   // appCtx.perfil já contém o nome — sem query extra
@@ -750,6 +751,16 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {/* Banner de campanha ativa — só aparece quando há loja específica selecionada */}
+      {ctx.escopo === 'loja' && loja_id && (
+        <Suspense fallback={null}>
+          {isAcessoLoja(role)
+            ? <CampanhaCardVendedor lojaId={loja_id} perfilId={user.id} />
+            : <CampanhaCardGestor lojaId={loja_id} />
+          }
+        </Suspense>
+      )}
+
       <DashboardView
         loja={loja}
         role={role}

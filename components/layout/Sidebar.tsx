@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   Building2, UsersRound,
-  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star, Network, Sparkles,
+  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star, Network, Sparkles, Megaphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,7 @@ const operacaoItems = [
   { href: '/clientes', label: 'Carteira de Clientes', icon: Users },
   { href: '/lista-espera', label: 'Pedidos em Espera', icon: Clock },
   { href: '/demandas-rede', label: 'Demandas da Rede', icon: Network, newBadge: 'Novo' },
+  { href: '/campanhas', label: 'Campanhas', icon: Megaphone },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
 ]
 

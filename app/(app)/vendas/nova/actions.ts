@@ -286,21 +286,55 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
 
     const venda_id = vendaData.id as string
 
-    // 5. INSERT itens_venda
+    // 4.5. Detectar campanhas ativas para cada produto_id (batch lookup)
+    const hoje = dados.data_compra
+    const produtoIdsUnicos = [...new Set(itensProcessados.map(i => i.produto_id).filter(Boolean))]
+    const campanhaMap = new Map<string, { campanhaId: string; itemId: string }>()
+
+    if (produtoIdsUnicos.length > 0) {
+      const { data: cviRows } = await admin
+        .from('campanhas_venda_itens')
+        .select('id, produto_id, campanha_id, campanhas_venda!inner(id, loja_id, status, data_inicio, data_fim)')
+        .in('produto_id', produtoIdsUnicos)
+        .eq('ativo', true)
+
+      for (const row of (cviRows ?? []) as unknown[]) {
+        const r = row as Record<string, unknown>
+        const cv = r.campanhas_venda as Record<string, unknown>
+        if (
+          cv.loja_id === dados.loja_id &&
+          cv.status === 'ativa' &&
+          (cv.data_inicio as string) <= hoje &&
+          (cv.data_fim as string) >= hoje
+        ) {
+          const prodId = r.produto_id as string
+          if (!campanhaMap.has(prodId)) {
+            campanhaMap.set(prodId, { campanhaId: cv.id as string, itemId: r.id as string })
+          }
+        }
+      }
+    }
+
+    // 5. INSERT itens_venda (com campanha_venda_id/item_id quando detectado)
     const { data: itensVendaData, error: itensError } = await admin
       .from('itens_venda')
       .insert(
-        itensProcessados.map(item => ({
-          venda_id,
-          produto_id: item.produto_id,
-          produto_nome: item.produto_nome,
-          recorrente: item.recorrente,
-          comissionavel: item.comissionavel_recompra,
-          quantidade: item.quantidade,
-          valor_unitario: item.preco_unitario,
-          subtotal: item.quantidade * item.preco_unitario,
-          ciclo_recompra_dias: item.ciclo_recompra_dias,
-        }))
+        itensProcessados.map(item => {
+          const campInfo = item.produto_id ? campanhaMap.get(item.produto_id) : undefined
+          return {
+            venda_id,
+            produto_id: item.produto_id,
+            produto_nome: item.produto_nome,
+            recorrente: item.recorrente,
+            comissionavel: item.comissionavel_recompra,
+            quantidade: item.quantidade,
+            valor_unitario: item.preco_unitario,
+            subtotal: item.quantidade * item.preco_unitario,
+            ciclo_recompra_dias: item.ciclo_recompra_dias,
+            campanha_venda_id: campInfo?.campanhaId ?? null,
+            campanha_venda_item_id: campInfo?.itemId ?? null,
+          }
+        })
       )
       .select('id, recorrente, produto_id, ciclo_recompra_dias')
 
