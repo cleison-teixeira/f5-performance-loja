@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { validarMesmaRede, getGrupoRedeDaLoja } from '@/lib/rede/grupo-rede'
 
 export type StatusDemandaRede = 'em_busca' | 'encontrado' | 'separado' | 'resolvido' | 'cancelado'
 export type TipoResposta = 'tenho_estoque' | 'posso_separar'
@@ -22,7 +23,7 @@ export interface DemandaRedeResposta {
 
 export interface DemandaRede {
   id: string
-  empresa_id: string
+  grupo_rede_id: string | null
   loja_origem_id: string
   loja_origem_nome: string
   responsavel_origem_id: string | null
@@ -54,7 +55,6 @@ async function validarMembroLoja(lojaId: string): Promise<string | null> {
 export async function criarDemandaRede(input: {
   lojaOrigemId: string
   lojaOrigemNome: string
-  empresaId: string
   responsavelOrigemId: string | null
   responsavelOrigemNome: string | null
   listaEsperaId: string
@@ -65,6 +65,12 @@ export async function criarDemandaRede(input: {
 }): Promise<{ ok: boolean; data?: { id: string }; error?: string }> {
   const userId = await validarMembroLoja(input.lojaOrigemId)
   if (!userId) return { ok: false, error: 'Você não pertence a esta loja.' }
+
+  // Buscar grupo_rede_id da loja origem no servidor (não confiamos no cliente)
+  const grupoRede = await getGrupoRedeDaLoja(input.lojaOrigemId)
+  if (!grupoRede) {
+    return { ok: false, error: 'Esta loja ainda não está vinculada a uma rede. Contate o suporte.' }
+  }
 
   const admin = createAdminClient()
 
@@ -81,7 +87,7 @@ export async function criarDemandaRede(input: {
   const { data, error } = await admin
     .from('demandas_rede')
     .insert({
-      empresa_id: input.empresaId,
+      grupo_rede_id: grupoRede.id,
       loja_origem_id: input.lojaOrigemId,
       loja_origem_nome: input.lojaOrigemNome,
       responsavel_origem_id: input.responsavelOrigemId,
@@ -120,7 +126,7 @@ export async function responderDemandaRede(input: {
 
   const { data: demanda } = await admin
     .from('demandas_rede')
-    .select('id, status, loja_origem_id, empresa_id')
+    .select('id, status, loja_origem_id, grupo_rede_id')
     .eq('id', input.demandaId)
     .maybeSingle()
 
@@ -132,13 +138,12 @@ export async function responderDemandaRede(input: {
     return { ok: false, error: 'A loja solicitante não pode responder à própria demanda.' }
   }
 
-  const { data: lojaData } = await admin
-    .from('lojas')
-    .select('empresa_id')
-    .eq('id', input.lojaRespostaId)
-    .single()
-
-  if (!lojaData || (lojaData as { empresa_id: string }).empresa_id !== (demanda as { empresa_id: string }).empresa_id) {
+  // Validar que loja_resposta pertence ao mesmo grupo_rede_id
+  const mesmRede = await validarMesmaRede(
+    (demanda as { loja_origem_id: string }).loja_origem_id,
+    input.lojaRespostaId
+  )
+  if (!mesmRede) {
     return { ok: false, error: 'Sua loja não pertence à mesma rede.' }
   }
 

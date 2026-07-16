@@ -15,7 +15,6 @@ interface Props {
   temRedeMultiLoja?: boolean
   lojaId?: string
   lojaNome?: string
-  empresaId?: string
   userId?: string
   userNome?: string
 }
@@ -54,7 +53,6 @@ export function ListaEsperaPageClient({
   temRedeMultiLoja = false,
   lojaId = '',
   lojaNome = '',
-  empresaId = '',
   userId = '',
   userNome = '',
 }: Props) {
@@ -264,7 +262,6 @@ export function ListaEsperaPageClient({
           temRedeMultiLoja={temRedeMultiLoja}
           lojaId={lojaId}
           lojaNome={lojaNome}
-          empresaId={empresaId}
           userId={userId}
           userNome={userNome}
         />

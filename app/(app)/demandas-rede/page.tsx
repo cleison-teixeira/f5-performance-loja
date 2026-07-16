@@ -26,22 +26,22 @@ export default async function DemandasRedePage() {
   const lojaId = ctx.lojaId ?? ctx.lojaIds[0]
   const lojaNome = ctx.lojaNome ?? ''
 
-  // Obter empresa_id da loja atual para filtrar demandas da rede
+  // Obter grupo_rede_id da loja atual para filtrar demandas da rede
   const { data: lojaData } = await admin
     .from('lojas')
-    .select('empresa_id')
+    .select('grupo_rede_id')
     .eq('id', lojaId)
     .single()
 
-  const empresaId = (lojaData as { empresa_id: string } | null)?.empresa_id
+  const grupoRedeId = (lojaData as { grupo_rede_id: string | null } | null)?.grupo_rede_id
 
   let demandas: DemandaRede[] = []
 
-  if (empresaId) {
+  if (grupoRedeId) {
     const { data } = await admin
       .from('demandas_rede')
       .select('*, demandas_rede_respostas(*)')
-      .eq('empresa_id', empresaId)
+      .eq('grupo_rede_id', grupoRedeId)
       .not('status', 'in', '("resolvido","cancelado")')
       .order('criado_em', { ascending: false })
 

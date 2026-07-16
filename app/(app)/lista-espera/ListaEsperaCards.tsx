@@ -270,14 +270,12 @@ function BuscarNaRedeButton({
   item,
   lojaId,
   lojaNome,
-  empresaId,
   userId,
   userNome,
 }: {
   item: RegistroListaEspera
   lojaId: string
   lojaNome: string
-  empresaId: string
   userId: string
   userNome: string
 }) {
@@ -294,7 +292,6 @@ function BuscarNaRedeButton({
           quantidade={item.quantidade}
           lojaId={lojaId}
           lojaNome={lojaNome}
-          empresaId={empresaId}
           responsavelId={item.vendedora_id}
           responsavelNome={item.vendedora_nome ?? '—'}
           demandaAtiva={demandaAtiva}
@@ -331,7 +328,6 @@ function GrupoPedidoCard({
   temRedeMultiLoja,
   lojaId,
   lojaNome,
-  empresaId,
   userId,
   userNome,
 }: {
@@ -343,7 +339,6 @@ function GrupoPedidoCard({
   temRedeMultiLoja: boolean
   lojaId: string
   lojaNome: string
-  empresaId: string
   userId: string
   userNome: string
 }) {
@@ -468,7 +463,6 @@ function GrupoPedidoCard({
                   item={item}
                   lojaId={lojaId}
                   lojaNome={lojaNome}
-                  empresaId={empresaId}
                   userId={userId}
                   userNome={userNome}
                 />
@@ -600,7 +594,6 @@ interface Props {
   temRedeMultiLoja?: boolean
   lojaId?: string
   lojaNome?: string
-  empresaId?: string
   userId?: string
   userNome?: string
 }
@@ -614,7 +607,6 @@ export function ListaEsperaCards({
   temRedeMultiLoja = false,
   lojaId = '',
   lojaNome = '',
-  empresaId = '',
   userId = '',
   userNome = '',
 }: Props) {
@@ -829,7 +821,6 @@ export function ListaEsperaCards({
                 temRedeMultiLoja={temRedeMultiLoja}
                 lojaId={lojaId}
                 lojaNome={lojaNome}
-                empresaId={empresaId}
                 userId={userId}
                 userNome={userNome}
               />

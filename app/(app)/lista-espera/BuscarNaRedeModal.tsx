@@ -19,7 +19,6 @@ interface Props {
   quantidade: number
   lojaId: string
   lojaNome: string
-  empresaId: string
   responsavelId: string | null
   responsavelNome: string
   demandaAtiva: { id: string; status: string } | null
@@ -33,7 +32,6 @@ export function BuscarNaRedeModal({
   quantidade,
   lojaId,
   lojaNome,
-  empresaId,
   responsavelId,
   responsavelNome,
   demandaAtiva,
@@ -73,7 +71,6 @@ export function BuscarNaRedeModal({
       const res = await criarDemandaRede({
         lojaOrigemId: lojaId,
         lojaOrigemNome: lojaNome,
-        empresaId,
         responsavelOrigemId: responsavelId,
         responsavelOrigemNome: responsavelNome !== '—' ? responsavelNome : null,
         listaEsperaId: itemId,

@@ -10,6 +10,7 @@ import { ListaEsperaPageClient } from './ListaEsperaPageClient'
 import { ListaEsperaCards, type RegistroListaEspera } from './ListaEsperaCards'
 import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
+import { temRedeMultiLojaFn } from '@/lib/rede/grupo-rede'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -43,22 +44,11 @@ export default async function ListaEsperaPage() {
   const loja_id = ctx.lojaId ?? ctx.lojaIds[0]
   const lojaNome = ctx.lojaNome ?? ''
 
-  // Empresa e rede multi-loja
-  let empresaId = ''
+  // Rede multi-loja via grupo_rede_id
   let temRedeMultiLoja = false
   if (ctx.escopo === 'loja') {
-    const { data: lojaData } = await admin.from('lojas').select('empresa_id').eq('id', loja_id).single()
-    if (lojaData) {
-      empresaId = (lojaData as { empresa_id: string }).empresa_id
-      const { data: outrasLojas } = await admin
-        .from('lojas')
-        .select('id')
-        .eq('empresa_id', empresaId)
-        .eq('ativa', true)
-        .eq('admin_only', false)
-        .neq('id', loja_id)
-      temRedeMultiLoja = (outrasLojas?.length ?? 0) > 0
-    }
+    const redeInfo = await temRedeMultiLojaFn(loja_id)
+    temRedeMultiLoja = redeInfo.temRede
   }
 
   const [registrosRes, categoriasRes, vendedorasRes, produtosRes, lojaEmailRes] = await measureAsync('lista-espera:queries', () => Promise.all([
@@ -127,7 +117,7 @@ export default async function ListaEsperaPage() {
   // Demandas ativas por item (para badge "Em busca na rede")
   const listaEsperaIds = (registrosRes.data ?? []).map(r => r.id as string)
   const demandasAtivasMap = new Map<string, { id: string; status: string }>()
-  if (temRedeMultiLoja && listaEsperaIds.length > 0) {
+  if (temRedeMultiLoja && ctx.escopo === 'loja' && listaEsperaIds.length > 0) {
     const { data: demandasAtivas } = await admin
       .from('demandas_rede')
       .select('id, lista_espera_id, status')
@@ -302,7 +292,6 @@ export default async function ListaEsperaPage() {
         temRedeMultiLoja={temRedeMultiLoja}
         lojaId={loja_id}
         lojaNome={lojaNome}
-        empresaId={empresaId}
         userId={user.id}
         userNome={userNome}
       />
