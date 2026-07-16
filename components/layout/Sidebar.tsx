@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Bell, ShoppingCart, Package,
   Building2, UsersRound,
-  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star, Network,
+  Settings, ClipboardList, Clock, GraduationCap, Users, MessageCircle, TrendingDown, BookOpen, Star, Network, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,7 +18,7 @@ const operacaoItems = [
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/clientes', label: 'Carteira de Clientes', icon: Users },
   { href: '/lista-espera', label: 'Pedidos em Espera', icon: Clock },
-  { href: '/demandas-rede', label: 'Demandas da Rede', icon: Network },
+  { href: '/demandas-rede', label: 'Demandas da Rede', icon: Network, newBadge: 'Novo' },
   { href: '/vendas', label: 'Extrato de vendas', icon: ClipboardList },
 ]
 
@@ -46,7 +46,7 @@ const parceirosItems = [
   { href: '/parceiros', label: 'F5 Partners', icon: Star },
 ]
 
-type NavItem = { href: string; label: string; icon: React.ElementType }
+type NavItem = { href: string; label: string; icon: React.ElementType; newBadge?: string }
 
 interface Props {
   role: string
@@ -80,7 +80,7 @@ export function Sidebar({ role, badgesMap = {} }: Props) {
           <span className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.12em]">{label}</span>
         </div>
         <ul className="space-y-0.5">
-          {items.map(({ href, label: itemLabel, icon: ItemIcon }) => {
+          {items.map(({ href, label: itemLabel, icon: ItemIcon, newBadge }) => {
             const active = isActive(href)
             const badge = badgesMap[href]
             return (
@@ -91,6 +91,14 @@ export function Sidebar({ role, badgesMap = {} }: Props) {
                   )}
                   <ItemIcon className={cn('h-4 w-4 shrink-0', active && 'text-[oklch(0.72_0.20_145)]')} />
                   <span className="flex-1 truncate">{itemLabel}</span>
+                  {newBadge && (
+                    <>
+                      <Sparkles className="h-3 w-3 shrink-0 text-amber-500 dark:text-amber-400" />
+                      <span className="shrink-0 text-[9px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded px-1 py-0.5 leading-none">
+                        {newBadge}
+                      </span>
+                    </>
+                  )}
                   {badge != null && badge > 0 && (
                     <span className="ml-1 shrink-0 text-[9px] font-bold bg-red-500 text-white rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 leading-none">
                       {badge > 99 ? '99+' : badge}
