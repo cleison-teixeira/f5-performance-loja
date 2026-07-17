@@ -96,9 +96,9 @@ function Inp({ value, onChange, type = 'text', placeholder = '', disabled = fals
 
 const STATUS_BADGE_MAP: Record<string, { cls: string; label: string }> = {
   pendente:      { cls: 'bg-yellow-100 text-yellow-700', label: 'Pendente' },
-  aplicado:      { cls: 'bg-green-100 text-green-700',   label: 'Aplicado' },
+  aplicado:      { cls: 'bg-green-100 text-green-700',   label: 'Licença ok' },
   ativo:         { cls: 'bg-green-100 text-green-700',   label: 'Ativo' },
-  em_implantacao:{ cls: 'bg-orange-100 text-orange-700', label: 'Em implantação' },
+  em_implantacao:{ cls: 'bg-orange-100 text-orange-700', label: 'Implantação' },
   trial:         { cls: 'bg-blue-100 text-blue-700',     label: 'Trial' },
   pagante:       { cls: 'bg-green-100 text-green-700',   label: 'Pagante' },
   cortesia:      { cls: 'bg-purple-100 text-purple-700', label: 'Cortesia' },
@@ -106,16 +106,16 @@ const STATUS_BADGE_MAP: Record<string, { cls: string; label: string }> = {
   suspenso:      { cls: 'bg-red-100 text-red-700',       label: 'Suspenso' },
   cancelado:     { cls: 'bg-zinc-100 text-zinc-500',     label: 'Cancelado' },
   // Auth status
-  confirmed:     { cls: 'bg-emerald-50 text-emerald-600', label: 'E-mail ✓' },
-  unconfirmed:   { cls: 'bg-orange-100 text-orange-700',  label: 'E-mail não confirmado' },
-  no_user:       { cls: 'bg-zinc-100 text-zinc-500',      label: 'Cadastro pendente' },
-  unknown:       { cls: 'bg-zinc-50 text-zinc-400',       label: 'Auth não verificado' },
+  confirmed:     { cls: 'bg-emerald-50 text-emerald-600', label: 'E-mail ok' },
+  unconfirmed:   { cls: 'bg-orange-100 text-orange-700',  label: 'E-mail pendente' },
+  no_user:       { cls: 'bg-zinc-100 text-zinc-500',      label: 'Sem cadastro' },
+  unknown:       { cls: 'bg-zinc-50 text-zinc-400',       label: 'Verificar auth' },
 }
 
 function StatusBadge({ value }: { value: string }) {
   const cfg = STATUS_BADGE_MAP[value] ?? { cls: 'bg-zinc-100 text-zinc-600', label: value }
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${cfg.cls}`}>
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cfg.cls}`}>
       {cfg.label}
     </span>
   )
@@ -800,51 +800,55 @@ export function AdminClient({
             {filtrar(liberacoesLoja).map(l => (
               <div key={l.id} className="py-3 space-y-3">
 
-                {/* Linha principal */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="flex items-start gap-1.5">
-                      <p className="text-sm font-medium text-zinc-800 break-all" title={l.email}>{l.email}</p>
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(l.email); setCopiedId(l.id); setTimeout(() => setCopiedId(null), 2000) }}
-                        className="shrink-0 mt-0.5 text-zinc-300 hover:text-zinc-600 transition-colors"
-                        title="Copiar e-mail"
-                      >
-                        {copiedId === l.id ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
-                      {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
-                      {l.loja_nome && <span className="text-zinc-300">·</span>}
-                      <span>{l.valor_pago ? `R$${l.valor_pago}/mês` : 'R$149/mês'}</span>
-                      {l.prazo_acesso && <><span className="text-zinc-300">·</span><span>trial até {l.prazo_acesso}</span></>}
-                      <span className="text-zinc-300">·</span>
-                      <span>{formatDate(l.criado_em)}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                    {l.empresa_status_comercial && <StatusBadge value={l.empresa_status_comercial} />}
-                    <StatusBadge value={l.status} />
-                    <StatusBadge value={l.auth_status} />
-                    <button onClick={() => openEditComercial(l)} disabled={pending}
-                      className={`text-xs font-medium transition-colors ${editandoComercialId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
-                      Comercial
+                {/* Linha 1: e-mail + copiar */}
+                <div className="flex items-start gap-1.5">
+                  <p className="text-sm font-medium text-zinc-800 break-all" title={l.email}>{l.email}</p>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(l.email); setCopiedId(l.id); setTimeout(() => setCopiedId(null), 2000) }}
+                    className="shrink-0 mt-0.5 text-zinc-300 hover:text-zinc-600 transition-colors"
+                    title="Copiar e-mail"
+                  >
+                    {copiedId === l.id ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                  </button>
+                </div>
+
+                {/* Linha 2: nome da loja · valor · data */}
+                <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
+                  {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
+                  {l.loja_nome && <span className="text-zinc-300">·</span>}
+                  <span>{l.valor_pago ? `R$${l.valor_pago}/mês` : 'R$149/mês'}</span>
+                  {l.prazo_acesso && <><span className="text-zinc-300">·</span><span>trial até {l.prazo_acesso}</span></>}
+                  <span className="text-zinc-300">·</span>
+                  <span>{formatDate(l.criado_em)}</span>
+                </div>
+
+                {/* Linha 3: badges compactas */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {l.empresa_status_comercial && <StatusBadge value={l.empresa_status_comercial} />}
+                  <StatusBadge value={l.status} />
+                  <StatusBadge value={l.auth_status} />
+                </div>
+
+                {/* Linha 4: ações */}
+                <div className="flex items-center gap-3 text-xs">
+                  <button onClick={() => openEditComercial(l)} disabled={pending}
+                    className={`font-medium transition-colors ${editandoComercialId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                    Comercial
+                  </button>
+                  <button onClick={() => openEdit(l)} disabled={pending}
+                    className={`font-medium transition-colors ${editandoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                    Licença
+                  </button>
+                  <button onClick={() => openAdicionarAcesso(l.id)} disabled={pending}
+                    className={`font-medium transition-colors ${adicionandoAcessoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
+                    + Acesso
+                  </button>
+                  {l.status === 'pendente' && (
+                    <button onClick={() => handleCancelar(l.id)} disabled={pending}
+                      className="text-zinc-400 hover:text-red-600 transition-colors">
+                      Cancelar
                     </button>
-                    <button onClick={() => openEdit(l)} disabled={pending}
-                      className={`text-xs font-medium transition-colors ${editandoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
-                      Licença
-                    </button>
-                    <button onClick={() => openAdicionarAcesso(l.id)} disabled={pending}
-                      className={`text-xs font-medium transition-colors ${adicionandoAcessoId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
-                      + Acesso
-                    </button>
-                    {l.status === 'pendente' && (
-                      <button onClick={() => handleCancelar(l.id)} disabled={pending}
-                        className="text-xs text-zinc-400 hover:text-red-600 transition-colors">
-                        Cancelar
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Formulário: Status Comercial */}
