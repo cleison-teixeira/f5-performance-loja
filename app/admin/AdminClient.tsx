@@ -105,6 +105,10 @@ const STATUS_BADGE_MAP: Record<string, { cls: string; label: string }> = {
   vencido:       { cls: 'bg-amber-100 text-amber-700',   label: 'Vencido' },
   suspenso:      { cls: 'bg-red-100 text-red-700',       label: 'Suspenso' },
   cancelado:     { cls: 'bg-zinc-100 text-zinc-500',     label: 'Cancelado' },
+  // Auth status
+  confirmed:     { cls: 'bg-emerald-50 text-emerald-600', label: 'E-mail ✓' },
+  unconfirmed:   { cls: 'bg-orange-100 text-orange-700',  label: 'E-mail não confirmado' },
+  no_user:       { cls: 'bg-zinc-100 text-zinc-500',      label: 'Cadastro pendente' },
 }
 
 function StatusBadge({ value }: { value: string }) {
@@ -549,7 +553,7 @@ export function AdminClient({
               <p className="text-xs text-zinc-500 mt-0.5">Receita estimada/mês</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
               <p className="text-xl font-bold text-zinc-900">{stats.redes_ativas}</p>
               <p className="text-xs text-zinc-500 mt-0.5">Redes ativas</p>
@@ -557,6 +561,10 @@ export function AdminClient({
             <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
               <p className="text-xl font-bold text-yellow-600">{stats.redes_pendentes}</p>
               <p className="text-xs text-zinc-500 mt-0.5">Redes pendentes</p>
+            </div>
+            <div className="bg-white rounded-lg border border-orange-200 px-4 py-3">
+              <p className="text-xl font-bold text-orange-600">{stats.aguardando_confirmacao}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Aguardando confirmação</p>
             </div>
           </div>
         </div>
@@ -816,6 +824,7 @@ export function AdminClient({
                   <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     {l.empresa_status_comercial && <StatusBadge value={l.empresa_status_comercial} />}
                     <StatusBadge value={l.status} />
+                    <StatusBadge value={l.auth_status} />
                     <button onClick={() => openEditComercial(l)} disabled={pending}
                       className={`text-xs font-medium transition-colors ${editandoComercialId === l.id ? 'text-zinc-900 underline' : 'text-zinc-400 hover:text-zinc-800'}`}>
                       Comercial

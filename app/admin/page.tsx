@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { AdminClient } from './AdminClient'
 
+export type AuthStatus = 'confirmed' | 'unconfirmed' | 'no_user'
+
 export interface LiberacaoRow {
   id: string
   email: string
@@ -22,6 +24,7 @@ export interface LiberacaoRow {
   empresa_status_comercial: string | null
   empresa_data_inicio_cobranca: string | null
   empresa_valor_mensal: number | null
+  auth_status: AuthStatus
 }
 
 export interface LojaSimples {
@@ -38,6 +41,7 @@ export interface AdminStats {
   redes_ativas: number
   redes_pendentes: number
   receita_estimada: number
+  aguardando_confirmacao: number
 }
 
 export default async function AdminPage() {
@@ -77,6 +81,24 @@ export default async function AdminPage() {
       .from('liberacoes_acesso')
       .select('tipo, status, loja_id, email'),
   ])
+
+  // Auth email confirmation map
+  const authEmailMap: Record<string, AuthStatus> = {}
+  {
+    const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+    const authByEmail: Record<string, string | null> = {}
+    for (const u of authData?.users ?? []) {
+      if (u.email) authByEmail[u.email.toLowerCase()] = u.email_confirmed_at ?? null
+    }
+    for (const l of liberacoesRes.data ?? []) {
+      const email = (l.email as string).toLowerCase()
+      if (email in authByEmail) {
+        authEmailMap[email] = authByEmail[email] ? 'confirmed' : 'unconfirmed'
+      } else {
+        authEmailMap[email] = 'no_user'
+      }
+    }
+  }
 
   const empresaMap: Record<string, string> = {}
   type EmpresaComercial = { status_comercial: string | null; data_inicio_cobranca: string | null; valor_mensal: number | null }
@@ -165,8 +187,13 @@ export default async function AdminPage() {
       empresa_status_comercial: empComercial?.status_comercial ?? null,
       empresa_data_inicio_cobranca: empComercial?.data_inicio_cobranca ?? null,
       empresa_valor_mensal: empComercial?.valor_mensal ?? null,
+      auth_status: authEmailMap[(l.email as string).toLowerCase()] ?? 'no_user',
     }
   })
+
+  const aguardando_confirmacao = liberacoes.filter(
+    l => l.tipo === 'loja' && l.status === 'aplicado' && l.auth_status === 'unconfirmed'
+  ).length
 
   const stats: AdminStats = {
     lojas_ativas: lojasAtivasSet.size,
@@ -174,6 +201,7 @@ export default async function AdminPage() {
     redes_ativas: redesAtivasSet.size,
     redes_pendentes: redesPendentesSet.size,
     receita_estimada: lojasAtivasSet.size * 149,
+    aguardando_confirmacao,
   }
 
   return (
