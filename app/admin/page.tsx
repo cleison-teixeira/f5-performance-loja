@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { AdminClient } from './AdminClient'
 
-export type AuthStatus = 'confirmed' | 'unconfirmed' | 'no_user'
+export type AuthStatus = 'confirmed' | 'unconfirmed' | 'no_user' | 'unknown'
 
 export interface LiberacaoRow {
   id: string
@@ -82,20 +82,34 @@ export default async function AdminPage() {
       .select('tipo, status, loja_id, email'),
   ])
 
-  // Auth email confirmation map
+  // Auth email confirmation map via RPC (SECURITY DEFINER — acessa auth.users)
   const authEmailMap: Record<string, AuthStatus> = {}
   {
-    const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-    const authByEmail: Record<string, string | null> = {}
-    for (const u of authData?.users ?? []) {
-      if (u.email) authByEmail[u.email.toLowerCase()] = u.email_confirmed_at ?? null
-    }
-    for (const l of liberacoesRes.data ?? []) {
-      const email = (l.email as string).toLowerCase()
-      if (email in authByEmail) {
-        authEmailMap[email] = authByEmail[email] ? 'confirmed' : 'unconfirmed'
+    const uniqueEmails = [
+      ...new Set((liberacoesRes.data ?? []).map(l => (l.email as string).toLowerCase().trim()))
+    ]
+    if (uniqueEmails.length > 0) {
+      const { data: authRows, error: authErr } = await admin.rpc(
+        'buscar_status_auth_por_emails',
+        { p_emails: uniqueEmails }
+      )
+      if (authErr) {
+        console.error('[Admin] buscar_status_auth_por_emails error:', authErr)
+        // Falha na consulta: marcar como unknown (não confundir com no_user real)
+        uniqueEmails.forEach(email => { authEmailMap[email] = 'unknown' })
       } else {
-        authEmailMap[email] = 'no_user'
+        // Indexar pelo e-mail retornado (já existe na auth.users)
+        const authByEmail: Record<string, string | null> = {}
+        for (const row of authRows ?? []) {
+          if (row.email) authByEmail[row.email.toLowerCase().trim()] = row.email_confirmed_at ?? null
+        }
+        for (const email of uniqueEmails) {
+          if (email in authByEmail) {
+            authEmailMap[email] = authByEmail[email] ? 'confirmed' : 'unconfirmed'
+          } else {
+            authEmailMap[email] = 'no_user'
+          }
+        }
       }
     }
   }
@@ -192,7 +206,7 @@ export default async function AdminPage() {
   })
 
   const aguardando_confirmacao = liberacoes.filter(
-    l => l.tipo === 'loja' && l.status === 'aplicado' && l.auth_status === 'unconfirmed'
+    l => l.tipo === 'loja' && l.status !== 'cancelado' && l.auth_status === 'unconfirmed'
   ).length
 
   const stats: AdminStats = {

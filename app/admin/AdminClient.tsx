@@ -109,6 +109,7 @@ const STATUS_BADGE_MAP: Record<string, { cls: string; label: string }> = {
   confirmed:     { cls: 'bg-emerald-50 text-emerald-600', label: 'E-mail ✓' },
   unconfirmed:   { cls: 'bg-orange-100 text-orange-700',  label: 'E-mail não confirmado' },
   no_user:       { cls: 'bg-zinc-100 text-zinc-500',      label: 'Cadastro pendente' },
+  unknown:       { cls: 'bg-zinc-50 text-zinc-400',       label: 'Auth não verificado' },
 }
 
 function StatusBadge({ value }: { value: string }) {
