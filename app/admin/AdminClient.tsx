@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
+import { Copy, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { LiberacaoRow, LojaSimples, AdminStats } from './page'
 import {
@@ -208,6 +209,9 @@ export function AdminClient({
   const [adicionandoAcessoId, setAdicionandoAcessoId] = useState<string | null>(null)
   const [acessoEmail, setAcessoEmail] = useState('')
   const [resultadoAcesso, setResultadoAcesso] = useState<'vinculado' | 'pendente' | null>(null)
+
+  // ── Copiar e-mail ──
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // ── Anexar loja (em Licença de Rede) ──
   const [anexandoRedeId, setAnexandoRedeId] = useState<string | null>(null)
@@ -790,7 +794,16 @@ export function AdminClient({
                 {/* Linha principal */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-medium text-zinc-800 truncate">{l.email}</p>
+                    <div className="flex items-start gap-1.5">
+                      <p className="text-sm font-medium text-zinc-800 break-all" title={l.email}>{l.email}</p>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(l.email); setCopiedId(l.id); setTimeout(() => setCopiedId(null), 2000) }}
+                        className="shrink-0 mt-0.5 text-zinc-300 hover:text-zinc-600 transition-colors"
+                        title="Copiar e-mail"
+                      >
+                        {copiedId === l.id ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
                       {l.loja_nome && <span className="font-medium text-zinc-600">{l.loja_nome}</span>}
                       {l.loja_nome && <span className="text-zinc-300">·</span>}
