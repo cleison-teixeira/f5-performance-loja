@@ -397,7 +397,7 @@ function GrupoPedidoCard({
     : null
 
   const isGrupo = grupo.itens.length > 1
-  const valorTotal = grupo.itens.reduce((acc, i) => acc + (i.valor_potencial ?? 0), 0)
+  const valorTotal = grupo.itens.reduce((acc, i) => acc + (i.valor_potencial ?? 0) * Math.max(i.quantidade || 1, 1), 0)
 
   // Se estiver editando um item específico
   if (editandoId) {
@@ -452,10 +452,11 @@ function GrupoPedidoCard({
               </div>
             </div>
             <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
-              {item.quantidade > 1 && <span>×{item.quantidade}</span>}
               {item.valor_potencial !== null && (
                 <span className="text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
-                  {fmtValor(item.valor_potencial)}
+                  {item.quantidade > 1
+                    ? `×${item.quantidade} · ${fmtValor((item.valor_potencial ?? 0) * item.quantidade)}`
+                    : fmtValor(item.valor_potencial)}
                 </span>
               )}
               {temRedeMultiLoja && podeEditar && (
@@ -633,8 +634,8 @@ export function ListaEsperaCards({
       entry.qtdTotal += r.quantidade
       if (r.status === 'aguardando') entry.qtdAguardando++
       if (r.status === 'avisado') entry.qtdAvisados++
-      if (ABERTO.has(r.status)) entry.valorPotencialAberto += r.valor_potencial ?? 0
-      if (r.status === 'convertido') entry.convertidoValor += r.valor_potencial ?? 0
+      if (ABERTO.has(r.status)) entry.valorPotencialAberto += (r.valor_potencial ?? 0) * Math.max(r.quantidade || 1, 1)
+      if (r.status === 'convertido') entry.convertidoValor += (r.valor_potencial ?? 0) * Math.max(r.quantidade || 1, 1)
       if (r.loja_nome && !entry.lojas.includes(r.loja_nome)) entry.lojas.push(r.loja_nome)
       map.set(key, entry)
     }
@@ -669,7 +670,7 @@ export function ListaEsperaCards({
         valorTotal: 0,
       }
       entry.itens.push(r)
-      entry.valorTotal += r.valor_potencial ?? 0
+      entry.valorTotal += (r.valor_potencial ?? 0) * Math.max(r.quantidade || 1, 1)
       if (r.nao_contatar) entry.nao_contatar = true
       map.set(chave, entry)
     }

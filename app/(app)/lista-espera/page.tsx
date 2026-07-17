@@ -208,10 +208,10 @@ export default async function ListaEsperaPage() {
   const qtdAvisados = registros.filter(r => r.status === 'avisado').length
   const potencialEmAberto = registros
     .filter(r => r.status === 'aguardando' || r.status === 'encontrado_outra_loja' || r.status === 'avisado')
-    .reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
+    .reduce((acc, r) => acc + (r.valor_potencial ?? 0) * Math.max(r.quantidade || 1, 1), 0)
   const convertidoValor = registros
     .filter(r => r.status === 'convertido')
-    .reduce((acc, r) => acc + (r.valor_potencial ?? 0), 0)
+    .reduce((acc, r) => acc + (r.valor_potencial ?? 0) * Math.max(r.quantidade || 1, 1), 0)
   const qtdClientes = new Set(
     registros.filter(r => r.status === 'aguardando').map(r => r.cliente_nome)
   ).size
