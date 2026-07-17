@@ -6,7 +6,7 @@ import { ResumoVenda } from './ResumoVenda'
 import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
-import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff, Megaphone } from 'lucide-react'
+import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff, Megaphone, Package } from 'lucide-react'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
 
 interface Vendedora {
@@ -38,6 +38,7 @@ export interface CampanhaItemParaVenda {
   produto_id: string
   produto_nome: string
   preco_campanha: number
+  foto_url?: string | null
 }
 
 export interface CampanhaPreSelecionada {
@@ -384,10 +385,19 @@ export function FormNovaVenda({
                 key={ci.id}
                 type="button"
                 onClick={() => handlePickerSelect(ci)}
-                className="w-full text-left rounded-lg border bg-card hover:bg-accent transition-colors p-3 flex items-center justify-between gap-2"
+                className="w-full text-left rounded-lg border bg-card hover:bg-accent transition-colors p-3 flex items-center gap-3"
               >
-                <span className="text-sm font-medium">{ci.produto_nome}</span>
-                <span className="text-xs text-muted-foreground shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-muted shrink-0 overflow-hidden">
+                  {ci.foto_url ? (
+                    <img src={ci.foto_url} alt={ci.produto_nome} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <span className="flex-1 text-sm font-medium leading-tight">{ci.produto_nome}</span>
+                <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                   {ci.preco_campanha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </span>
               </button>

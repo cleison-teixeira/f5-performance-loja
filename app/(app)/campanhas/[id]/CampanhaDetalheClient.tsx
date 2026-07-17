@@ -255,12 +255,23 @@ export function CampanhaDetalheClient({ campanha, resultado, lojaId, podeGerenci
             return (
               <div key={item.id} className="rounded-xl border bg-card p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-lg bg-muted shrink-0 overflow-hidden">
+                      {item.produto_foto_url ? (
+                        <img src={item.produto_foto_url} alt={item.produto_nome} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package2 className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
                     <p className="font-semibold text-sm">{item.produto_nome}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.quantidade_conteudo} {UNIDADE_LABELS[item.unidade_conteudo]} · {fmtBRL(item.preco_campanha)}
                       {item.preco_referencia && ` · ref. ${fmtBRL(item.preco_referencia)}`}
                     </p>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold tabular-nums text-primary">{res?.unidades ?? 0}</p>

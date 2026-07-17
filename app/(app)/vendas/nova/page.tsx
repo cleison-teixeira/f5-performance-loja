@@ -177,6 +177,7 @@ export default async function NovaVendaPage({
               produto_id: prodId,
               produto_nome: produto?.nome ?? '',
               preco_campanha: v.preco,
+              foto_url: produto?.foto_url ?? null,
             }
           })
           .filter(i => i.produto_nome !== '')

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ShoppingCart, Target, TrendingUp, ChevronRight } from 'lucide-react'
+import { ShoppingCart, TrendingUp, ChevronRight, Package } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buscarCampanhaAtivaDashboard, buscarCampanhaAtivaGestao } from '../campanhas/actions'
 
@@ -29,12 +29,49 @@ export async function CampanhaCardVendedor({ lojaId, perfilId }: { lojaId: strin
   return (
     <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 overflow-hidden">
       <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex items-center gap-3">
+          {/* Foto(s) do produto */}
+          {itensAtivos.length === 1 ? (
+            <div className="w-16 h-16 rounded-xl bg-amber-100 dark:bg-amber-900/40 shrink-0 overflow-hidden">
+              {itensAtivos[0].produto_foto_url ? (
+                <img src={itensAtivos[0].produto_foto_url} alt={itensAtivos[0].produto_nome} className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-7 w-7 text-amber-400" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex shrink-0">
+              {itensAtivos.slice(0, 3).map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="w-9 h-9 rounded-full border-2 border-amber-50 dark:border-amber-950 bg-amber-100 dark:bg-amber-900/40 overflow-hidden"
+                  style={{ marginLeft: idx > 0 ? '-8px' : 0, zIndex: 3 - idx, position: 'relative' }}
+                >
+                  {item.produto_foto_url ? (
+                    <img src={item.produto_foto_url} alt={item.produto_nome} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="h-3.5 w-3.5 text-amber-400" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
             <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Campanha ativa</p>
-            <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5">{campanha.nome}</p>
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mt-0.5 truncate">{campanha.nome}</p>
+            {itensAtivos.length === 1 && (
+              <p className="text-[11px] text-amber-700/70 dark:text-amber-400/70 truncate mt-0.5">{itensAtivos[0].produto_nome}</p>
+            )}
+            {itensAtivos.length > 1 && (
+              <p className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-0.5">{itensAtivos.length} produtos participantes</p>
+            )}
           </div>
-          <Link href={`/campanhas/${campanha.id}`} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40">
+          <Link href={`/campanhas/${campanha.id}`} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 shrink-0">
             <ChevronRight className="h-4 w-4 text-amber-600" />
           </Link>
         </div>

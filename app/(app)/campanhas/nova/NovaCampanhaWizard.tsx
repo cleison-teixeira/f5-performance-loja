@@ -65,7 +65,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
   })
 
   // Etapa 2 — Produtos
-  type ItemLocal = ItemInput & { _key: string; produto_nome: string }
+  type ItemLocal = ItemInput & { _key: string; produto_nome: string; produto_foto_url?: string | null }
   const [itens, setItens] = useState<ItemLocal[]>([])
   const [buscaProduto, setBuscaProduto] = useState('')
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoCatalogo | null>(null)
@@ -122,6 +122,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
         _key: `${Date.now()}`,
         produto_id: produtoSelecionado.id,
         produto_nome: produtoSelecionado.nome,
+        produto_foto_url: produtoSelecionado.foto_url ?? null,
         quantidade_conteudo: qty,
         unidade_conteudo: unidadeConteudo,
         preco_campanha: preco,
@@ -322,6 +323,15 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               <div className="space-y-2">
                 {itens.map(item => (
                   <div key={item._key} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                    <div className="w-8 h-8 rounded-md bg-muted shrink-0 overflow-hidden">
+                      {item.produto_foto_url ? (
+                        <img src={item.produto_foto_url} alt={item.produto_nome} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate">{item.produto_nome}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -363,6 +373,15 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
                         onClick={() => handleSelecionarProduto(p)}
                         className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent text-left transition-colors"
                       >
+                        <div className="w-8 h-8 rounded-md bg-muted shrink-0 overflow-hidden">
+                          {p.foto_url ? (
+                            <img src={p.foto_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{p.nome}</p>
                           {p.preco_sugerido && (
@@ -377,9 +396,16 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               </div>
             ) : (
               <div className="rounded-lg border bg-primary/5 border-primary/30 p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-primary">{produtoSelecionado.nome}</p>
-                  <button onClick={() => setProdutoSelecionado(null)} className="text-muted-foreground hover:text-foreground">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {produtoSelecionado.foto_url && (
+                      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                        <img src={produtoSelecionado.foto_url} alt={produtoSelecionado.nome} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    )}
+                    <p className="text-xs font-semibold text-primary truncate">{produtoSelecionado.nome}</p>
+                  </div>
+                  <button onClick={() => setProdutoSelecionado(null)} className="text-muted-foreground hover:text-foreground shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
