@@ -657,7 +657,7 @@ export function AdminClient({
               )}
               {(lojaForm.status === 'suspenso' || lojaForm.status === 'cancelado') && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-                  Atenção: status "{lojaForm.status === 'suspenso' ? 'Suspenso' : 'Cancelado'}" bloqueia o acesso ao app.
+                  Atenção: status &quot;{lojaForm.status === 'suspenso' ? 'Suspenso' : 'Cancelado'}&quot; bloqueia o acesso ao app.
                 </p>
               )}
 
@@ -740,8 +740,8 @@ export function AdminClient({
                               {l.empresa_nome && <span className="text-zinc-400 ml-1.5 text-xs">{l.empresa_nome}</span>}
                             </div>
                             {(l.email || l.whatsapp) && (
-                              <div className="text-xs text-zinc-400 mt-0.5">
-                                {l.email}{l.email && l.whatsapp ? ' · ' : ''}{l.whatsapp}
+                              <div className="text-xs text-zinc-400 mt-0.5 font-mono">
+                                ID: {l.id.slice(0, 8)} · {l.email}{l.email && l.whatsapp ? ' · ' : ''}{l.whatsapp}
                               </div>
                             )}
                           </button>
@@ -1103,8 +1103,15 @@ export function AdminClient({
                                   <button key={lj.id} type="button"
                                     onClick={() => { setLojasAnexar(prev => [...prev, lj]); setBuscaAnexar(''); setShowAnexarDropdown(false) }}
                                     className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 transition-colors">
-                                    <span className="font-medium text-zinc-800">{lj.nome}</span>
-                                    {lj.empresa_nome && <span className="text-zinc-400 ml-1.5 text-xs">{lj.empresa_nome}</span>}
+                                    <div>
+                                      <span className="font-medium text-zinc-800">{lj.nome}</span>
+                                      {lj.empresa_nome && <span className="text-zinc-400 ml-1.5 text-xs">{lj.empresa_nome}</span>}
+                                    </div>
+                                    {(lj.email || lj.whatsapp) && (
+                                      <div className="text-xs text-zinc-400 mt-0.5 font-mono">
+                                        ID: {lj.id.slice(0, 8)} · {lj.email}{lj.email && lj.whatsapp ? ' · ' : ''}{lj.whatsapp}
+                                      </div>
+                                    )}
                                   </button>
                                 ))}
                               </div>

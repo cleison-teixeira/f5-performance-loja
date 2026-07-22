@@ -141,6 +141,8 @@ export default async function AdminPage() {
       .from('liberacoes_acesso')
       .select('loja_id, email')
       .in('loja_id', lojaIds)
+      .eq('tipo', 'loja')
+      .in('status', ['aplicado', 'ativo'])
       .order('criado_em', { ascending: false })
     ;(emailRows ?? []).forEach(row => {
       if (row.loja_id && !lojaEmailMap[row.loja_id as string]) {
@@ -149,13 +151,15 @@ export default async function AdminPage() {
     })
   }
 
-  const todasLojas: LojaSimples[] = (lojasRes.data ?? []).map(l => ({
-    id: l.id as string,
-    nome: l.nome as string,
-    empresa_nome: empresaMap[l.empresa_id as string] ?? '',
-    whatsapp: (l.whatsapp as string | null) ?? null,
-    email: lojaEmailMap[l.id as string] ?? null,
-  }))
+  const todasLojas: LojaSimples[] = (lojasRes.data ?? [])
+    .filter(l => !!lojaEmailMap[l.id as string])
+    .map(l => ({
+      id: l.id as string,
+      nome: l.nome as string,
+      empresa_nome: empresaMap[l.empresa_id as string] ?? '',
+      whatsapp: (l.whatsapp as string | null) ?? null,
+      email: lojaEmailMap[l.id as string] ?? null,
+    }))
 
   const allLib = statsLibRes.data ?? []
   const STATUS_ATIVO = ['aplicado', 'ativo']
