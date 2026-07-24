@@ -3,6 +3,27 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+export async function salvarAvatarPerfil(dados: {
+  avatar_url: string | null
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, erro: 'Sem permissão' }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('perfis')
+      .update({ avatar_url: dados.avatar_url })
+      .eq('id', user.id)
+
+    if (error) return { ok: false, erro: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
 export async function salvarLogoLoja(dados: {
   loja_id: string
   logo_url: string | null

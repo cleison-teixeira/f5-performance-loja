@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,19 +14,15 @@ import { LogOut, User } from 'lucide-react'
 
 interface UserMenuProps {
   nomeUsuario?: string
+  nomeLoja?: string
   role?: string
   lojaLogoUrl?: string | null
+  avatarUrl?: string | null
+  isAcessoRede?: boolean
 }
 
-export function UserMenu({ nomeUsuario = '', role = '', lojaLogoUrl }: UserMenuProps) {
+export function UserMenu({ nomeUsuario = '', nomeLoja = '', role = '', lojaLogoUrl, avatarUrl, isAcessoRede }: UserMenuProps) {
   const router = useRouter()
-
-  const iniciais = nomeUsuario
-    .split(' ')
-    .slice(0, 2)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
 
   async function handleLogout() {
     const supabase = createClient()
@@ -38,13 +34,12 @@ export function UserMenu({ nomeUsuario = '', role = '', lojaLogoUrl }: UserMenuP
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Avatar className="h-8 w-8 cursor-pointer">
-          {lojaLogoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={lojaLogoUrl} alt="Logo da loja" className="h-8 w-8 rounded-full object-cover" />
-          )}
-          {!lojaLogoUrl && <AvatarFallback className="text-xs">{iniciais || '?'}</AvatarFallback>}
-        </Avatar>
+        <div className="cursor-pointer">
+          {isAcessoRede
+            ? <UserAvatar nome={nomeUsuario} avatarUrl={avatarUrl} tamanho="sm" />
+            : <UserAvatar nome={nomeLoja || nomeUsuario} avatarUrl={lojaLogoUrl} tamanho="sm" />
+          }
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <div className="px-2 py-1.5">

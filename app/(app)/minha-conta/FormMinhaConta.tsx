@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { LogOut, Loader2, Camera, ImageIcon } from 'lucide-react'
 import { NICHOS_OFICIAIS } from '@/lib/config/produtos-segmentos'
 import type { LojaData, AssinaturaItem, LojaVinculada } from './page'
-import { salvarLoja, salvarEndereco, salvarLogoLoja } from './actions'
+import { salvarLoja, salvarEndereco, salvarLogoLoja, salvarAvatarPerfil } from './actions'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -115,25 +116,40 @@ const selectCls = 'w-full border border-input bg-background rounded-md px-3 py-2
 
 export function FormMinhaConta({
   emailConta,
+  nomePerfil,
+  avatarUrlInicial,
   loja,
-  todasLojas,
   podeEditar,
   assinatura,
   lojasVinculadas,
   isRede,
+  isContaPessoal,
   pinSlot,
 }: {
   emailConta: string
+  nomePerfil: string
+  avatarUrlInicial: string | null
   loja: LojaData | null
   todasLojas: LojaData[]
   podeEditar: boolean
   assinatura: AssinaturaItem[]
   lojasVinculadas: LojaVinculada[]
   isRede: boolean
+  isContaPessoal: boolean
   pinSlot?: React.ReactNode
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+
+  // Avatar do perfil
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(avatarUrlInicial)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(avatarUrlInicial)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [erroAvatar, setErroAvatar] = useState<string | null>(null)
+  const [avatarUrlManual, setAvatarUrlManual] = useState(false)
+  const [avatarUrlInput, setAvatarUrlInput] = useState('')
+  const avatarGaleriaRef = useRef<HTMLInputElement>(null)
+  const avatarCameraRef = useRef<HTMLInputElement>(null)
 
   // Dados da loja
   const [nomeLoja, setNomeLoja] = useState(loja?.nome ?? '')
@@ -165,6 +181,60 @@ export function FormMinhaConta({
   function showMsg(setter: (m: Msg) => void, tipo: 'ok' | 'erro', texto: string) {
     setter({ tipo, texto })
     setTimeout(() => setter(null), 5000)
+  }
+
+  async function processarAvatarArquivo(file: File) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setErroAvatar('Formato inválido. Use JPG, PNG ou WEBP.'); return }
+    if (file.size > 5 * 1024 * 1024) { setErroAvatar('Imagem muito grande. Máximo 5 MB.'); return }
+    const reader = new FileReader()
+    reader.onload = e => setAvatarPreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+    setUploadingAvatar(true)
+    setErroAvatar(null)
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setUploadingAvatar(false); setErroAvatar('Sessão expirada. Faça login novamente.'); setAvatarPreview(avatarUrl); return }
+    const path = `avatars/${user.id}-${Date.now()}.${ext}`
+    const { error: uploadErr } = await supabase.storage
+      .from('product-images')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadErr) {
+      setUploadingAvatar(false)
+      setErroAvatar('Erro ao enviar imagem. Tente novamente.')
+      setAvatarPreview(avatarUrl)
+      return
+    }
+    const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path)
+    const res = await salvarAvatarPerfil({ avatar_url: publicUrl })
+    setUploadingAvatar(false)
+    if (res.ok) { setAvatarUrl(publicUrl); setAvatarPreview(publicUrl); router.refresh() }
+    else { setErroAvatar(res.erro ?? 'Erro ao salvar foto.'); setAvatarPreview(avatarUrl) }
+  }
+
+  function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) processarAvatarArquivo(file)
+    e.target.value = ''
+  }
+
+  async function handleAvatarUrlConfirm() {
+    const url = avatarUrlInput.trim()
+    if (!url) return
+    setUploadingAvatar(true)
+    setErroAvatar(null)
+    const res = await salvarAvatarPerfil({ avatar_url: url })
+    setUploadingAvatar(false)
+    if (res.ok) { setAvatarUrl(url); setAvatarPreview(url); setAvatarUrlManual(false); setAvatarUrlInput(''); router.refresh() }
+    else setErroAvatar(res.erro ?? 'Erro ao salvar foto.')
+  }
+
+  async function handleRemoverAvatar() {
+    setUploadingAvatar(true)
+    const res = await salvarAvatarPerfil({ avatar_url: null })
+    setUploadingAvatar(false)
+    if (res.ok) { setAvatarUrl(null); setAvatarPreview(null); router.refresh() }
+    else setErroAvatar(res.erro ?? 'Erro ao remover foto.')
   }
 
   async function processarLogoArquivo(file: File) {
@@ -266,6 +336,26 @@ export function FormMinhaConta({
           <p className="text-sm text-muted-foreground mt-0.5">Acesso multi-lojas</p>
         </div>
 
+        {/* Foto de perfil */}
+        <FotoPerfilCard
+          nomePerfil={nomePerfil}
+          avatarPreview={avatarPreview}
+          uploadingAvatar={uploadingAvatar}
+          erroAvatar={erroAvatar}
+          avatarUrlManual={avatarUrlManual}
+          avatarUrlInput={avatarUrlInput}
+          avatarGaleriaRef={avatarGaleriaRef}
+          avatarCameraRef={avatarCameraRef}
+          onGaleriaClick={() => avatarGaleriaRef.current?.click()}
+          onCameraClick={() => avatarCameraRef.current?.click()}
+          onToggleUrlManual={() => setAvatarUrlManual(v => !v)}
+          onUrlInputChange={setAvatarUrlInput}
+          onUrlConfirm={handleAvatarUrlConfirm}
+          onRemover={handleRemoverAvatar}
+          onFileChange={handleAvatarFileChange}
+          card={card}
+        />
+
         {/* Dados da rede */}
         <section className={card}>
           <h2 className="text-sm font-semibold text-foreground">Dados da rede</h2>
@@ -309,6 +399,28 @@ export function FormMinhaConta({
         <h1 className="text-xl font-semibold tracking-tight">Minha Conta</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{loja?.nome ?? ''}</p>
       </div>
+
+      {/* Foto de perfil — apenas para acesso pessoal/rede */}
+      {isContaPessoal && (
+        <FotoPerfilCard
+          nomePerfil={nomePerfil}
+          avatarPreview={avatarPreview}
+          uploadingAvatar={uploadingAvatar}
+          erroAvatar={erroAvatar}
+          avatarUrlManual={avatarUrlManual}
+          avatarUrlInput={avatarUrlInput}
+          avatarGaleriaRef={avatarGaleriaRef}
+          avatarCameraRef={avatarCameraRef}
+          onGaleriaClick={() => avatarGaleriaRef.current?.click()}
+          onCameraClick={() => avatarCameraRef.current?.click()}
+          onToggleUrlManual={() => setAvatarUrlManual(v => !v)}
+          onUrlInputChange={setAvatarUrlInput}
+          onUrlConfirm={handleAvatarUrlConfirm}
+          onRemover={handleRemoverAvatar}
+          onFileChange={handleAvatarFileChange}
+          card={card}
+        />
+      )}
 
       {!loja && (
         <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
@@ -505,6 +617,107 @@ export function FormMinhaConta({
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function FotoPerfilCard({
+  nomePerfil,
+  avatarPreview,
+  uploadingAvatar,
+  erroAvatar,
+  avatarUrlManual,
+  avatarUrlInput,
+  avatarGaleriaRef,
+  avatarCameraRef,
+  onGaleriaClick,
+  onCameraClick,
+  onToggleUrlManual,
+  onUrlInputChange,
+  onUrlConfirm,
+  onRemover,
+  onFileChange,
+  card,
+}: {
+  nomePerfil: string
+  avatarPreview: string | null
+  uploadingAvatar: boolean
+  erroAvatar: string | null
+  avatarUrlManual: boolean
+  avatarUrlInput: string
+  avatarGaleriaRef: React.RefObject<HTMLInputElement | null>
+  avatarCameraRef: React.RefObject<HTMLInputElement | null>
+  onGaleriaClick: () => void
+  onCameraClick: () => void
+  onToggleUrlManual: () => void
+  onUrlInputChange: (v: string) => void
+  onUrlConfirm: () => void
+  onRemover: () => void
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  card: string
+}) {
+  return (
+    <section className={card}>
+      <div className="space-y-1">
+        <h2 className="text-sm font-semibold text-foreground">Foto de perfil</h2>
+        <p className="text-xs text-muted-foreground">
+          Esta foto será exibida no cabeçalho e para a equipe em todas as lojas vinculadas.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="relative w-14 h-14 flex-none">
+          <UserAvatar nome={nomePerfil} avatarUrl={avatarPreview} tamanho="lg" />
+          {uploadingAvatar && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+              <Loader2 className="h-4 w-4 animate-spin text-white" />
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={onGaleriaClick} disabled={uploadingAvatar}
+              className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50 transition-colors touch-manipulation">
+              <ImageIcon className="h-3 w-3" /> Galeria
+            </button>
+            <button type="button" onClick={onCameraClick} disabled={uploadingAvatar}
+              className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50 transition-colors touch-manipulation">
+              <Camera className="h-3 w-3" /> Câmera
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={onToggleUrlManual} disabled={uploadingAvatar}
+              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline transition-colors">
+              Usar link
+            </button>
+            {avatarPreview && (
+              <>
+                <span className="text-muted-foreground/30 text-[11px] select-none">·</span>
+                <button type="button" onClick={onRemover} disabled={uploadingAvatar}
+                  className="text-[11px] text-destructive hover:underline transition-colors">
+                  Remover foto
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {avatarUrlManual && (
+        <div className="flex gap-2 max-w-sm">
+          <input type="url" value={avatarUrlInput} onChange={e => onUrlInputChange(e.target.value)}
+            placeholder="https://..." className="flex-1 min-w-0 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          <button type="button" onClick={onUrlConfirm} disabled={!avatarUrlInput.trim() || uploadingAvatar}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+            OK
+          </button>
+        </div>
+      )}
+
+      {erroAvatar && <p className="text-[11px] text-destructive">{erroAvatar}</p>}
+
+      <input ref={avatarGaleriaRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFileChange} />
+      <input ref={avatarCameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={onFileChange} />
+    </section>
+  )
+}
 
 function AssinaturaCard({
   assinatura, card,

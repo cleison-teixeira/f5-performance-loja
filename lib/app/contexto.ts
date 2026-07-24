@@ -18,6 +18,7 @@ export interface AppContext {
   lojaIds: string[]
   lojaNome: string
   lojaLogoUrl: string | null
+  avatarUrl: string | null
   lojas: { id: string; nome: string; logo_url?: string | null }[]
   hasMembros: boolean
   acessoBloqueado: boolean
@@ -41,7 +42,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
   const [perfilRes, todosMembros, libRes] = await measureAsync(
     'getAppContext:parallel[perfis+membros+liberacoes]',
     () => Promise.all([
-      supabase.from('perfis').select('nome').eq('id', user.id).single(),
+      supabase.from('perfis').select('nome, avatar_url').eq('id', user.id).single(),
       getMembrosAtivos(user.id),  // cached — getContextoLoja reutiliza sem nova query
       admin.from('liberacoes_acesso')
         .select('tipo, status')
@@ -65,6 +66,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
       lojaIds: [],
       lojaNome: '',
       lojaLogoUrl: null,
+      avatarUrl: (perfilRes.data as { nome: string; avatar_url?: string | null } | null)?.avatar_url ?? null,
       lojas: [],
       hasMembros: false,
       acessoBloqueado: false,
@@ -114,6 +116,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     lojaIds: ctx.lojaIds,
     lojaNome: ctx.lojaNome,
     lojaLogoUrl: ctx.lojas.find(l => l.id === ctx.lojaId)?.logo_url ?? null,
+    avatarUrl: (perfilRes.data as unknown as { avatar_url?: string | null } | null)?.avatar_url ?? null,
     lojas: ctx.lojas,
     hasMembros: true,
     acessoBloqueado,

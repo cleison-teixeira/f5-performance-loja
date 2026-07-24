@@ -51,6 +51,15 @@ export default async function MinhaContaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: perfilData } = await supabase
+    .from('perfis')
+    .select('nome, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle()
+  const perfilTyped = perfilData as { nome?: string | null; avatar_url?: string | null } | null
+  const avatarUrl = perfilTyped?.avatar_url ?? null
+  const nomePerfil = perfilTyped?.nome ?? ''
+
   const admin = createAdminClient()
 
   // membros e liberações não dependem um do outro — executar em paralelo
@@ -159,12 +168,15 @@ export default async function MinhaContaPage() {
       <FormMinhaConta
         key={lojaParaEditar?.id ?? 'rede'}
         emailConta={user.email ?? ''}
+        nomePerfil={nomePerfil}
+        avatarUrlInicial={avatarUrl}
         loja={lojaParaEditar}
         todasLojas={todasLojas}
         podeEditar={podeEditar}
         assinatura={assinatura}
         lojasVinculadas={lojasVinculadas}
         isRede={mostrarVisaoRede}
+        isContaPessoal={isRede || role === 'admin_f5'}
       />
     </PinGestaoGuard>
   )
