@@ -103,6 +103,43 @@ Regra de telas:
 
 O seletor global `SeletorLojaGlobal` fica no layout, abaixo do Header, visível apenas para dono/admin_f5 com mais de 1 loja.
 
+## Testes no navegador — regra permanente
+
+É proibido utilizar contas, lojas, vendedores ou clientes reais em testes.
+
+Antes de qualquer ação de escrita no navegador:
+
+1. Identificar o usuário logado (email visível na tela ou via Supabase auth.users).
+2. Identificar o perfil_id.
+3. Identificar a loja selecionada no contexto.
+4. Comparar com a allowlist de contas de teste abaixo.
+5. Se não estiver na allowlist, abortar imediatamente. Não clicar em salvar. Não preencher formulários. Fazer logout.
+
+Contas reais — NUNCA usar em testes:
+
+* Fábio (fabiomedeirosmagalhaes@gmail.com)
+* Júlia, Carla, Débora, Juçara e demais gestores e vendedores reais
+* Qualquer conta de loja operacional (Cia Cidade Azul, etc.)
+* Qualquer cliente real
+
+Contas controladas — permitidas somente com autorização explícita:
+
+* cleisonimarketing+dono2@gmail.com
+* cleisonimarketing+loja2@gmail.com
+* Outros perfis fictícios da Rede Verde Essencial ou lojas de teste claramente identificadas
+
+Condições obrigatórias para gravar dados em produção via browser:
+
+1. Conta na allowlist.
+2. Loja fictícia/controlada.
+3. Cliente fictício.
+4. Produtos de teste.
+5. Autorização explícita do usuário para aquela gravação específica.
+
+Sem todas as cinco condições, realizar somente smoke test de leitura (navegação visual, sem submissão de formulários).
+
+Em caso de dúvida: abortar, fazer logout, auditar banco antes de continuar.
+
 ## Relatórios finais
 
 Ao finalizar uma fase, responder curto:
