@@ -51,7 +51,22 @@ const _getContextoLojaImpl = async (userId: string, multiLoja: boolean): Promise
   const lojas = await measureAsync('getContextoLoja:total', () => getLojasDoUsuario(userId))
 
   if (!multiLoja) {
-    const loja = lojas[0] ?? null
+    if (lojas.length <= 1) {
+      const loja = lojas[0] ?? null
+      return {
+        lojas,
+        lojaId: loja?.id ?? null,
+        escopo: 'loja',
+        lojaIds: loja ? [loja.id] : [],
+        lojaNome: loja?.nome ?? '',
+      }
+    }
+    // perfil acesso_loja (gerente/vendedora/líder) com múltiplos vínculos:
+    // respeita o cookie para permitir troca de loja
+    const jar = await cookies()
+    const cookieVal = jar.get(COOKIE_LOJA)?.value ?? ''
+    const lojaEncontrada = cookieVal ? lojas.find(l => l.id === cookieVal) ?? null : null
+    const loja = lojaEncontrada ?? lojas[0] ?? null
     return {
       lojas,
       lojaId: loja?.id ?? null,
