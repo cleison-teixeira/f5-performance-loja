@@ -62,9 +62,18 @@ const _getContextoLojaImpl = async (userId: string, multiLoja: boolean): Promise
       }
     }
     // perfil acesso_loja (gerente/vendedora/líder) com múltiplos vínculos:
-    // respeita o cookie para permitir troca de loja
+    // respeita o cookie para permitir troca de loja e modo "Toda a rede"
     const jar = await cookies()
-    const cookieVal = jar.get(COOKIE_LOJA)?.value ?? ''
+    const cookieVal = jar.get(COOKIE_LOJA)?.value  // undefined=não definido | ''=rede | 'uuid'=loja
+    if (cookieVal === '') {
+      return {
+        lojas,
+        lojaId: null,
+        escopo: 'rede',
+        lojaIds: lojas.map(l => l.id),
+        lojaNome: 'Toda a rede',
+      }
+    }
     const lojaEncontrada = cookieVal ? lojas.find(l => l.id === cookieVal) ?? null : null
     const loja = lojaEncontrada ?? lojas[0] ?? null
     return {
