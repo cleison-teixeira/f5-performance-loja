@@ -20,7 +20,7 @@ export default async function AvisosPage() {
   const appCtx = await getAppContext()
   if (!appCtx) redirect('/login')
 
-  const { user, role: userRole, ctx } = appCtx
+  const { ctx } = appCtx
 
   if (!appCtx.hasMembros || ctx.lojaIds.length === 0) {
     return (
@@ -185,7 +185,7 @@ export default async function AvisosPage() {
   if (vendaIdsUnicos.length > 0) {
     const { data: itensVendaData } = await admin
       .from('itens_venda')
-      .select('id, venda_id, produto_nome, produto_id, subtotal, produtos(foto_url, galeria_urls)')
+      .select('id, venda_id, produto_nome, produto_id, subtotal, ciclo_recompra_dias, produtos(foto_url, galeria_urls)')
       .in('venda_id', vendaIdsUnicos)
       .eq('recorrente', true)
     for (const item of itensVendaData ?? []) {
@@ -199,6 +199,7 @@ export default async function AvisosPage() {
         produto_id: (item.produto_id as string | null) ?? null,
         produto_foto_url: prodFoto?.foto_url || prodFoto?.galeria_urls?.[0] || null,
         valor_produto: (item.subtotal as number | null) ?? 0,
+        ciclo_recompra_dias: (item as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? null,
       })
     }
   }

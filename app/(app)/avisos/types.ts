@@ -34,6 +34,7 @@ export interface ItemVendaGrupo {
   produto_id: string | null
   produto_foto_url: string | null
   valor_produto: number
+  ciclo_recompra_dias: number | null
 }
 
 export interface GrupoRecompra {

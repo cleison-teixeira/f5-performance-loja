@@ -16,7 +16,7 @@ interface Props {
   loja_id: string
   onSucesso: (aviso_id: string) => void
   onFechar: () => void
-  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string; preco_unitario?: number }>
+  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string; preco_unitario?: number; ciclo_recompra_dias?: number | null }>
   item_venda_ids_grupo?: string[]
   isGrupo?: boolean
 }
@@ -28,6 +28,7 @@ interface ItemForm {
   quantidade: number
   precoBRL: string
   comissionavel: boolean
+  cicloRecompraDias: number | null
 }
 
 function parseBRL(raw: string): number {
@@ -44,7 +45,6 @@ const inputClass =
 export function ConfirmarRecompraModal({
   aviso,
   catalogo,
-  percentualComissao,
   vendedorasLoja,
   loja_id,
   onSucesso,
@@ -57,7 +57,6 @@ export function ConfirmarRecompraModal({
     if (itensPreenchidos && itensPreenchidos.length > 0) {
       return itensPreenchidos.map(item => {
         const prod = catalogo.find(p => p.id === item.produto_id)
-        // Prefer the real opportunity value; fall back to catalog price
         const preco = item.preco_unitario != null
           ? item.preco_unitario
           : (prod?.preco_sugerido ?? null)
@@ -68,6 +67,7 @@ export function ConfirmarRecompraModal({
           quantidade: 1,
           precoBRL: preco != null ? preco.toFixed(2).replace('.', ',') : '',
           comissionavel: prod?.comissionavel_recompra ?? true,
+          cicloRecompraDias: item.ciclo_recompra_dias ?? null,
         }
       })
     }
@@ -81,6 +81,7 @@ export function ConfirmarRecompraModal({
         ? produtoInicial.preco_sugerido.toFixed(2).replace('.', ',')
         : '',
       comissionavel: produtoInicial?.comissionavel_recompra ?? true,
+      cicloRecompraDias: null,
     }]
   }
 
@@ -137,6 +138,7 @@ export function ConfirmarRecompraModal({
         comissionavel: item.comissionavel,
         quantidade: item.quantidade,
         preco_unitario: parseBRL(item.precoBRL),
+        ciclo_recompra_dias: item.cicloRecompraDias ?? null,
       })),
       item_venda_ids_grupo,
     })
@@ -253,6 +255,7 @@ export function ConfirmarRecompraModal({
                 quantidade: 1,
                 precoBRL: '',
                 comissionavel: true,
+                cicloRecompraDias: null,
               }])}
               className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
             >

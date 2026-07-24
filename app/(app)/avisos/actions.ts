@@ -4,9 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
-import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
-import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
-import type { AvisoDetalhado } from './types'
+import { gerarAvisosParaVenda, type ItemParaGerarAviso } from '@/lib/avisos/gerarParaVenda'
 
 export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -72,6 +70,7 @@ export interface ItemRecompraInput {
   comissionavel: boolean
   quantidade: number
   preco_unitario: number
+  ciclo_recompra_dias?: number | null
 }
 
 interface DadosRecompra {
@@ -172,11 +171,33 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
 
     const nova_venda_id = vendaData.id as string
 
-    // 2. INSERT itens_venda
+    // 2. Resolver ciclo_recompra_dias: usa o valor enviado pelo cliente; para itens sem ciclo,
+    //    busca dias_apos_venda da mensagem tipo='recompra' do produto; fallback 30.
+    const itensComCiclo = await Promise.all(
+      dados.itens.map(async (item) => {
+        let ciclo: number | null = item.ciclo_recompra_dias ?? null
+        if (ciclo == null && item.produto_id) {
+          const { data: msgRec } = await admin
+            .from('mensagens_produto')
+            .select('dias_apos_venda')
+            .eq('produto_id', item.produto_id)
+            .eq('tipo', 'recompra')
+            .order('ordem')
+            .limit(1)
+            .maybeSingle()
+          ciclo = (msgRec?.dias_apos_venda as number | null) ?? 30
+        } else if (ciclo == null) {
+          ciclo = 30
+        }
+        return { ...item, ciclo_recompra_dias: ciclo as number }
+      })
+    )
+
+    // 3. INSERT itens_venda (com ciclo_recompra_dias propagado)
     const { data: itensVendaData, error: itensVendaError } = await admin
       .from('itens_venda')
       .insert(
-        dados.itens.map(item => ({
+        itensComCiclo.map(item => ({
           venda_id: nova_venda_id,
           produto_id: item.produto_id,
           produto_nome: item.produto_nome,
@@ -185,15 +206,16 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
           quantidade: item.quantidade,
           valor_unitario: item.preco_unitario,
           subtotal: item.quantidade * item.preco_unitario,
+          ciclo_recompra_dias: item.ciclo_recompra_dias,
         }))
       )
-      .select('id, produto_id, produto_nome')
+      .select('id, produto_id, produto_nome, ciclo_recompra_dias')
 
     if (itensVendaError || !itensVendaData) {
       return { ok: false, erro: 'Erro ao registrar itens da venda: ' + (itensVendaError?.message ?? 'desconhecido') }
     }
 
-    // 3. INSERT recompra com venda_id canônico
+    // 4. INSERT recompra com venda_id canônico
     const { data: recompraData, error: recompraError } = await admin
       .from('recompras')
       .insert({
@@ -215,7 +237,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
 
     const recompra_id = recompraData.id as string
 
-    // 4. INSERT itens_recompra (mantidos)
+    // 5. INSERT itens_recompra (mantidos)
     const { error: itensRecompraError } = await admin.from('itens_recompra').insert(
       dados.itens.map(item => ({
         recompra_id,
@@ -232,7 +254,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Erro ao registrar itens da recompra: ' + itensRecompraError.message }
     }
 
-    // 5. Gerar comissão via helper canônico
+    // 6. Gerar comissão via helper canônico
     const comissaoResult = await gravarComissaoVenda({
       loja_id: dados.loja_id,
       venda_id: nova_venda_id,
@@ -251,7 +273,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
-    // 6. Marcar aviso como convertida e vincular à recompra (admin para contornar RLS)
+    // 7. Marcar aviso como convertida e vincular à recompra (admin para contornar RLS)
     const agora = new Date().toISOString()
     await admin
       .from('avisos')
@@ -265,7 +287,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       })
       .eq('id', dados.aviso_id)
 
-    // 6b. Fechar todos os demais avisos ativos da mesma oportunidade (venda_id + produto via item_venda_id)
+    // 7b. Fechar todos os demais avisos ativos da mesma oportunidade (venda_id + produto via item_venda_id)
     const itemVendaIdOriginal = avisoAtual?.item_venda_id as string | null
     const fechamentoQuery = admin
       .from('avisos')
@@ -285,7 +307,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       await fechamentoQuery.eq('venda_id', dados.venda_original_id)
     }
 
-    // 6c. Fechar avisos de outros produtos do mesmo grupo de venda (recompra multi-produto)
+    // 7c. Fechar avisos de outros produtos do mesmo grupo de venda (recompra multi-produto)
     if (dados.item_venda_ids_grupo && dados.item_venda_ids_grupo.length > 0) {
       const outrosIds = dados.item_venda_ids_grupo.filter(id => id !== itemVendaIdOriginal)
       if (outrosIds.length > 0) {
@@ -304,81 +326,44 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       }
     }
 
-    // 7. Gerar novos avisos futuros para produtos com mensagens configuradas
-    const produtoIds = [...new Set(
-      itensVendaData
-        .map(i => i.produto_id)
-        .filter((id): id is string => !!id)
-    )]
+    // 8. Gerar novos avisos futuros — sequência agrupada (motor unificado, sem agradecimento)
+    const [clienteRes, vendedoraRes, lojaRes] = await Promise.all([
+      admin.from('clientes').select('nome').eq('id', dados.cliente_id).single(),
+      admin.from('perfis').select('nome').eq('id', dados.vendedora_id).single(),
+      admin.from('lojas').select('nome').eq('id', dados.loja_id).single(),
+    ])
 
-    if (produtoIds.length > 0) {
-      const [clienteRes, vendedoraRes, lojaRes] = await Promise.all([
-        admin.from('clientes').select('nome').eq('id', dados.cliente_id).single(),
-        admin.from('perfis').select('nome').eq('id', dados.vendedora_id).single(),
-        admin.from('lojas').select('nome').eq('id', dados.loja_id).single(),
-      ])
+    const itensParaGerar: ItemParaGerarAviso[] = itensVendaData.map(iv => ({
+      id: iv.id as string,
+      produto_id: iv.produto_id as string | null,
+      produto_nome: iv.produto_nome as string,
+      recorrente: true,
+      ciclo_recompra_dias: (iv as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? null,
+    }))
 
-      const cliente_nome = (clienteRes.data?.nome as string) ?? ''
-      const vendedora_nome = (vendedoraRes.data?.nome as string) ?? ''
-      const loja_nome = (lojaRes.data?.nome as string) ?? ''
+    const { avisos: novosAvisos } = await gerarAvisosParaVenda({
+      venda_id: nova_venda_id,
+      loja_id: dados.loja_id,
+      cliente_id: dados.cliente_id,
+      vendedora_id: dados.vendedora_id,
+      cliente_nome: (clienteRes.data?.nome as string) ?? '',
+      vendedora_nome: (vendedoraRes.data?.nome as string) ?? '',
+      loja_nome: (lojaRes.data?.nome as string) ?? '',
+      data_base: hoje,
+      origem: 'recompra',
+      itens: itensParaGerar,
+      origem_recompra_id: recompra_id,
+      db: admin,
+    })
 
-      const todosAvisosNovos: AvisoParaInserir[] = []
-
-      for (const itemVenda of itensVendaData) {
-        if (!itemVenda.produto_id) continue
-
-        const { data: produtoData } = await admin
-          .from('produtos')
-          .select('qtd_mensagens')
-          .eq('id', itemVenda.produto_id)
-          .single()
-
-        const qtd_mensagens = (
-          (produtoData as unknown as { qtd_mensagens: number } | null)?.qtd_mensagens ?? 3
-        ) as 1 | 2 | 3 | 4
-
-        const { data: mensagensData } = await admin
-          .from('mensagens_produto')
-          .select('id, ordem, tipo, texto, dias_apos_venda')
-          .eq('produto_id', itemVenda.produto_id)
-          .order('ordem')
-
-        if (!mensagensData || mensagensData.length === 0) continue
-
-        const ordensAtivas = ORDENS_POR_MODELO[qtd_mensagens]
-        const mensagens = mensagensData
-          .filter(m => ordensAtivas.includes(m.ordem as number))
-          .map(m => ({
-            id: m.id as string,
-            tipo: (m as unknown as { tipo: string }).tipo ?? 'recompra',
-            texto: m.texto as string,
-            dias_apos_venda: m.dias_apos_venda as number,
-          }))
-
-        if (mensagens.length === 0) continue
-
-        const avisos = gerarAvisos(
-          mensagens,
-          {
-            venda_id: nova_venda_id,
-            item_venda_id: itemVenda.id as string,
-            loja_id: dados.loja_id,
-            cliente_id: dados.cliente_id,
-            vendedora_id: dados.vendedora_id,
-            cliente_nome,
-            produto_nome: itemVenda.produto_nome as string,
-            vendedora_nome,
-            loja_nome,
-            origem_recompra_id: recompra_id,
-          },
-          hoje
-        )
-
-        todosAvisosNovos.push(...avisos)
-      }
-
-      if (todosAvisosNovos.length > 0) {
-        await admin.from('avisos').insert(todosAvisosNovos)
+    // Idempotência: não inserir se já existem avisos para esta venda
+    if (novosAvisos.length > 0) {
+      const { count } = await admin
+        .from('avisos')
+        .select('id', { count: 'exact', head: true })
+        .eq('venda_id', nova_venda_id)
+      if (!count || count === 0) {
+        await admin.from('avisos').insert(novosAvisos)
       }
     }
 

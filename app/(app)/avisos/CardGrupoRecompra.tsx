@@ -110,6 +110,7 @@ export function CardGrupoRecompra({
         produto_id: a.produto_id,
         produto_foto_url: a.produto_foto_url,
         valor_produto: a.valor_produto,
+        ciclo_recompra_dias: null as number | null,
       }))
 
   const isContatoFeito = grupo.avisos.every(a => a.status === 'contato_feito' || (a.status === 'enviado' && !a.recompra_id))
@@ -401,7 +402,7 @@ export function CardGrupoRecompra({
           loja_id={loja_id}
           onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
           onFechar={() => setModalRecompra(false)}
-          itensPreenchidos={produtos.map(p => ({ produto_id: p.produto_id, produto_nome: p.produto_nome, preco_unitario: p.valor_produto }))}
+          itensPreenchidos={produtos.map(p => ({ produto_id: p.produto_id, produto_nome: p.produto_nome, preco_unitario: p.valor_produto, ciclo_recompra_dias: p.ciclo_recompra_dias }))}
           item_venda_ids_grupo={grupo.itens_venda.length > 0
             ? grupo.itens_venda.map(i => i.id)
             : grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}

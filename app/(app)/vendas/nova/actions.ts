@@ -2,9 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { gerarAvisos, type AvisoParaInserir } from '@/lib/avisos/gerador'
-import { TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP } from '@/lib/mensagens/templates_padrao'
-import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
+import { type AvisoParaInserir } from '@/lib/avisos/gerador'
+import { gerarAvisosParaVenda, type ItemParaGerarAviso } from '@/lib/avisos/gerarParaVenda'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
 import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
@@ -78,28 +77,6 @@ interface ItemProcessado {
   modelo_fluxo?: string | null
   categoria?: string | null
   parceiro?: string | null
-}
-
-const CONFIG_MODELOS: Record<string, number[]> = {
-  'modelo_2_agrad_rec': [1, 3],
-  'modelo_3_agrad_rec_oferta': [1, 3, 4],
-  'modelo_3_agrad_rel_rec': [1, 2, 3],
-  'modelo_4_completo': [1, 2, 3, 4],
-  'modelo_5_follow_up': [1, 2, 3, 4, 5],
-}
-
-function obterOrdensPorModelo(modelo: string | null | undefined, fallbackQtd: number): number[] {
-  if (modelo && CONFIG_MODELOS[modelo]) {
-    return CONFIG_MODELOS[modelo]
-  }
-  switch (fallbackQtd) {
-    case 1: return [3]
-    case 2: return [1, 3]
-    case 3: return [1, 2, 3]
-    case 4: return [1, 2, 3, 4]
-    case 5: return [1, 2, 3, 4, 5]
-    default: return [1, 2, 3]
-  }
 }
 
 export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
@@ -224,7 +201,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       .map(i => i.produto_id)
       .filter((id): id is string => id !== null)
 
-    let fixasPorProduto: Record<string, number> = {}
+    const fixasPorProduto: Record<string, number> = {}
     if (produtosIds.length > 0) {
       const { data: fixasData } = await admin
         .from('comissao_fixa_produto')
@@ -360,115 +337,43 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
-    // 6. Gerar avisos — sequência única agrupada para vendas com múltiplos produtos recorrentes
+    // 6. Gerar avisos — sequência única agrupada via função central
     const todosAvisos: AvisoParaInserir[] = []
     const mensagemTipo: Record<string, string> = {}
 
-    // Pares (row do banco, item processado) apenas para itens recorrentes
     const pairesRecorrentes = itensVendaData
       .map((row, i) => ({ row, processado: itensProcessados[i] }))
       .filter(({ row }) => (row as unknown as { recorrente: boolean }).recorrente)
 
     if (pairesRecorrentes.length >= 1) {
-      // Encontrar item âncora: menor ciclo_recompra_dias (empate → primeiro da lista)
-      let anchorIdx = 0
-      let minCiclo = (pairesRecorrentes[0].row as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? 30
-      for (let i = 1; i < pairesRecorrentes.length; i++) {
-        const c = (pairesRecorrentes[i].row as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? 30
-        if (c < minCiclo) { minCiclo = c; anchorIdx = i }
-      }
+      const itensParaGerar: ItemParaGerarAviso[] = pairesRecorrentes.map(({ row, processado }) => ({
+        id: row.id as string,
+        produto_id: row.produto_id as string | null,
+        produto_nome: processado.produto_nome,
+        recorrente: true,
+        ciclo_recompra_dias: (row as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? null,
+        qtd_mensagens: processado.produto_qtd_mensagens,
+        modelo_fluxo: processado.modelo_fluxo ?? null,
+        categoria: processado.categoria ?? null,
+        parceiro: processado.parceiro ?? null,
+      }))
 
-      const { row: anchorRow, processado: anchorProcessado } = pairesRecorrentes[anchorIdx]
-      const item_venda_id = anchorRow.id as string
-      const produto_id = anchorRow.produto_id as string
-
-      // Nome combinado para agradecimento/relacionamento (lista de todos os produtos recorrentes)
-      const nomesProdutos = pairesRecorrentes.map(p => p.processado.produto_nome)
-      const produto_nome_lista = nomesProdutos.length === 1
-        ? nomesProdutos[0]
-        : nomesProdutos.length === 2
-          ? `${nomesProdutos[0]} e ${nomesProdutos[1]}`
-          : `${nomesProdutos.slice(0, -1).join(', ')} e ${nomesProdutos[nomesProdutos.length - 1]}`
-
-      // Buscar mensagens do produto âncora (mesmo fluxo de seed/fallback de antes)
-      let { data: mensagensData } = await supabase
-        .from('mensagens_produto')
-        .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
-        .eq('produto_id', produto_id)
-        .order('ordem')
-
-      if (!mensagensData || mensagensData.length === 0) {
-        const todosPadroes = [...TEMPLATES_PADRAO, TEMPLATE_OFERTA, TEMPLATE_FOLLOW_UP]
-        await supabase.from('mensagens_produto').insert(
-          todosPadroes.map(t => ({ produto_id, ...t }))
-        )
-        const res = await supabase
-          .from('mensagens_produto')
-          .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
-          .eq('produto_id', produto_id)
-          .order('ordem')
-        mensagensData = res.data
-      }
-
-      const ordensAtivas = obterOrdensPorModelo(anchorProcessado.modelo_fluxo, anchorProcessado.produto_qtd_mensagens)
-      const ordensExistentes = (mensagensData ?? []).map(m => m.ordem as number)
-      const ordensFaltantes = ordensAtivas.filter(o => !ordensExistentes.includes(o))
-
-      if (ordensFaltantes.length > 0) {
-        const DEFAULT_TEMPLATES_MAP: Record<number, unknown> = {
-          1: TEMPLATES_PADRAO[0],
-          2: TEMPLATES_PADRAO[1],
-          3: TEMPLATES_PADRAO[2],
-          4: TEMPLATE_OFERTA,
-          5: TEMPLATE_FOLLOW_UP,
-        }
-        const novosTemplates = ordensFaltantes.map(ordem => {
-          const padrao = DEFAULT_TEMPLATES_MAP[ordem] as { ordem: number; tipo: string; dias_apos_venda: number; texto: string }
-          return { produto_id, ordem: padrao.ordem, tipo: padrao.tipo, dias_apos_venda: padrao.dias_apos_venda, texto: padrao.texto, estilo: 'clean', tipo_incentivo: 'nenhum' }
-        })
-        await supabase.from('mensagens_produto').insert(novosTemplates)
-        const res = await supabase
-          .from('mensagens_produto')
-          .select('id, ordem, tipo, texto, dias_apos_venda, estilo, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
-          .eq('produto_id', produto_id)
-          .order('ordem')
-        mensagensData = res.data
-      }
-
-      const mensagens = (mensagensData ?? [])
-        .filter(m => ordensAtivas.includes(m.ordem as number))
-        .map(m => ({
-          id: m.id as string,
-          tipo: (m as unknown as { tipo: string }).tipo ?? 'agradecimento',
-          texto: m.texto as string,
-          dias_apos_venda: m.dias_apos_venda as number,
-          estilo: m.estilo,
-          tipo_incentivo: m.tipo_incentivo,
-          cupom_codigo: m.cupom_codigo,
-          desconto_percentual: m.desconto_percentual != null ? Number(m.desconto_percentual) : null,
-          desconto_valor: m.desconto_valor != null ? Number(m.desconto_valor) : null,
-          beneficio_texto: m.beneficio_texto,
-          validade_oferta: m.validade_oferta
-        }))
-
-      for (const m of mensagens) { mensagemTipo[m.id] = m.tipo }
-
-      const avisos = gerarAvisos(mensagens, {
+      const { avisos, mensagemTipo: tipoMap } = await gerarAvisosParaVenda({
         venda_id,
-        item_venda_id,
         loja_id: dados.loja_id,
         cliente_id,
         vendedora_id: dados.vendedora_id,
         cliente_nome,
-        produto_nome: produto_nome_lista,
-        produto_nome_ancora: pairesRecorrentes.length > 1 ? anchorProcessado.produto_nome : undefined,
         vendedora_nome: dados.vendedora_nome,
         loja_nome: dados.loja_nome,
-        categoria: anchorProcessado.categoria,
-        parceiro: anchorProcessado.parceiro,
-      }, dados.data_compra, minCiclo).map(a => ({ ...a, previsao_comissao }))
+        data_base: dados.data_compra,
+        origem: 'venda_manual',
+        itens: itensParaGerar,
+        db: supabase,
+      })
 
-      todosAvisos.push(...avisos)
+      Object.assign(mensagemTipo, tipoMap)
+      todosAvisos.push(...avisos.map(a => ({ ...a, previsao_comissao })))
     }
 
     // 7. INSERT avisos
