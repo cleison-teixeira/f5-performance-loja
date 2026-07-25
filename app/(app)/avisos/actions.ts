@@ -143,6 +143,10 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       if (!membroResponsavel) return { ok: false, erro: 'Responsável não pertence à loja' }
     }
 
+    if (dados.itens.length === 0) {
+      return { ok: false, erro: 'A recompra precisa ter pelo menos um produto.' }
+    }
+
     const hoje = new Date().toISOString().slice(0, 10)
     const valor_total = dados.itens.reduce(
       (acc, item) => acc + item.quantidade * item.preco_unitario, 0

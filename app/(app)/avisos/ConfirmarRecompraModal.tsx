@@ -186,10 +186,20 @@ export function ConfirmarRecompraModal({
 
               return (
                 <div key={item.key} className="rounded-lg border border-input bg-muted/20 p-3 space-y-2.5">
-                  {itens.length > 1 && (
+                  {(itens.length > 1 || isGrupo) && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                      {!isGrupo && (
+                      {isGrupo ? (
+                        <button
+                          type="button"
+                          onClick={() => setItens(prev => prev.filter(i => i.key !== item.key))}
+                          disabled={itens.length <= 1}
+                          title={itens.length <= 1 ? 'A recompra precisa ter pelo menos um produto.' : 'Retirar da recompra'}
+                          className="text-xs text-muted-foreground hover:text-destructive disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Retirar
+                        </button>
+                      ) : (
                         <button
                           type="button"
                           onClick={() => setItens(prev => prev.filter(i => i.key !== item.key))}
@@ -245,6 +255,12 @@ export function ConfirmarRecompraModal({
                 </div>
               )
             })}
+
+            {isGrupo && itens.length === 1 && (
+              <p className="text-xs text-muted-foreground text-center py-1">
+                A recompra precisa ter pelo menos um produto.
+              </p>
+            )}
 
             <button
               type="button"
