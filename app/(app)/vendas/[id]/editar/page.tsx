@@ -3,6 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { FormEditarVenda } from './FormEditarVenda'
 import { isContaEstrutural } from '@/lib/acessos/filtrar-membros'
+import { getContextoLoja } from '@/lib/loja/contexto'
+import { isAcessoLoja } from '@/lib/acessos/perfil-produto'
+
+const ROLE_PRIORITY: Record<string, number> = { dono: 0, admin_f5: 0, gerente: 1, lider: 1, vendedora: 2 }
 
 export interface ItemEditarInicial {
   item_venda_id: string
@@ -22,26 +26,32 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: membro } = await supabase
+  const admin = createAdminClient()
+
+  // 1. Determine highest-priority role across all lojas (mirrors nova/page.tsx pattern)
+  const { data: todosMembros } = await admin
     .from('membros_loja')
-    .select('loja_id, role, lojas(id, nome)')
+    .select('role')
     .eq('perfil_id', user.id)
     .eq('ativo', true)
-    .limit(1)
-    .single()
 
-  if (!membro) redirect('/vendas')
+  if (!todosMembros || todosMembros.length === 0) redirect('/vendas')
 
-  const lojaRaw = membro.lojas as unknown as { id: string; nome: string } | Array<{ id: string; nome: string }>
-  const loja = Array.isArray(lojaRaw) ? lojaRaw[0] : lojaRaw
-  const loja_id = loja.id
-  const loja_nome = loja.nome
-  const userRole = membro.role as string
+  const userRole = todosMembros.reduce((best: string, m) => {
+    const mRole = m.role as string
+    return (ROLE_PRIORITY[mRole] ?? 99) < (ROLE_PRIORITY[best] ?? 99) ? mRole : best
+  }, todosMembros[0].role as string)
+
+  // 2. Resolve loja context — respects f5_loja_ctx cookie for multi-loja donos
+  const multiLoja = !isAcessoLoja(userRole)
+  const ctx = await getContextoLoja(user.id, multiLoja)
+
+  if (ctx.lojaIds.length === 0) redirect('/vendas')
+
   const isVendedora = userRole === 'vendedora'
 
-  // Buscar a venda com todos os dados necessários
-  // versao is used for optimistic locking when editing recompras (added by migration 057)
-  const { data: venda } = await supabase
+  // 3. Load the venda via admin — no loja filter here; access is validated below
+  const { data: venda } = await admin
     .from('vendas')
     .select(`
       id, data_compra, vendedora_id, origem, loja_id, versao,
@@ -50,10 +60,16 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
       itens_venda(id, produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente, comissionavel, ciclo_recompra_dias)
     `)
     .eq('id', id)
-    .eq('loja_id', loja_id)
     .single()
 
   if (!venda) notFound()
+
+  // 4. Validate user has access to the venda's loja — cookie never grants access beyond membros_loja
+  const vendaLojaId = (venda as unknown as { loja_id: string }).loja_id
+  if (!ctx.lojaIds.includes(vendaLojaId)) notFound()
+
+  const loja_id = vendaLojaId
+  const loja_nome = ctx.lojas.find(l => l.id === loja_id)?.nome ?? ''
 
   const origemVenda = (venda as unknown as { origem: string }).origem
   // Apenas venda_manual e recompra são editáveis
@@ -105,7 +121,6 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
   // Vendedoras disponíveis (para gerente/dono)
   let vendedoras: { id: string; nome: string }[] = []
   if (!isVendedora) {
-    const admin = createAdminClient()
     const [{ data: membros }, lojaLibRes] = await Promise.all([
       supabase
         .from('membros_loja')
