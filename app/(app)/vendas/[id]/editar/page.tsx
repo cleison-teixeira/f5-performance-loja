@@ -12,6 +12,7 @@ export interface ItemEditarInicial {
   preco_unitario: number
   recorrente: boolean
   comissionavel: boolean
+  ciclo_recompra_dias: number | null
 }
 
 export default async function EditarVendaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,13 +40,14 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
   const isVendedora = userRole === 'vendedora'
 
   // Buscar a venda com todos os dados necessários
+  // versao is used for optimistic locking when editing recompras (added by migration 057)
   const { data: venda } = await supabase
     .from('vendas')
     .select(`
-      id, data_compra, vendedora_id, origem, loja_id,
+      id, data_compra, vendedora_id, origem, loja_id, versao,
       clientes(nome, whatsapp),
       perfis!vendas_vendedora_id_fkey(nome),
-      itens_venda(id, produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente, comissionavel)
+      itens_venda(id, produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente, comissionavel, ciclo_recompra_dias)
     `)
     .eq('id', id)
     .eq('loja_id', loja_id)
@@ -53,10 +55,12 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
 
   if (!venda) notFound()
 
-  // Só vendas manuais são editáveis
-  if ((venda as unknown as { origem: string }).origem !== 'venda_manual') {
+  const origemVenda = (venda as unknown as { origem: string }).origem
+  // Apenas venda_manual e recompra são editáveis
+  if (origemVenda !== 'venda_manual' && origemVenda !== 'recompra') {
     redirect('/vendas')
   }
+  const isRecompra = origemVenda === 'recompra'
 
   const clienteRaw = venda.clientes as unknown as { nome: string; whatsapp: string } | null
   const perfilRaw = venda.perfis as unknown as { nome: string } | null
@@ -69,6 +73,7 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
     subtotal: number
     recorrente: boolean
     comissionavel: boolean
+    ciclo_recompra_dias: number | null
   }> | null
 
   const itens: ItemEditarInicial[] = (itensRaw ?? []).map(i => ({
@@ -79,6 +84,7 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
     preco_unitario: i.valor_unitario,
     recorrente: i.recorrente ?? false,
     comissionavel: i.comissionavel ?? true,
+    ciclo_recompra_dias: i.ciclo_recompra_dias ?? null,
   }))
 
   // Catálogo de produtos para adicionar novos
@@ -165,6 +171,8 @@ export default async function EditarVendaPage({ params }: { params: Promise<{ id
         itens_iniciais={itens}
         catalogo={catalogo}
         vendedoras={vendedoras}
+        isRecompra={isRecompra}
+        versao={(venda as unknown as { versao: number | null }).versao ?? 1}
       />
     </div>
   )

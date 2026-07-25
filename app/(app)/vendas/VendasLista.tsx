@@ -301,7 +301,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
                       {v.qtd_avisos > 0 ? v.qtd_avisos : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {v.origem === 'venda_manual' && (
+                      {(v.origem === 'venda_manual' || v.origem === 'recompra') && (
                         <Link
                           href={`/vendas/${v.id}/editar`}
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -510,7 +510,7 @@ function VendaCard({ venda: v, isVendedora, mostrarLoja }: { venda: VendaExtrato
           </button>
         ) : <span />}
 
-        {v.origem === 'venda_manual' && (
+        {(v.origem === 'venda_manual' || v.origem === 'recompra') && (
           <Link
             href={`/vendas/${v.id}/editar`}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
