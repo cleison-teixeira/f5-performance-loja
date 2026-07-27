@@ -31,7 +31,7 @@ export default async function EditarCampanhaPage({
   const admin = createAdminClient()
   const { data: produtos } = await admin
     .from('produtos')
-    .select('id, nome, preco_sugerido, foto_url, recorrente, ciclo_recompra_dias')
+    .select('id, nome, preco_sugerido, foto_url, recorrente')
     .eq('loja_id', lojaId)
     .eq('ativo', true)
     .order('nome')
@@ -48,7 +48,6 @@ export default async function EditarCampanhaPage({
         nome: string
         preco_sugerido: number | null
         foto_url: string | null
-        ciclo_recompra_dias: number | null
         recorrente: boolean
       }>}
       membros={membros}

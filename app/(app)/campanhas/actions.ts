@@ -303,35 +303,47 @@ export async function editarCampanha(input: {
 
   if (errC) return { ok: false, error: errC.message }
 
-  // 2. Substituir itens: inativar existentes, inserir novos
-  await admin
-    .from('campanhas_venda_itens')
-    .update({ ativo: false, atualizado_em: agora })
-    .eq('campanha_id', input.campanhaId)
+  // 2. Substituir itens: upsert (resolve unique constraint campanha_id+produto_id),
+  //    depois inativar os que saíram do wizard
+  const novosItens = input.itens.map((item, idx) => ({
+    campanha_id: input.campanhaId,
+    produto_id: item.produto_id,
+    quantidade_conteudo: item.quantidade_conteudo,
+    unidade_conteudo: item.unidade_conteudo,
+    preco_campanha: item.preco_campanha,
+    preco_referencia: item.preco_referencia || null,
+    ciclo_recompra_dias: item.ciclo_recompra_dias || null,
+    ativo: true,
+    ordem: item.ordem ?? idx,
+    atualizado_em: agora,
+  }))
 
-  if (input.itens.length > 0) {
+  if (novosItens.length > 0) {
     const { error: errI } = await admin
       .from('campanhas_venda_itens')
-      .insert(
-        input.itens.map((item, idx) => ({
-          campanha_id: input.campanhaId,
-          produto_id: item.produto_id,
-          quantidade_conteudo: item.quantidade_conteudo,
-          unidade_conteudo: item.unidade_conteudo,
-          preco_campanha: item.preco_campanha,
-          preco_referencia: item.preco_referencia || null,
-          ciclo_recompra_dias: item.ciclo_recompra_dias || null,
-          ativo: true,
-          ordem: item.ordem ?? idx,
-        }))
-      )
+      .upsert(novosItens, { onConflict: 'campanha_id,produto_id' })
     if (errI) return { ok: false, error: errI.message }
+  }
+
+  // Inativar produtos que foram removidos do wizard
+  const produtosAtivos = input.itens.map(i => i.produto_id)
+  if (produtosAtivos.length > 0) {
+    await admin
+      .from('campanhas_venda_itens')
+      .update({ ativo: false, atualizado_em: agora })
+      .eq('campanha_id', input.campanhaId)
+      .not('produto_id', 'in', `(${produtosAtivos.map(id => `'${id}'`).join(',')})`)
+  } else {
+    await admin
+      .from('campanhas_venda_itens')
+      .update({ ativo: false, atualizado_em: agora })
+      .eq('campanha_id', input.campanhaId)
   }
 
   // 3. Substituir participantes: inativar existentes, reinserir novos
   await admin
     .from('campanhas_venda_participantes')
-    .update({ ativo: false, data_fim: agora.slice(0, 10), atualizado_em: agora })
+    .update({ ativo: false, data_fim: agora.slice(0, 10) })
     .eq('campanha_id', input.campanhaId)
 
   if (input.participantes.length > 0) {
@@ -344,7 +356,6 @@ export async function editarCampanha(input: {
           meta_individual: p.meta_individual || null,
           ativo: true,
           data_fim: null,
-          atualizado_em: agora,
         })),
         { onConflict: 'campanha_id,perfil_id' }
       )

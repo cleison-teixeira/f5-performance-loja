@@ -18,7 +18,6 @@ interface ProdutoCatalogo {
   nome: string
   preco_sugerido: number | null
   foto_url: string | null
-  ciclo_recompra_dias: number | null
   recorrente: boolean
 }
 
@@ -187,7 +186,6 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
   function handleSelecionarProduto(p: ProdutoCatalogo) {
     setProdutoSelecionado(p)
     setPrecoCampanhaRaw(p.preco_sugerido ? formatBRL(p.preco_sugerido) : '')
-    setCicloItem(p.ciclo_recompra_dias ? String(p.ciclo_recompra_dias) : '')
   }
 
   function handleAdicionarItem() {
@@ -637,7 +635,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
                     min="1"
                     value={cicloItem}
                     onChange={e => setCicloItem(e.target.value)}
-                    placeholder={produtoSelecionado.ciclo_recompra_dias ? String(produtoSelecionado.ciclo_recompra_dias) : 'Ex: 30'}
+                    placeholder="Ex: 30"
                     className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
