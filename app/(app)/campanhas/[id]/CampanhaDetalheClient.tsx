@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, Package2, Users, Target, TrendingUp,
-  ShoppingCart, Info, BarChart3, Trophy,
+  ShoppingCart, Info, BarChart3, Trophy, Pencil,
 } from 'lucide-react'
 import { atualizarStatusCampanha } from '../actions'
 import type { CampanhaVenda, ResultadoCampanha, StatusCampanha } from '../types'
@@ -104,6 +104,19 @@ export function CampanhaDetalheClient({ campanha, resultado, lojaId, podeGerenci
       )}
 
       {/* Controles de status para gestores */}
+      {podeGerenciar && (
+        <div className="flex gap-2 flex-wrap">
+          {['rascunho', 'programada', 'ativa', 'pausada'].includes(campanha.status) && (
+            <Link
+              href={`/campanhas/${campanha.id}/editar`}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Editar campanha
+            </Link>
+          )}
+        </div>
+      )}
       {podeGerenciar && (
         <div className="flex gap-2 flex-wrap">
           {campanha.status === 'rascunho' && (

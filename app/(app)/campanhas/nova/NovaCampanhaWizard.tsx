@@ -6,10 +6,11 @@ import {
   ChevronLeft, ChevronRight, Check, Plus, X, Package2, Users, Target,
   FileText, Search, Trophy,
 } from 'lucide-react'
-import { criarCampanha } from '../actions'
+import { criarCampanha, editarCampanha } from '../actions'
 import type {
   ItemInput, ParticipanteInput, TipoCampanha, UnidadeConteudo,
   PeriodicidadeMeta, UnidadeMeta, TipoPremiacao, PremiacaoInput,
+  CampanhaVenda,
 } from '../types'
 
 interface ProdutoCatalogo {
@@ -33,6 +34,9 @@ interface Props {
   tipoInicial: TipoCampanha
   produtos: ProdutoCatalogo[]
   membros: MembroLoja[]
+  // Edit mode
+  campanhaId?: string
+  campanhaInicial?: CampanhaVenda
 }
 
 const PASSOS = ['Informações', 'Produtos', 'Meta', 'Premiação', 'Participantes', 'Revisar']
@@ -62,19 +66,23 @@ function formatBRL(v: number): string {
 
 type FaixaLocal = { _key: string; quantidade_de: string; quantidade_ate: string; valor_por_unidade: string }
 
-export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, membros }: Props) {
+export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, membros, campanhaId, campanhaInicial }: Props) {
   const router = useRouter()
+  const modoEdicao = !!campanhaId
   const [passo, setPasso] = useState(0)
   const [isPending, startTransition] = useTransition()
 
   // ── Passo 0: Informações ────────────────────────────────────────────────────
-  const [nome, setNome] = useState('')
-  const [tipo] = useState<TipoCampanha>(tipoInicial)
-  const [descricao, setDescricao] = useState('')
-  const [orientacao, setOrientacao] = useState('')
-  const [objetivo, setObjetivo] = useState('')
-  const [dataInicio, setDataInicio] = useState(() => new Date().toISOString().slice(0, 10))
+  const [nome, setNome] = useState(campanhaInicial?.nome ?? '')
+  const [tipo] = useState<TipoCampanha>(campanhaInicial?.tipo ?? tipoInicial)
+  const [descricao, setDescricao] = useState(campanhaInicial?.descricao ?? '')
+  const [orientacao, setOrientacao] = useState(campanhaInicial?.orientacao_equipe ?? '')
+  const [objetivo, setObjetivo] = useState(campanhaInicial?.objetivo ?? '')
+  const [dataInicio, setDataInicio] = useState(
+    campanhaInicial?.data_inicio ?? new Date().toISOString().slice(0, 10)
+  )
   const [dataFim, setDataFim] = useState(() => {
+    if (campanhaInicial?.data_fim) return campanhaInicial.data_fim
     const d = new Date()
     d.setDate(d.getDate() + 7)
     return d.toISOString().slice(0, 10)
@@ -82,7 +90,20 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
 
   // ── Passo 1: Produtos ────────────────────────────────────────────────────────
   type ItemLocal = ItemInput & { _key: string; produto_nome: string; produto_foto_url?: string | null }
-  const [itens, setItens] = useState<ItemLocal[]>([])
+  const [itens, setItens] = useState<ItemLocal[]>(() =>
+    campanhaInicial?.itens.filter(i => i.ativo).map(i => ({
+      _key: i.id,
+      produto_id: i.produto_id,
+      produto_nome: i.produto_nome,
+      produto_foto_url: i.produto_foto_url ?? null,
+      quantidade_conteudo: i.quantidade_conteudo,
+      unidade_conteudo: i.unidade_conteudo,
+      preco_campanha: i.preco_campanha,
+      preco_referencia: i.preco_referencia ?? null,
+      ciclo_recompra_dias: i.ciclo_recompra_dias ?? null,
+      ordem: i.ordem,
+    })) ?? []
+  )
   const [buscaProduto, setBuscaProduto] = useState('')
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoCatalogo | null>(null)
   const [qtdConteudo, setQtdConteudo] = useState('500')
@@ -92,22 +113,56 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
   const [cicloItem, setCicloItem] = useState('')
 
   // ── Passo 2: Meta ────────────────────────────────────────────────────────────
-  const [metaIndividualRaw, setMetaIndividualRaw] = useState('2')
-  const [metaLojaRaw, setMetaLojaRaw] = useState('')
-  const [periodicidade, setPeriodicidade] = useState<PeriodicidadeMeta>('diaria')
-  const [unidadeMeta] = useState<UnidadeMeta>('pacote')
+  const [metaIndividualRaw, setMetaIndividualRaw] = useState(
+    campanhaInicial?.meta_individual != null ? String(campanhaInicial.meta_individual) : '2'
+  )
+  const [metaLojaRaw, setMetaLojaRaw] = useState(
+    campanhaInicial?.meta_loja != null ? String(campanhaInicial.meta_loja) : ''
+  )
+  const [periodicidade, setPeriodicidade] = useState<PeriodicidadeMeta>(
+    campanhaInicial?.periodicidade ?? 'diaria'
+  )
+  const [unidadeMeta] = useState<UnidadeMeta>(campanhaInicial?.unidade_meta ?? 'pacote')
 
   // ── Passo 3: Premiação ───────────────────────────────────────────────────────
-  const [tipoPremiacao, setTipoPremiacao] = useState<TipoPremiacao>('sem_premiacao')
-  const [valorPremioRaw, setValorPremioRaw] = useState('')
-  const [percentualRaw, setPercentualRaw] = useState('')
-  const [metaGatilhoRaw, setMetaGatilhoRaw] = useState('')
-  const [retroativa, setRetroativa] = useState(false)
-  const [faixas, setFaixas] = useState<FaixaLocal[]>([])
+  const [tipoPremiacao, setTipoPremiacao] = useState<TipoPremiacao>(
+    campanhaInicial?.premiacao?.tipo ?? 'sem_premiacao'
+  )
+  const [valorPremioRaw, setValorPremioRaw] = useState(
+    campanhaInicial?.premiacao?.valor != null ? formatBRL(campanhaInicial.premiacao.valor) : ''
+  )
+  const [percentualRaw, setPercentualRaw] = useState(
+    campanhaInicial?.premiacao?.percentual != null
+      ? String(Math.round(campanhaInicial.premiacao.percentual * 100))
+      : ''
+  )
+  const [metaGatilhoRaw, setMetaGatilhoRaw] = useState(
+    campanhaInicial?.premiacao?.meta_gatilho != null
+      ? String(campanhaInicial.premiacao.meta_gatilho)
+      : ''
+  )
+  const [retroativa, setRetroativa] = useState(
+    campanhaInicial?.premiacao?.progressiva_retroativa ?? false
+  )
+  const [faixas, setFaixas] = useState<FaixaLocal[]>(() =>
+    campanhaInicial?.premiacao?.faixas.map(f => ({
+      _key: f.id,
+      quantidade_de: String(f.quantidade_de),
+      quantidade_ate: f.quantidade_ate != null ? String(f.quantidade_ate) : '',
+      valor_por_unidade: formatBRL(f.valor_por_unidade),
+    })) ?? []
+  )
   const [descricaoPremio, setDescricaoPremio] = useState('')
 
   // ── Passo 4: Participantes ───────────────────────────────────────────────────
-  const [participantes, setParticipantes] = useState<(ParticipanteInput & { _key: string })[]>([])
+  const [participantes, setParticipantes] = useState<(ParticipanteInput & { _key: string })[]>(() =>
+    campanhaInicial?.participantes.filter(p => p.ativo).map(p => ({
+      _key: p.id,
+      perfil_id: p.perfil_id,
+      nome: p.nome,
+      meta_individual: p.meta_individual ?? null,
+    })) ?? []
+  )
   const [buscaMembro, setBuscaMembro] = useState('')
 
   // ── Erro de submissão ────────────────────────────────────────────────────────
@@ -235,24 +290,45 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
   function handleSubmit(publicar: boolean) {
     startTransition(async () => {
       const premiacao = buildPremiacao()
+      const campanhaInput = {
+        nome: nome.trim(),
+        tipo,
+        descricao: descricao.trim() || null,
+        orientacao_equipe: orientacao.trim() || null,
+        objetivo: objetivo.trim() || null,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        meta_individual: metaIndividualRaw ? parseFloat(metaIndividualRaw) : null,
+        meta_loja: metaLojaRaw ? parseFloat(metaLojaRaw) : null,
+        periodicidade,
+        unidade_meta: unidadeMeta,
+        premiacao,
+      }
+      const itensInput = itens.map(({ _key: _k, produto_nome: _n, produto_foto_url: _f, ...rest }) => rest)
+      const participantesInput = participantes.map(({ _key: _k, ...rest }) => rest)
+
+      if (modoEdicao && campanhaId) {
+        const res = await editarCampanha({
+          campanhaId,
+          lojaId,
+          campanha: campanhaInput,
+          itens: itensInput,
+          participantes: participantesInput,
+        })
+        if (!res.ok) {
+          setErroSubmit(res.error ?? 'Erro ao salvar alterações.')
+          return
+        }
+        setErroSubmit(null)
+        router.push(`/campanhas/${campanhaId}`)
+        return
+      }
+
       const res = await criarCampanha({
         lojaId,
-        campanha: {
-          nome: nome.trim(),
-          tipo,
-          descricao: descricao.trim() || null,
-          orientacao_equipe: orientacao.trim() || null,
-          objetivo: objetivo.trim() || null,
-          data_inicio: dataInicio,
-          data_fim: dataFim,
-          meta_individual: metaIndividualRaw ? parseFloat(metaIndividualRaw) : null,
-          meta_loja: metaLojaRaw ? parseFloat(metaLojaRaw) : null,
-          periodicidade,
-          unidade_meta: unidadeMeta,
-          premiacao,
-        },
-        itens: itens.map(({ _key: _k, produto_nome: _n, produto_foto_url: _f, ...rest }) => rest),
-        participantes: participantes.map(({ _key: _k, ...rest }) => rest),
+        campanha: campanhaInput,
+        itens: itensInput,
+        participantes: participantesInput,
       })
 
       if (!res.ok) {
@@ -277,11 +353,14 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <button onClick={() => router.back()} className="p-1.5 rounded-lg hover:bg-accent">
+        <button
+          onClick={() => modoEdicao && campanhaId ? router.push(`/campanhas/${campanhaId}`) : router.back()}
+          className="p-1.5 rounded-lg hover:bg-accent"
+        >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-lg font-semibold">Nova Campanha</h1>
+          <h1 className="text-lg font-semibold">{modoEdicao ? 'Editar Campanha' : 'Nova Campanha'}</h1>
           <p className="text-xs text-muted-foreground">{lojaNome}</p>
         </div>
       </div>
@@ -967,22 +1046,41 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               </div>
             )}
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleSubmit(false)}
-                disabled={isPending}
-                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
-              >
-                {isPending ? 'Salvando…' : 'Salvar rascunho'}
-              </button>
-              <button
-                onClick={() => handleSubmit(true)}
-                disabled={isPending}
-                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {isPending ? 'Ativando…' : 'Ativar campanha'}
-              </button>
-            </div>
+            {modoEdicao ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => router.push(`/campanhas/${campanhaId}`)}
+                  disabled={isPending}
+                  className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  Cancelar edição
+                </button>
+                <button
+                  onClick={() => handleSubmit(false)}
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isPending ? 'Salvando…' : 'Salvar alterações'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSubmit(false)}
+                  disabled={isPending}
+                  className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {isPending ? 'Salvando…' : 'Salvar rascunho'}
+                </button>
+                <button
+                  onClick={() => handleSubmit(true)}
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isPending ? 'Ativando…' : 'Ativar campanha'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

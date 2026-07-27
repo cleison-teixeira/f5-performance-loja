@@ -232,15 +232,138 @@ export async function atualizarCampanha(
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
   const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
+  // tipo e loja_id são imutáveis após criação
+  const { tipo: _tipo, loja_id: _lojaId, ...camposAtualizaveis } = input as Record<string, unknown>
+
   const { error } = await admin
     .from('campanhas_venda')
-    .update({ ...input, atualizado_em: new Date().toISOString() })
+    .update({ ...camposAtualizaveis, atualizado_em: new Date().toISOString() })
     .eq('id', campanhaId)
     .eq('loja_id', lojaId)
 
   if (error) return { ok: false, error: error.message }
   revalidatePath('/campanhas')
   revalidatePath(`/campanhas/${campanhaId}`)
+  return { ok: true }
+}
+
+// ─── Editar campanha completa (wizard de edição) ──────────────────────────────
+
+export async function editarCampanha(input: {
+  campanhaId: string
+  lojaId: string
+  campanha: Omit<CampanhaInput, 'tipo'>
+  itens: ItemInput[]
+  participantes: ParticipanteInput[]
+}): Promise<{ ok: boolean; error?: string }> {
+  const userId = await validarGestor(input.lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+
+  if (!(await verificarCampanhaLoja(admin, input.campanhaId, input.lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
+  const { data: camp } = await admin
+    .from('campanhas_venda')
+    .select('status')
+    .eq('id', input.campanhaId)
+    .maybeSingle()
+
+  const status = (camp as { status: StatusCampanha } | null)?.status
+  if (!status || ['encerrada', 'cancelada'].includes(status)) {
+    return { ok: false, error: 'Campanha encerrada ou cancelada não pode ser editada.' }
+  }
+
+  const agora = new Date().toISOString()
+
+  // 1. Atualizar cabeçalho (tipo e loja_id são imutáveis)
+  const { error: errC } = await admin
+    .from('campanhas_venda')
+    .update({
+      nome: input.campanha.nome.trim(),
+      descricao: input.campanha.descricao?.trim() || null,
+      orientacao_equipe: input.campanha.orientacao_equipe?.trim() || null,
+      objetivo: input.campanha.objetivo?.trim() || null,
+      data_inicio: input.campanha.data_inicio,
+      data_fim: input.campanha.data_fim,
+      meta_individual: input.campanha.meta_individual || null,
+      meta_loja: input.campanha.meta_loja || null,
+      periodicidade: input.campanha.periodicidade,
+      unidade_meta: input.campanha.unidade_meta,
+      atualizado_em: agora,
+    })
+    .eq('id', input.campanhaId)
+    .eq('loja_id', input.lojaId)
+
+  if (errC) return { ok: false, error: errC.message }
+
+  // 2. Substituir itens: inativar existentes, inserir novos
+  await admin
+    .from('campanhas_venda_itens')
+    .update({ ativo: false, atualizado_em: agora })
+    .eq('campanha_id', input.campanhaId)
+
+  if (input.itens.length > 0) {
+    const { error: errI } = await admin
+      .from('campanhas_venda_itens')
+      .insert(
+        input.itens.map((item, idx) => ({
+          campanha_id: input.campanhaId,
+          produto_id: item.produto_id,
+          quantidade_conteudo: item.quantidade_conteudo,
+          unidade_conteudo: item.unidade_conteudo,
+          preco_campanha: item.preco_campanha,
+          preco_referencia: item.preco_referencia || null,
+          ciclo_recompra_dias: item.ciclo_recompra_dias || null,
+          ativo: true,
+          ordem: item.ordem ?? idx,
+        }))
+      )
+    if (errI) return { ok: false, error: errI.message }
+  }
+
+  // 3. Substituir participantes: inativar existentes, reinserir novos
+  await admin
+    .from('campanhas_venda_participantes')
+    .update({ ativo: false, data_fim: agora.slice(0, 10), atualizado_em: agora })
+    .eq('campanha_id', input.campanhaId)
+
+  if (input.participantes.length > 0) {
+    const { error: errP } = await admin
+      .from('campanhas_venda_participantes')
+      .upsert(
+        input.participantes.map(p => ({
+          campanha_id: input.campanhaId,
+          perfil_id: p.perfil_id,
+          meta_individual: p.meta_individual || null,
+          ativo: true,
+          data_fim: null,
+          atualizado_em: agora,
+        })),
+        { onConflict: 'campanha_id,perfil_id' }
+      )
+    if (errP) return { ok: false, error: errP.message }
+  }
+
+  // 4. Atualizar premiação
+  if (input.campanha.premiacao && input.campanha.premiacao.tipo !== 'sem_premiacao') {
+    const premRes = await _salvarPremiacao(admin, input.campanhaId, input.campanha.premiacao)
+    if (!premRes.ok) return { ok: false, error: premRes.error }
+  } else {
+    await admin
+      .from('campanhas_premiacao')
+      .update({ ativo: false, atualizado_em: agora })
+      .eq('campanha_id', input.campanhaId)
+  }
+
+  revalidatePath('/campanhas')
+  revalidatePath(`/campanhas/${input.campanhaId}`)
   return { ok: true }
 }
 

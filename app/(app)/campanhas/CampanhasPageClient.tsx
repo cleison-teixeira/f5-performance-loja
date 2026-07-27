@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Package2, CalendarDays, Users, Target, ChevronRight,
-  Megaphone, Clock, Sparkles, AlertTriangle, WifiOff,
+  Megaphone, Clock, Sparkles, AlertTriangle, WifiOff, Pencil,
 } from 'lucide-react'
 import { atualizarStatusCampanha } from './actions'
 import type { CampanhaVenda, StatusCampanha } from './types'
@@ -147,6 +147,15 @@ function CampanhaCard({
 
       {podeGerenciar && (
         <div className="border-t px-4 py-2 flex gap-2 flex-wrap">
+          {['rascunho', 'programada', 'ativa', 'pausada'].includes(campanha.status) && (
+            <Link
+              href={`/campanhas/${campanha.id}/editar`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+            >
+              <Pencil className="h-3 w-3" />
+              Editar
+            </Link>
+          )}
           {campanha.status === 'rascunho' && (
             <button
               onClick={() => handleStatusChange('ativa')}

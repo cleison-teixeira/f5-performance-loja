@@ -2,17 +2,14 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
-import { buscarMembrosLoja } from '../actions'
-import { NovaCampanhaWizard } from './NovaCampanhaWizard'
+import { buscarCampanha, buscarMembrosLoja } from '../../actions'
+import { NovaCampanhaWizard } from '../../nova/NovaCampanhaWizard'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { TipoCampanha } from '../types'
 
-const TIPOS_VALIDOS: TipoCampanha[] = ['acao_granel', 'produto_mes', 'lancamento', 'desafio_vendas']
-
-export default async function NovaCampanhaPage({
-  searchParams,
+export default async function EditarCampanhaPage({
+  params,
 }: {
-  searchParams: Promise<{ tipo?: string }>
+  params: Promise<{ id: string }>
 }) {
   const appCtx = await getAppContext()
   if (!appCtx) redirect('/login')
@@ -22,16 +19,16 @@ export default async function NovaCampanhaPage({
   if (!['dono', 'gerente', 'admin_f5', 'lider'].includes(role)) redirect('/campanhas')
   if (ctx.escopo === 'rede' || !ctx.lojaId) redirect('/campanhas')
 
+  const { id } = await params
   const lojaId = ctx.lojaId
-  const params = await searchParams
-  const tipoRaw = params.tipo
-  const tipoInicial: TipoCampanha = TIPOS_VALIDOS.includes(tipoRaw as TipoCampanha)
-    ? (tipoRaw as TipoCampanha)
-    : 'acao_granel'
+
+  const campanha = await buscarCampanha(id, lojaId)
+  if (!campanha) redirect('/campanhas')
+  if (['encerrada', 'cancelada'].includes(campanha.status)) {
+    redirect(`/campanhas/${id}`)
+  }
 
   const admin = createAdminClient()
-
-  // Carregar produtos ativos da loja
   const { data: produtos } = await admin
     .from('produtos')
     .select('id, nome, preco_sugerido, foto_url, recorrente, ciclo_recompra_dias')
@@ -45,7 +42,7 @@ export default async function NovaCampanhaPage({
     <NovaCampanhaWizard
       lojaId={lojaId}
       lojaNome={ctx.lojaNome}
-      tipoInicial={tipoInicial}
+      tipoInicial={campanha.tipo}
       produtos={(produtos ?? []) as Array<{
         id: string
         nome: string
@@ -55,6 +52,8 @@ export default async function NovaCampanhaPage({
         recorrente: boolean
       }>}
       membros={membros}
+      campanhaId={id}
+      campanhaInicial={campanha}
     />
   )
 }
