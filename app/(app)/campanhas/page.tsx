@@ -32,14 +32,16 @@ export default async function CampanhasPage() {
   const lojaId = ctx.lojaId
   const podeGerenciar = ['dono', 'gerente', 'admin_f5', 'lider'].includes(role)
 
-  const campanhas = await buscarCampanhasLoja(lojaId)
+  const resultado = await buscarCampanhasLoja(lojaId)
 
   return (
     <CampanhasPageClient
-      campanhas={campanhas}
+      campanhas={resultado.campanhas}
       lojaId={lojaId}
       lojaNome={ctx.lojaNome}
       podeGerenciar={podeGerenciar}
+      erro={resultado.erro}
+      schemaDesatualizado={resultado.schemaDesatualizado}
     />
   )
 }

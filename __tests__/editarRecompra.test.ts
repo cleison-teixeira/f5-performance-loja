@@ -331,14 +331,14 @@ describe('RPC payload structure', () => {
 
 describe('versao conflict', () => {
   it('E1: mismatched versao should be detected before calling RPC', () => {
-    const versaoNoBanco = 3
-    const versaoEsperada = 2
+    const versaoNoBanco: number = 3
+    const versaoEsperada: number = 2
     expect(versaoNoBanco !== versaoEsperada).toBe(true)
   })
 
   it('E2: matched versao should proceed', () => {
-    const versaoNoBanco = 2
-    const versaoEsperada = 2
+    const versaoNoBanco: number = 2
+    const versaoEsperada: number = 2
     expect(versaoNoBanco === versaoEsperada).toBe(true)
   })
 

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Package2, CalendarDays, Users, Target, ChevronRight,
-  Megaphone, Clock, Sparkles,
+  Megaphone, Clock, Sparkles, AlertTriangle, WifiOff,
 } from 'lucide-react'
 import { atualizarStatusCampanha } from './actions'
 import type { CampanhaVenda, StatusCampanha } from './types'
@@ -29,13 +29,13 @@ const MODELOS: ModeloCard[] = [
     tipo: 'produto_mes',
     label: 'Produto do mês',
     descricao: 'Destaque um produto com meta mensal.',
-    disponivel: false,
+    disponivel: true,
   },
   {
     tipo: 'lancamento',
     label: 'Lançamento',
     descricao: 'Mobilize a equipe para um novo produto.',
-    disponivel: false,
+    disponivel: true,
   },
   {
     tipo: 'desafio_vendas',
@@ -212,11 +212,13 @@ interface Props {
   lojaId: string
   lojaNome: string
   podeGerenciar: boolean
+  erro?: string
+  schemaDesatualizado?: boolean
 }
 
 const ORDEM_STATUS: StatusCampanha[] = ['ativa', 'programada', 'rascunho', 'pausada', 'encerrada']
 
-export function CampanhasPageClient({ campanhas, lojaId, lojaNome, podeGerenciar }: Props) {
+export function CampanhasPageClient({ campanhas, lojaId, lojaNome, podeGerenciar, erro, schemaDesatualizado }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<'ativas' | 'historico'>('ativas')
 
@@ -241,6 +243,33 @@ export function CampanhasPageClient({ campanhas, lojaId, lojaNome, podeGerenciar
           </Link>
         )}
       </div>
+
+      {/* Banner de erro estrutural */}
+      {erro && (
+        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-4 py-3 flex items-start gap-3">
+          <WifiOff className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">Campanhas temporariamente indisponíveis</p>
+            <p className="text-xs text-red-600 dark:text-red-500 mt-0.5">
+              Não foi possível carregar a lista de campanhas. Tente novamente em instantes ou contate o suporte.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de compatibilidade V1 */}
+      {schemaDesatualizado && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Atualização pendente</p>
+            <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
+              Os dados de premiação e materiais não estão disponíveis até a conclusão da atualização do sistema.
+              As campanhas existentes estão íntegras.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Modelos */}
       <div>

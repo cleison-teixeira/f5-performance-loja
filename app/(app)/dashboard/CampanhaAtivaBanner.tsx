@@ -9,7 +9,7 @@ function fmtBRL(v: number) {
 
 // ─── Card do vendedor ─────────────────────────────────────────────────────────
 export async function CampanhaCardVendedor({ lojaId, perfilId }: { lojaId: string; perfilId: string }) {
-  const dados = await buscarCampanhaAtivaDashboard(lojaId, perfilId)
+  const dados = await buscarCampanhaAtivaDashboard(lojaId)
   if (!dados) return null
 
   const { campanha, metaIndividual, unidadesHoje } = dados

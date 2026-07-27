@@ -7,6 +7,8 @@ import type {
   CampanhaVenda, CampanhaVendaItem, CampanhaVendaParticipante,
   ResultadoCampanha, ResultadoProduto, ResultadoParticipante,
   CampanhaInput, ItemInput, ParticipanteInput, StatusCampanha,
+  CampanhaPremiacao, FaixaPremiacao, MaterialCampanha,
+  PremiacaoInput, MaterialInput, Apuracao, StatusApuracao, TipoPremiacao,
 } from './types'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -41,6 +43,19 @@ async function validarMembroLoja(lojaId: string): Promise<string | null> {
   return data ? user.id : null
 }
 
+async function verificarCampanhaLoja(
+  admin: ReturnType<typeof createAdminClient>,
+  campanhaId: string,
+  lojaId: string
+): Promise<boolean> {
+  const { data } = await admin
+    .from('campanhas_venda')
+    .select('loja_id')
+    .eq('id', campanhaId)
+    .maybeSingle()
+  return (data as { loja_id: string } | null)?.loja_id === lojaId
+}
+
 // Retorna hoje em YYYY-MM-DD (sem dependência de timezone do servidor)
 function hoje(): string {
   return new Date().toISOString().slice(0, 10)
@@ -69,6 +84,9 @@ export async function criarCampanha(input: {
       nome: input.campanha.nome.trim(),
       descricao: input.campanha.descricao?.trim() || null,
       orientacao_equipe: input.campanha.orientacao_equipe?.trim() || null,
+      objetivo: input.campanha.objetivo?.trim() || null,
+      parceiro_id: input.campanha.parceiro_id || null,
+      argumentos_venda: input.campanha.argumentos_venda?.trim() || null,
       status: 'rascunho',
       data_inicio: input.campanha.data_inicio,
       data_fim: input.campanha.data_fim,
@@ -103,7 +121,6 @@ export async function criarCampanha(input: {
         }))
       )
     if (errI) {
-      // Limpar campanha criada em caso de erro nos itens
       await admin.from('campanhas_venda').delete().eq('id', campanhaId)
       return { ok: false, error: errI.message }
     }
@@ -122,6 +139,31 @@ export async function criarCampanha(input: {
         }))
       )
     if (errP) return { ok: false, error: errP.message }
+  }
+
+  // Premiação (opcional)
+  if (input.campanha.premiacao && input.campanha.premiacao.tipo !== 'sem_premiacao') {
+    const premRes = await _salvarPremiacao(admin, campanhaId, input.campanha.premiacao)
+    if (!premRes.ok) return { ok: false, error: premRes.error }
+  }
+
+  // Materiais (opcional)
+  if (input.campanha.materiais && input.campanha.materiais.length > 0) {
+    const { error: errM } = await admin
+      .from('campanhas_materiais')
+      .insert(
+        input.campanha.materiais.map((m, idx) => ({
+          campanha_id: campanhaId,
+          tipo: m.tipo,
+          titulo: m.titulo.trim(),
+          conteudo: m.conteudo?.trim() || null,
+          url: m.url?.trim() || null,
+          biblioteca_item_id: m.biblioteca_item_id || null,
+          ordem: m.ordem ?? idx,
+          ativo: true,
+        }))
+      )
+    if (errM) return { ok: false, error: errM.message }
   }
 
   revalidatePath('/campanhas')
@@ -213,6 +255,10 @@ export async function adicionarItemCampanha(
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
   const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
   const { error } = await admin
     .from('campanhas_venda_itens')
     .insert({
@@ -241,6 +287,10 @@ export async function inativarItemCampanha(
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
   const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
   const { error } = await admin
     .from('campanhas_venda_itens')
     .update({ ativo: false, atualizado_em: new Date().toISOString() })
@@ -263,6 +313,10 @@ export async function adicionarParticipante(
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
   const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
   const { error } = await admin
     .from('campanhas_venda_participantes')
     .upsert(
@@ -289,6 +343,10 @@ export async function removerParticipante(
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
   const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
   const { error } = await admin
     .from('campanhas_venda_participantes')
     .update({ ativo: false, data_fim: hoje() })
@@ -300,39 +358,358 @@ export async function removerParticipante(
   return { ok: true }
 }
 
-// ─── Buscar campanhas da loja ─────────────────────────────────────────────────
+// ─── Premiação ────────────────────────────────────────────────────────────────
 
-export async function buscarCampanhasLoja(lojaId: string): Promise<CampanhaVenda[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function _salvarPremiacao(admin: any, campanhaId: string, p: PremiacaoInput): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const { data: prem, error: errP } = await admin
+    .from('campanhas_premiacao')
+    .upsert(
+      {
+        campanha_id: campanhaId,
+        tipo: p.tipo,
+        valor: p.valor ?? null,
+        percentual: p.percentual ?? null,
+        meta_gatilho: p.meta_gatilho ?? null,
+        progressiva_retroativa: p.progressiva_retroativa ?? false,
+        ativo: true,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: 'campanha_id' }
+    )
+    .select('id')
+    .single()
+
+  if (errP || !prem) return { ok: false, error: errP?.message ?? 'Erro ao salvar premiação.' }
+  const premId = (prem as { id: string }).id
+
+  if (p.tipo === 'faixa_progressiva' && p.faixas && p.faixas.length > 0) {
+    await admin.from('campanhas_premiacao_faixas').delete().eq('premiacao_id', premId)
+    const { error: errF } = await admin
+      .from('campanhas_premiacao_faixas')
+      .insert(
+        p.faixas.map((f, idx) => ({
+          premiacao_id: premId,
+          quantidade_de: f.quantidade_de,
+          quantidade_ate: f.quantidade_ate ?? null,
+          valor_por_unidade: f.valor_por_unidade,
+          ordem: f.ordem ?? idx,
+        }))
+      )
+    if (errF) return { ok: false, error: errF.message }
+  }
+
+  return { ok: true, id: premId }
+}
+
+export async function criarOuAtualizarPremiacao(
+  campanhaId: string,
+  lojaId: string,
+  premiacao: PremiacaoInput
+): Promise<{ ok: boolean; error?: string }> {
+  const userId = await validarGestor(lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
+  const res = await _salvarPremiacao(admin, campanhaId, premiacao)
+  if (!res.ok) return res
+
+  revalidatePath(`/campanhas/${campanhaId}`)
+  return { ok: true }
+}
+
+// ─── Materiais ────────────────────────────────────────────────────────────────
+
+export async function adicionarMaterial(
+  campanhaId: string,
+  lojaId: string,
+  material: MaterialInput
+): Promise<{ ok: boolean; error?: string }> {
+  const userId = await validarGestor(lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
+  const { error } = await admin
+    .from('campanhas_materiais')
+    .insert({
+      campanha_id: campanhaId,
+      tipo: material.tipo,
+      titulo: material.titulo.trim(),
+      conteudo: material.conteudo?.trim() || null,
+      url: material.url?.trim() || null,
+      biblioteca_item_id: material.biblioteca_item_id || null,
+      ordem: material.ordem ?? 0,
+      ativo: true,
+    })
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/campanhas/${campanhaId}`)
+  return { ok: true }
+}
+
+export async function removerMaterial(
+  materialId: string,
+  campanhaId: string,
+  lojaId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const userId = await validarGestor(lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  if (!(await verificarCampanhaLoja(admin, campanhaId, lojaId))) {
+    return { ok: false, error: 'Campanha não encontrada.' }
+  }
+
+  const { error } = await admin
+    .from('campanhas_materiais')
+    .update({ ativo: false, atualizado_em: new Date().toISOString() })
+    .eq('id', materialId)
+    .eq('campanha_id', campanhaId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/campanhas/${campanhaId}`)
+  return { ok: true }
+}
+
+// ─── Snapshot de regra ────────────────────────────────────────────────────────
+
+export async function criarSnapshotRegra(input: {
+  campanhaId: string
+  campanhaItemId: string | null
+  vendaId: string
+  itemVendaId: string
+  lojaId: string
+  vendedoraId: string
+  quantidade: number
+  valorUnitario: number
+  valorTotal: number
+  tipoPremiacao: TipoPremiacao
+  valorFixoSnapshot: number | null
+  percentualSnapshot: number | null
+  faixaSnapshot: FaixaPremiacao[] | null
+  comissaoCalculada: number | null
+  versaoRegra: number
+}): Promise<{ ok: boolean; error?: string; id?: string }> {
+  // Auth: caller must be member of loja; verify ownership chain
+  const userId = await validarMembroLoja(input.lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
   const admin = createAdminClient()
 
+  // Verify campanha belongs to loja
+  if (!(await verificarCampanhaLoja(admin, input.campanhaId, input.lojaId))) {
+    return { ok: false, error: 'Campanha não pertence à loja.' }
+  }
+
+  // Verify venda belongs to loja
+  const { data: vendaCheck } = await admin
+    .from('vendas')
+    .select('loja_id')
+    .eq('id', input.vendaId)
+    .maybeSingle()
+  if ((vendaCheck as { loja_id: string } | null)?.loja_id !== input.lojaId) {
+    return { ok: false, error: 'Venda não pertence à loja.' }
+  }
+
+  // Vendedora só pode registrar snapshot próprio; gestores podem registrar por qualquer membro
+  const { data: membroRow } = await admin
+    .from('membros_loja')
+    .select('role')
+    .eq('perfil_id', userId)
+    .eq('loja_id', input.lojaId)
+    .maybeSingle()
+  if ((membroRow as { role: string } | null)?.role === 'vendedora' && input.vendedoraId !== userId) {
+    return { ok: false, error: 'Vendedora só pode registrar snapshot próprio.' }
+  }
+
+  const { data, error } = await admin
+    .from('campanhas_snapshot_regra')
+    .insert({
+      campanha_id: input.campanhaId,
+      campanha_item_id: input.campanhaItemId,
+      venda_id: input.vendaId,
+      item_venda_id: input.itemVendaId,
+      loja_id: input.lojaId,
+      vendedora_id: input.vendedoraId,
+      quantidade: input.quantidade,
+      valor_unitario: input.valorUnitario,
+      valor_total: input.valorTotal,
+      tipo_premiacao: input.tipoPremiacao,
+      valor_fixo_snapshot: input.valorFixoSnapshot,
+      percentual_snapshot: input.percentualSnapshot,
+      faixa_snapshot: input.faixaSnapshot ? JSON.stringify(input.faixaSnapshot) : null,
+      comissao_calculada: input.comissaoCalculada,
+      versao_regra: input.versaoRegra,
+      status: 'ativo',
+    })
+    .select('id')
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, id: (data as { id: string }).id }
+}
+
+// ─── Apuração ─────────────────────────────────────────────────────────────────
+
+export async function buscarApuracoesCampanha(
+  campanhaId: string,
+  lojaId: string
+): Promise<Apuracao[]> {
+  const userId = await validarGestor(lojaId)
+  if (!userId) return []
+
+  const admin = createAdminClient()
   const { data } = await admin
+    .from('campanhas_apuracao')
+    .select('*, perfis!campanhas_apuracao_vendedora_id_fkey(nome)')
+    .eq('campanha_id', campanhaId)
+    .eq('loja_id', lojaId)
+    .order('periodo_referencia')
+    .order('atualizado_em', { ascending: false })
+
+  if (!data) return []
+
+  return (data as unknown[]).map(row => {
+    const r = row as Record<string, unknown>
+    const perfil = r.perfis as Record<string, unknown> | null
+    return {
+      id: r.id as string,
+      campanha_id: r.campanha_id as string,
+      loja_id: r.loja_id as string,
+      vendedora_id: r.vendedora_id as string,
+      vendedora_nome: (perfil?.nome as string) ?? '',
+      periodo_referencia: r.periodo_referencia as string,
+      periodicidade: r.periodicidade as Apuracao['periodicidade'],
+      quantidade_apurada: Number(r.quantidade_apurada),
+      valor_apurado: Number(r.valor_apurado),
+      valor_aprovado: r.valor_aprovado != null ? Number(r.valor_aprovado) : null,
+      valor_pago: r.valor_pago != null ? Number(r.valor_pago) : null,
+      status: r.status as StatusApuracao,
+      data_pagamento: (r.data_pagamento as string | null) ?? null,
+      forma_pagamento: (r.forma_pagamento as string | null) ?? null,
+      responsavel_id: (r.responsavel_id as string | null) ?? null,
+      observacao: (r.observacao as string | null) ?? null,
+      criado_em: r.criado_em as string,
+      atualizado_em: r.atualizado_em as string,
+    }
+  })
+}
+
+export async function marcarComoPago(input: {
+  apuracaoId: string
+  campanhaId: string
+  lojaId: string
+  valorPago: number
+  formaPagamento: string
+  dataPagamento: string
+  observacao?: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const userId = await validarGestor(input.lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('campanhas_apuracao')
+    .update({
+      status: 'pago',
+      valor_pago: input.valorPago,
+      valor_aprovado: input.valorPago,
+      forma_pagamento: input.formaPagamento,
+      data_pagamento: input.dataPagamento,
+      observacao: input.observacao?.trim() || null,
+      responsavel_id: userId,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq('id', input.apuracaoId)
+    .eq('campanha_id', input.campanhaId)
+    .eq('loja_id', input.lojaId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/campanhas/${input.campanhaId}`)
+  return { ok: true }
+}
+
+// ─── Buscar campanhas da loja ─────────────────────────────────────────────────
+
+const CAMPANHA_SELECT = `
+  *,
+  campanhas_venda_itens(*, produtos(nome, foto_url)),
+  campanhas_venda_participantes(*, perfis(nome)),
+  campanhas_premiacao(*, campanhas_premiacao_faixas(*)),
+  campanhas_materiais(*)
+` as const
+
+// Schema V1 (migration 055): sem premiacao nem materiais — usado como fallback de compatibilidade
+// durante a janela entre deploy do código e aplicação da migration 058.
+const CAMPANHA_SELECT_V1 = `
+  *,
+  campanhas_venda_itens(*, produtos(nome, foto_url)),
+  campanhas_venda_participantes(*, perfis(nome))
+` as const
+
+export type BuscarCampanhasResult = {
+  campanhas: CampanhaVenda[]
+  schemaDesatualizado?: boolean
+  erro?: string
+}
+
+export async function buscarCampanhasLoja(lojaId: string): Promise<BuscarCampanhasResult> {
+  const userId = await validarMembroLoja(lojaId)
+  if (!userId) return { campanhas: [] }
+
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
     .from('campanhas_venda')
-    .select(`
-      *,
-      campanhas_venda_itens(*, produtos(nome, foto_url)),
-      campanhas_venda_participantes(*, perfis(nome))
-    `)
+    .select(CAMPANHA_SELECT)
     .eq('loja_id', lojaId)
     .not('status', 'eq', 'cancelada')
     .order('criado_em', { ascending: false })
 
-  if (!data) return []
+  if (!error && data) {
+    return { campanhas: (data as unknown[]).map(rawToModel) }
+  }
 
-  return (data as unknown[]).map(rawToModel)
+  // Query V2 falhou — tenta compatibilidade com schema V1 (migration 058 ainda não aplicada)
+  console.error('[campanhas] buscarCampanhasLoja v2 falhou | loja:', lojaId, '| erro:', error?.message)
+
+  const { data: dataV1, error: errV1 } = await admin
+    .from('campanhas_venda')
+    .select(CAMPANHA_SELECT_V1)
+    .eq('loja_id', lojaId)
+    .not('status', 'eq', 'cancelada')
+    .order('criado_em', { ascending: false })
+
+  if (!errV1 && dataV1) {
+    // Campanhas encontradas com schema V1 — avisa interface mas não esconde dados
+    console.warn('[campanhas] buscarCampanhasLoja usando schema V1 para loja:', lojaId)
+    return { campanhas: (dataV1 as unknown[]).map(rawToModel), schemaDesatualizado: true }
+  }
+
+  // Ambas falharam — erro estrutural real
+  console.error('[campanhas] buscarCampanhasLoja v1 também falhou | loja:', lojaId, '| erro:', errV1?.message)
+  return { campanhas: [], erro: error?.message ?? 'Erro ao carregar campanhas.' }
 }
 
 // ─── Buscar campanha individual ───────────────────────────────────────────────
 
 export async function buscarCampanha(id: string, lojaId: string): Promise<CampanhaVenda | null> {
+  const userId = await validarMembroLoja(lojaId)
+  if (!userId) return null
+
   const admin = createAdminClient()
 
   const { data } = await admin
     .from('campanhas_venda')
-    .select(`
-      *,
-      campanhas_venda_itens(*, produtos(nome, foto_url)),
-      campanhas_venda_participantes(*, perfis(nome))
-    `)
+    .select(CAMPANHA_SELECT)
     .eq('id', id)
     .eq('loja_id', lojaId)
     .maybeSingle()
@@ -378,6 +755,62 @@ function rawToModel(raw: unknown): CampanhaVenda {
     }
   })
 
+  // Premiação
+  const premiacaoRaw = r.campanhas_premiacao as Record<string, unknown> | null
+  let premiacao: CampanhaPremiacao | null = null
+  if (premiacaoRaw && premiacaoRaw.ativo) {
+    const faixasRaw = (premiacaoRaw.campanhas_premiacao_faixas as unknown[]) ?? []
+    const faixas: FaixaPremiacao[] = faixasRaw.map(fr => {
+      const f = fr as Record<string, unknown>
+      return {
+        id: f.id as string,
+        premiacao_id: f.premiacao_id as string,
+        quantidade_de: Number(f.quantidade_de),
+        quantidade_ate: f.quantidade_ate != null ? Number(f.quantidade_ate) : null,
+        valor_por_unidade: Number(f.valor_por_unidade),
+        ordem: Number(f.ordem),
+      }
+    }).sort((a, b) => a.ordem - b.ordem)
+
+    premiacao = {
+      id: premiacaoRaw.id as string,
+      campanha_id: premiacaoRaw.campanha_id as string,
+      tipo: premiacaoRaw.tipo as CampanhaPremiacao['tipo'],
+      valor: premiacaoRaw.valor != null ? Number(premiacaoRaw.valor) : null,
+      percentual: premiacaoRaw.percentual != null ? Number(premiacaoRaw.percentual) : null,
+      meta_gatilho: premiacaoRaw.meta_gatilho != null ? Number(premiacaoRaw.meta_gatilho) : null,
+      progressiva_retroativa: premiacaoRaw.progressiva_retroativa as boolean,
+      versao: Number(premiacaoRaw.versao),
+      ativo: premiacaoRaw.ativo as boolean,
+      faixas,
+    }
+  }
+
+  // Materiais
+  const materiaisRaw = (r.campanhas_materiais as unknown[]) ?? []
+  const materiais: MaterialCampanha[] = materiaisRaw
+    .filter(mr => {
+      const m = mr as Record<string, unknown>
+      return m.ativo as boolean
+    })
+    .map(mr => {
+      const m = mr as Record<string, unknown>
+      return {
+        id: m.id as string,
+        campanha_id: m.campanha_id as string,
+        biblioteca_item_id: (m.biblioteca_item_id as string | null) ?? null,
+        tipo: m.tipo as MaterialCampanha['tipo'],
+        titulo: m.titulo as string,
+        conteudo: (m.conteudo as string | null) ?? null,
+        url: (m.url as string | null) ?? null,
+        ordem: Number(m.ordem),
+        ativo: m.ativo as boolean,
+        criado_em: m.criado_em as string,
+        atualizado_em: m.atualizado_em as string,
+      }
+    })
+    .sort((a, b) => a.ordem - b.ordem)
+
   return {
     id: r.id as string,
     loja_id: r.loja_id as string,
@@ -385,6 +818,9 @@ function rawToModel(raw: unknown): CampanhaVenda {
     nome: r.nome as string,
     descricao: (r.descricao as string | null) ?? null,
     orientacao_equipe: (r.orientacao_equipe as string | null) ?? null,
+    objetivo: (r.objetivo as string | null) ?? null,
+    parceiro_id: (r.parceiro_id as string | null) ?? null,
+    argumentos_venda: (r.argumentos_venda as string | null) ?? null,
     status: r.status as CampanhaVenda['status'],
     data_inicio: r.data_inicio as string,
     data_fim: r.data_fim as string,
@@ -399,6 +835,8 @@ function rawToModel(raw: unknown): CampanhaVenda {
     encerrado_em: (r.encerrado_em as string | null) ?? null,
     itens,
     participantes,
+    premiacao,
+    materiais,
   }
 }
 
@@ -408,6 +846,13 @@ export async function buscarResultadoCampanha(
   campanhaId: string,
   lojaId: string
 ): Promise<ResultadoCampanha> {
+  const userId = await validarMembroLoja(lojaId)
+  if (!userId) return {
+    total_unidades: 0, total_transacoes: 0, total_clientes: 0, total_faturamento: 0,
+    unidades_hoje: 0, transacoes_hoje: 0, faturamento_hoje: 0,
+    por_produto: [], por_participante: [],
+  }
+
   const admin = createAdminClient()
 
   const hj = hoje()
@@ -607,6 +1052,9 @@ export async function detectarCampanhaAtiva(
   lojaId: string,
   produtoId: string
 ): Promise<{ campanhaId: string; campanhaItemId: string; campanhaNome: string } | null> {
+  const userId = await validarMembroLoja(lojaId)
+  if (!userId) return null
+
   const admin = createAdminClient()
   const hj = hoje()
 
@@ -615,6 +1063,8 @@ export async function detectarCampanhaAtiva(
     .select('id, campanha_id, campanhas_venda!inner(id, nome, loja_id, status, data_inicio, data_fim)')
     .eq('produto_id', produtoId)
     .eq('ativo', true)
+    .eq('campanhas_venda.loja_id', lojaId)
+    .eq('campanhas_venda.status', 'ativa')
     .limit(1)
 
   if (!data || data.length === 0) return null
@@ -669,21 +1119,35 @@ export async function buscarMembrosLoja(lojaId: string): Promise<Array<{ id: str
 // ─── Buscar campanha ativa de um vendedor para o dashboard ───────────────────
 
 export async function buscarCampanhaAtivaDashboard(
-  lojaId: string,
-  perfilId: string
+  lojaId: string
 ): Promise<{
   campanha: CampanhaVenda
   metaIndividual: number | null
   unidadesHoje: number
   faturamentoHoje: number
 } | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: membro } = await supabase
+    .from('membros_loja')
+    .select('role')
+    .eq('perfil_id', user.id)
+    .eq('loja_id', lojaId)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (!membro) return null
+
+  const perfilId = user.id  // derived from auth, never trusted from caller
+
   const admin = createAdminClient()
   const hj = hoje()
 
   // Buscar campanha ativa onde o perfil participa
   const { data: participacao } = await admin
     .from('campanhas_venda_participantes')
-    .select('meta_individual, campanhas_venda!inner(*, campanhas_venda_itens(*, produtos(nome, foto_url)), campanhas_venda_participantes(*, perfis(nome)))')
+    .select(`meta_individual, campanhas_venda!inner(${CAMPANHA_SELECT})`)
     .eq('perfil_id', perfilId)
     .eq('ativo', true)
     .eq('campanhas_venda.loja_id', lojaId)
@@ -727,12 +1191,15 @@ export async function buscarCampanhaAtivaGestao(lojaId: string): Promise<{
   metaLojaHoje: number | null
   porParticipante: Array<{ perfilId: string; nome: string; unidades: number }>
 } | null> {
+  const userId = await validarGestor(lojaId)
+  if (!userId) return null
+
   const admin = createAdminClient()
   const hj = hoje()
 
   const { data: campanhas } = await admin
     .from('campanhas_venda')
-    .select('*, campanhas_venda_itens(*, produtos(nome, foto_url)), campanhas_venda_participantes(*, perfis(nome))')
+    .select(CAMPANHA_SELECT)
     .eq('loja_id', lojaId)
     .eq('status', 'ativa')
     .lte('data_inicio', hj)

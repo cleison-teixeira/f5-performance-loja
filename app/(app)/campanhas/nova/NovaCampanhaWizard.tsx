@@ -3,10 +3,14 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Check, Plus, X, Package2, Users, Target, Calendar, FileText, Search,
+  ChevronLeft, ChevronRight, Check, Plus, X, Package2, Users, Target,
+  FileText, Search, Trophy,
 } from 'lucide-react'
 import { criarCampanha } from '../actions'
-import type { ItemInput, ParticipanteInput, TipoCampanha, UnidadeConteudo, PeriodicidadeMeta, UnidadeMeta } from '../types'
+import type {
+  ItemInput, ParticipanteInput, TipoCampanha, UnidadeConteudo,
+  PeriodicidadeMeta, UnidadeMeta, TipoPremiacao, PremiacaoInput,
+} from '../types'
 
 interface ProdutoCatalogo {
   id: string
@@ -31,9 +35,18 @@ interface Props {
   membros: MembroLoja[]
 }
 
-const PASSOS = ['Informações', 'Produtos', 'Meta', 'Participantes', 'Revisar']
+const PASSOS = ['Informações', 'Produtos', 'Meta', 'Premiação', 'Participantes', 'Revisar']
 const UNIDADES: UnidadeConteudo[] = ['g', 'kg', 'ml', 'L', 'unidade']
 const UNIDADE_LABELS: Record<UnidadeConteudo, string> = { g: 'g', kg: 'kg', ml: 'ml', L: 'L', unidade: 'un.' }
+
+const TIPO_PREMIACAO_LABELS: Record<TipoPremiacao, string> = {
+  sem_premiacao: 'Sem premiação',
+  fixo_unidade: 'Valor fixo por unidade vendida',
+  percentual: 'Percentual sobre o valor vendido',
+  bonus_meta: 'Bônus ao bater a meta',
+  faixa_progressiva: 'Faixas progressivas',
+  premio_fisico: 'Prêmio físico / troféu',
+}
 
 function fmtBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -47,16 +60,19 @@ function formatBRL(v: number): string {
   return v.toFixed(2).replace('.', ',')
 }
 
+type FaixaLocal = { _key: string; quantidade_de: string; quantidade_ate: string; valor_por_unidade: string }
+
 export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, membros }: Props) {
   const router = useRouter()
   const [passo, setPasso] = useState(0)
   const [isPending, startTransition] = useTransition()
 
-  // Etapa 1 — Informações
+  // ── Passo 0: Informações ────────────────────────────────────────────────────
   const [nome, setNome] = useState('')
   const [tipo] = useState<TipoCampanha>(tipoInicial)
   const [descricao, setDescricao] = useState('')
   const [orientacao, setOrientacao] = useState('')
+  const [objetivo, setObjetivo] = useState('')
   const [dataInicio, setDataInicio] = useState(() => new Date().toISOString().slice(0, 10))
   const [dataFim, setDataFim] = useState(() => {
     const d = new Date()
@@ -64,7 +80,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
     return d.toISOString().slice(0, 10)
   })
 
-  // Etapa 2 — Produtos
+  // ── Passo 1: Produtos ────────────────────────────────────────────────────────
   type ItemLocal = ItemInput & { _key: string; produto_nome: string; produto_foto_url?: string | null }
   const [itens, setItens] = useState<ItemLocal[]>([])
   const [buscaProduto, setBuscaProduto] = useState('')
@@ -75,18 +91,29 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
   const [precoRefRaw, setPrecoRefRaw] = useState('')
   const [cicloItem, setCicloItem] = useState('')
 
-  // Etapa 3 — Meta
+  // ── Passo 2: Meta ────────────────────────────────────────────────────────────
   const [metaIndividualRaw, setMetaIndividualRaw] = useState('2')
   const [metaLojaRaw, setMetaLojaRaw] = useState('')
   const [periodicidade, setPeriodicidade] = useState<PeriodicidadeMeta>('diaria')
   const [unidadeMeta] = useState<UnidadeMeta>('pacote')
 
-  // Etapa 4 — Participantes
+  // ── Passo 3: Premiação ───────────────────────────────────────────────────────
+  const [tipoPremiacao, setTipoPremiacao] = useState<TipoPremiacao>('sem_premiacao')
+  const [valorPremioRaw, setValorPremioRaw] = useState('')
+  const [percentualRaw, setPercentualRaw] = useState('')
+  const [metaGatilhoRaw, setMetaGatilhoRaw] = useState('')
+  const [retroativa, setRetroativa] = useState(false)
+  const [faixas, setFaixas] = useState<FaixaLocal[]>([])
+  const [descricaoPremio, setDescricaoPremio] = useState('')
+
+  // ── Passo 4: Participantes ───────────────────────────────────────────────────
   const [participantes, setParticipantes] = useState<(ParticipanteInput & { _key: string })[]>([])
   const [buscaMembro, setBuscaMembro] = useState('')
 
-  // ─── Validações por passo ─────────────────────────────────────────────────
+  // ── Erro de submissão ────────────────────────────────────────────────────────
+  const [erroSubmit, setErroSubmit] = useState<string | null>(null)
 
+  // ── Validações ──────────────────────────────────────────────────────────────
   const erroP0 = !nome.trim() ? 'Nome obrigatório.' : !dataInicio ? 'Data início obrigatória.' : !dataFim ? 'Data fim obrigatória.' : dataFim < dataInicio ? 'Data fim deve ser após o início.' : null
   const erroP1 = itens.length === 0 ? 'Adicione pelo menos um produto.' : null
 
@@ -96,8 +123,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
     return true
   }
 
-  // ─── Adicionar produto ────────────────────────────────────────────────────
-
+  // ── Produtos ────────────────────────────────────────────────────────────────
   const produtosNaoAdicionados = produtos.filter(
     p => !itens.find(i => i.produto_id === p.id) &&
     (buscaProduto.trim() === '' || p.nome.toLowerCase().includes(buscaProduto.toLowerCase()))
@@ -145,8 +171,20 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
     setItens(prev => prev.filter(i => i._key !== key))
   }
 
-  // ─── Adicionar participante ───────────────────────────────────────────────
+  // ── Faixas progressivas ─────────────────────────────────────────────────────
+  function handleAdicionarFaixa() {
+    setFaixas(prev => [...prev, { _key: `${Date.now()}`, quantidade_de: '', quantidade_ate: '', valor_por_unidade: '' }])
+  }
 
+  function handleFaixaChange(key: string, field: keyof Omit<FaixaLocal, '_key'>, value: string) {
+    setFaixas(prev => prev.map(f => f._key === key ? { ...f, [field]: value } : f))
+  }
+
+  function handleRemoverFaixa(key: string) {
+    setFaixas(prev => prev.filter(f => f._key !== key))
+  }
+
+  // ── Participantes ───────────────────────────────────────────────────────────
   const membrosNaoAdicionados = membros.filter(
     m => !participantes.find(p => p.perfil_id === m.id) &&
     (buscaMembro.trim() === '' || m.nome.toLowerCase().includes(buscaMembro.toLowerCase()))
@@ -168,10 +206,35 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
     setParticipantes(prev => prev.filter(p => p._key !== key))
   }
 
-  // ─── Submeter ─────────────────────────────────────────────────────────────
+  // ── Build premiacao input ────────────────────────────────────────────────────
+  function buildPremiacao(): PremiacaoInput | null {
+    if (tipoPremiacao === 'sem_premiacao') return null
+    const base: PremiacaoInput = {
+      tipo: tipoPremiacao,
+      progressiva_retroativa: retroativa,
+    }
+    if (tipoPremiacao === 'fixo_unidade') base.valor = parseBRL(valorPremioRaw) || null
+    if (tipoPremiacao === 'percentual') base.percentual = parseFloat(percentualRaw) / 100 || null
+    if (tipoPremiacao === 'bonus_meta') {
+      base.valor = parseBRL(valorPremioRaw) || null
+      base.meta_gatilho = parseFloat(metaGatilhoRaw) || null
+    }
+    if (tipoPremiacao === 'faixa_progressiva') {
+      base.faixas = faixas.map((f, idx) => ({
+        quantidade_de: parseFloat(f.quantidade_de) || 0,
+        quantidade_ate: f.quantidade_ate ? parseFloat(f.quantidade_ate) : null,
+        valor_por_unidade: parseBRL(f.valor_por_unidade) || 0,
+        ordem: idx,
+      }))
+    }
+    if (tipoPremiacao === 'premio_fisico') base.valor = null
+    return base
+  }
 
+  // ── Submeter ────────────────────────────────────────────────────────────────
   function handleSubmit(publicar: boolean) {
     startTransition(async () => {
+      const premiacao = buildPremiacao()
       const res = await criarCampanha({
         lojaId,
         campanha: {
@@ -179,24 +242,26 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
           tipo,
           descricao: descricao.trim() || null,
           orientacao_equipe: orientacao.trim() || null,
+          objetivo: objetivo.trim() || null,
           data_inicio: dataInicio,
           data_fim: dataFim,
           meta_individual: metaIndividualRaw ? parseFloat(metaIndividualRaw) : null,
           meta_loja: metaLojaRaw ? parseFloat(metaLojaRaw) : null,
           periodicidade,
           unidade_meta: unidadeMeta,
+          premiacao,
         },
-        itens: itens.map(({ _key: _k, produto_nome: _n, ...rest }) => rest),
+        itens: itens.map(({ _key: _k, produto_nome: _n, produto_foto_url: _f, ...rest }) => rest),
         participantes: participantes.map(({ _key: _k, ...rest }) => rest),
       })
 
       if (!res.ok) {
-        alert(res.error)
+        setErroSubmit(res.error ?? 'Erro ao salvar a campanha.')
         return
       }
+      setErroSubmit(null)
 
       if (publicar && res.id) {
-        // Ativar imediatamente após criar
         const { atualizarStatusCampanha } = await import('../actions')
         await atualizarStatusCampanha(res.id, lojaId, 'ativa')
       }
@@ -205,8 +270,9 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
     })
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const ultimoPasso = PASSOS.length - 1
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
@@ -243,7 +309,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
       {/* Conteúdo por passo */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
 
-        {/* ─── Passo 0: Informações ─────────────────────────────────────────── */}
+        {/* ── Passo 0: Informações ─────────────────────────────────────────── */}
         {passo === 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -258,10 +324,34 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
                   type="text"
                   value={nome}
                   onChange={e => setNome(e.target.value)}
-                  placeholder="Ex: Ação do Granel — Pacotes de 500 g"
+                  placeholder={
+                    tipo === 'produto_mes' ? 'Ex: Produto do mês — Whey Protein' :
+                    tipo === 'lancamento' ? 'Ex: Lançamento — Colágeno Skin Pro' :
+                    'Ex: Ação do Granel — Pacotes de 500 g'
+                  }
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               </div>
+
+              {(tipo === 'produto_mes' || tipo === 'lancamento') && (
+                <div>
+                  <label className="block text-xs font-medium mb-1">
+                    {tipo === 'produto_mes' ? 'Objetivo do mês' : 'Objetivo do lançamento'}
+                    {' '}(opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={objetivo}
+                    onChange={e => setObjetivo(e.target.value)}
+                    placeholder={
+                      tipo === 'produto_mes'
+                        ? 'Ex: Aumentar mix de whey nas vendas de recomposição'
+                        : 'Ex: Introduzir o produto e gerar primeiras recompras'
+                    }
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -291,7 +381,11 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
                   value={orientacao}
                   onChange={e => setOrientacao(e.target.value)}
                   rows={3}
-                  placeholder="Ex: Esses pacotes saem com valor mais vantajoso do que comprar a mesma quantidade no granel. Mostre a economia ao cliente."
+                  placeholder={
+                    tipo === 'lancamento'
+                      ? 'Ex: Apresente os benefícios antes do preço. Foque clientes que já usam produtos similares.'
+                      : 'Ex: Esses pacotes saem com valor mais vantajoso do que comprar no granel. Mostre a economia.'
+                  }
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
                 />
               </div>
@@ -310,7 +404,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
           </div>
         )}
 
-        {/* ─── Passo 1: Produtos ────────────────────────────────────────────── */}
+        {/* ── Passo 1: Produtos ─────────────────────────────────────────────── */}
         {passo === 1 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -318,7 +412,6 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               <h2 className="font-semibold text-sm">Produtos participantes</h2>
             </div>
 
-            {/* Itens adicionados */}
             {itens.length > 0 && (
               <div className="space-y-2">
                 {itens.map(item => (
@@ -347,7 +440,6 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               </div>
             )}
 
-            {/* Adicionar produto */}
             {!produtoSelecionado ? (
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">Selecione um produto participante:</p>
@@ -483,7 +575,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
           </div>
         )}
 
-        {/* ─── Passo 2: Meta ─────────────────────────────────────────────────── */}
+        {/* ── Passo 2: Meta ─────────────────────────────────────────────────── */}
         {passo === 2 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -551,8 +643,191 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
           </div>
         )}
 
-        {/* ─── Passo 3: Participantes ───────────────────────────────────────── */}
+        {/* ── Passo 3: Premiação ────────────────────────────────────────────── */}
         {passo === 3 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-primary" />
+              <h2 className="font-semibold text-sm">Premiação (opcional)</h2>
+            </div>
+            <p className="text-xs text-muted-foreground">Configure como as vendedoras serão premiadas nessa campanha. Você pode pular esta etapa e configurar depois.</p>
+
+            <div>
+              <label className="block text-xs font-medium mb-1">Tipo de premiação</label>
+              <select
+                value={tipoPremiacao}
+                onChange={e => setTipoPremiacao(e.target.value as TipoPremiacao)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {(Object.keys(TIPO_PREMIACAO_LABELS) as TipoPremiacao[]).map(t => (
+                  <option key={t} value={t}>{TIPO_PREMIACAO_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+
+            {tipoPremiacao === 'fixo_unidade' && (
+              <div>
+                <label className="block text-xs font-medium mb-1">Valor por unidade vendida (R$)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={valorPremioRaw}
+                  onChange={e => setValorPremioRaw(e.target.value)}
+                  placeholder="Ex: 2,00"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+            )}
+
+            {tipoPremiacao === 'percentual' && (
+              <div>
+                <label className="block text-xs font-medium mb-1">Percentual sobre o valor vendido (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={percentualRaw}
+                  onChange={e => setPercentualRaw(e.target.value)}
+                  placeholder="Ex: 5"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+            )}
+
+            {tipoPremiacao === 'bonus_meta' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Meta mínima para ativar o bônus (unidades)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={metaGatilhoRaw}
+                    onChange={e => setMetaGatilhoRaw(e.target.value)}
+                    placeholder="Ex: 10"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Valor do bônus (R$)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={valorPremioRaw}
+                    onChange={e => setValorPremioRaw(e.target.value)}
+                    placeholder="Ex: 50,00"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+            )}
+
+            {tipoPremiacao === 'faixa_progressiva' && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium">Faixas de quantidade → valor por unidade</label>
+                  <button
+                    onClick={handleAdicionarFaixa}
+                    className="ml-auto text-[10px] text-primary font-medium flex items-center gap-0.5 hover:underline"
+                  >
+                    <Plus className="h-3 w-3" /> Adicionar faixa
+                  </button>
+                </div>
+
+                {faixas.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-3 border rounded-lg">
+                    Nenhuma faixa. Clique em &ldquo;Adicionar faixa&rdquo; para começar.
+                  </p>
+                )}
+
+                {faixas.map((f, idx) => (
+                  <div key={f._key} className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">Faixa {idx + 1}</span>
+                      <button onClick={() => handleRemoverFaixa(f._key)} className="text-muted-foreground hover:text-red-500">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground mb-0.5">De (unid.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={f.quantidade_de}
+                          onChange={e => handleFaixaChange(f._key, 'quantidade_de', e.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground mb-0.5">Até (unid.)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={f.quantidade_ate}
+                          onChange={e => handleFaixaChange(f._key, 'quantidade_ate', e.target.value)}
+                          placeholder="∞"
+                          className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground mb-0.5">R$/unid.</label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={f.valor_por_unidade}
+                          onChange={e => handleFaixaChange(f._key, 'valor_por_unidade', e.target.value)}
+                          placeholder="0,00"
+                          className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {faixas.length > 0 && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={retroativa}
+                      onChange={e => setRetroativa(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs">Retroativa (aplica a faixa maior a todas as unidades, não apenas à faixa excedida)</span>
+                  </label>
+                )}
+              </div>
+            )}
+
+            {tipoPremiacao === 'premio_fisico' && (
+              <div>
+                <label className="block text-xs font-medium mb-1">Descrição do prêmio (opcional)</label>
+                <input
+                  type="text"
+                  value={descricaoPremio}
+                  onChange={e => setDescricaoPremio(e.target.value)}
+                  placeholder="Ex: Camisa oficial F5, viagem, etc."
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+            )}
+
+            {tipoPremiacao !== 'sem_premiacao' && tipoPremiacao !== 'premio_fisico' && (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3">
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                  A apuração e o pagamento são registrados manualmente pelo gestor no painel da campanha.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Passo 4: Participantes ────────────────────────────────────────── */}
+        {passo === 4 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
@@ -562,7 +837,6 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               Selecione quem vai participar. Vendas de SKUs da campanha por não-participantes ainda serão contabilizadas no total, mas sem meta individual.
             </p>
 
-            {/* Participantes adicionados */}
             {participantes.length > 0 && (
               <div className="space-y-1.5">
                 {participantes.map(p => (
@@ -581,7 +855,6 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               </div>
             )}
 
-            {/* Adicionar */}
             <div className="space-y-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -618,8 +891,8 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
           </div>
         )}
 
-        {/* ─── Passo 4: Revisão ────────────────────────────────────────────── */}
-        {passo === 4 && (
+        {/* ── Passo 5: Revisão ─────────────────────────────────────────────── */}
+        {passo === ultimoPasso && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-primary" />
@@ -633,10 +906,35 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
                 <p className="text-xs text-muted-foreground">
                   {dataInicio} → {dataFim} · Meta {metaIndividualRaw || '—'} pacote(s)/{periodicidade === 'diaria' ? 'dia' : 'período'}
                 </p>
+                {objetivo && (
+                  <p className="text-xs text-muted-foreground">Objetivo: {objetivo}</p>
+                )}
                 {orientacao && (
-                  <p className="text-xs text-muted-foreground italic mt-1">"{orientacao}"</p>
+                  <p className="text-xs text-muted-foreground italic mt-1">&ldquo;{orientacao}&rdquo;</p>
                 )}
               </div>
+
+              {tipoPremiacao !== 'sem_premiacao' && (
+                <div className="rounded-lg bg-muted/40 p-3 space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Premiação</p>
+                  <p className="text-xs">{TIPO_PREMIACAO_LABELS[tipoPremiacao]}</p>
+                  {tipoPremiacao === 'fixo_unidade' && valorPremioRaw && (
+                    <p className="text-xs text-muted-foreground">{fmtBRL(parseBRL(valorPremioRaw))} por unidade</p>
+                  )}
+                  {tipoPremiacao === 'percentual' && percentualRaw && (
+                    <p className="text-xs text-muted-foreground">{percentualRaw}% sobre o valor vendido</p>
+                  )}
+                  {tipoPremiacao === 'bonus_meta' && (
+                    <p className="text-xs text-muted-foreground">Bônus de {fmtBRL(parseBRL(valorPremioRaw))} ao atingir {metaGatilhoRaw} unidades</p>
+                  )}
+                  {tipoPremiacao === 'faixa_progressiva' && (
+                    <p className="text-xs text-muted-foreground">{faixas.length} faixa(s) · {retroativa ? 'retroativa' : 'não retroativa'}</p>
+                  )}
+                  {tipoPremiacao === 'premio_fisico' && descricaoPremio && (
+                    <p className="text-xs text-muted-foreground">{descricaoPremio}</p>
+                  )}
+                </div>
+              )}
 
               <div className="rounded-lg bg-muted/40 p-3 space-y-1.5">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
@@ -663,6 +961,12 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
               </div>
             </div>
 
+            {erroSubmit && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                {erroSubmit}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 onClick={() => handleSubmit(false)}
@@ -684,7 +988,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
       </div>
 
       {/* Navegação entre passos */}
-      {passo < 4 && (
+      {passo < ultimoPasso && (
         <div className="flex gap-2">
           {passo > 0 && (
             <button
@@ -699,12 +1003,12 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
             disabled={!podeProsseguir()}
             className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
           >
-            {passo === 3 ? 'Revisar' : 'Continuar'} <ChevronRight className="h-4 w-4" />
+            {passo === ultimoPasso - 1 ? 'Revisar' : 'Continuar'} <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* Erro de validação */}
+      {/* Erros de validação */}
       {passo === 0 && erroP0 && nome && (
         <p className="text-xs text-red-600 text-center">{erroP0}</p>
       )}
