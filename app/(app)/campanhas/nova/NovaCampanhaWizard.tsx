@@ -312,6 +312,7 @@ export function NovaCampanhaWizard({ lojaId, lojaNome, tipoInicial, produtos, me
           campanha: campanhaInput,
           itens: itensInput,
           participantes: participantesInput,
+          versaoEsperada: campanhaInicial?.atualizado_em,
         })
         if (!res.ok) {
           setErroSubmit(res.error ?? 'Erro ao salvar alterações.')

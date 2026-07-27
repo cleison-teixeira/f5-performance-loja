@@ -259,6 +259,7 @@ export async function editarCampanha(input: {
   campanha: Omit<CampanhaInput, 'tipo'>
   itens: ItemInput[]
   participantes: ParticipanteInput[]
+  versaoEsperada?: string
 }): Promise<{ ok: boolean; error?: string }> {
   const userId = await validarGestor(input.lojaId)
   if (!userId) return { ok: false, error: 'Sem permissão.' }
@@ -271,13 +272,48 @@ export async function editarCampanha(input: {
 
   const { data: camp } = await admin
     .from('campanhas_venda')
-    .select('status')
+    .select('status, atualizado_em')
     .eq('id', input.campanhaId)
     .maybeSingle()
 
-  const status = (camp as { status: StatusCampanha } | null)?.status
+  const campRow = camp as { status: StatusCampanha; atualizado_em: string } | null
+  const status = campRow?.status
   if (!status || ['encerrada', 'cancelada'].includes(status)) {
     return { ok: false, error: 'Campanha encerrada ou cancelada não pode ser editada.' }
+  }
+
+  // Controle de concorrência otimista: rejeita se a campanha foi alterada desde o carregamento
+  if (input.versaoEsperada && campRow?.atualizado_em !== input.versaoEsperada) {
+    return { ok: false, error: 'Esta campanha foi alterada por outra pessoa. Atualize a página antes de salvar novamente.' }
+  }
+
+  // Validar que produtos pertencem à loja (defesa contra chamadas diretas à action)
+  if (input.itens.length > 0) {
+    const produtosIds = input.itens.map(i => i.produto_id)
+    const { data: prodCheck } = await admin
+      .from('produtos')
+      .select('id')
+      .in('id', produtosIds)
+      .eq('loja_id', input.lojaId)
+    const produtosValidos = new Set((prodCheck ?? []).map((p: { id: string }) => p.id))
+    if (produtosIds.some(id => !produtosValidos.has(id))) {
+      return { ok: false, error: 'Um ou mais produtos não pertencem à loja.' }
+    }
+  }
+
+  // Validar que participantes são membros ativos da loja
+  if (input.participantes.length > 0) {
+    const perfisIds = input.participantes.map(p => p.perfil_id)
+    const { data: memCheck } = await admin
+      .from('membros_loja')
+      .select('perfil_id')
+      .in('perfil_id', perfisIds)
+      .eq('loja_id', input.lojaId)
+      .eq('ativo', true)
+    const membrosValidos = new Set((memCheck ?? []).map((m: { perfil_id: string }) => m.perfil_id))
+    if (perfisIds.some(id => !membrosValidos.has(id))) {
+      return { ok: false, error: 'Um ou mais participantes não são membros ativos desta loja.' }
+    }
   }
 
   const agora = new Date().toISOString()
@@ -332,7 +368,7 @@ export async function editarCampanha(input: {
       .from('campanhas_venda_itens')
       .update({ ativo: false, atualizado_em: agora })
       .eq('campanha_id', input.campanhaId)
-      .not('produto_id', 'in', `(${produtosAtivos.map(id => `'${id}'`).join(',')})`)
+      .not('produto_id', 'in', `(${produtosAtivos.join(',')})`)
   } else {
     await admin
       .from('campanhas_venda_itens')
