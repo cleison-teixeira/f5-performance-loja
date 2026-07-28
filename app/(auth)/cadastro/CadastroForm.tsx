@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,11 @@ export function CadastroForm() {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState(false)
   const [carregando, setCarregando] = useState(false)
+  const [callbackUrl, setCallbackUrl] = useState('')
+
+  useEffect(() => {
+    setCallbackUrl(window.location.origin + '/api/auth/callback')
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,7 +46,10 @@ export function CadastroForm() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: senha,
-      options: { data: { nome } },
+      options: {
+        data: { nome },
+        emailRedirectTo: callbackUrl,
+      },
     })
 
     if (error) {

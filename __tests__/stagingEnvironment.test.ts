@@ -116,3 +116,85 @@ describe('Admin — normalização do email capturado', () => {
     expect(normalizarEmail('Sillvanna.Teixeira+Angeloni@Gmail.com')).toBe('sillvanna.teixeira+angeloni@gmail.com')
   })
 })
+
+// ── 5. CadastroForm — URL de callback dinâmica ───────────────────────────────
+
+function buildCallbackUrl(origin: string): string {
+  return origin + '/api/auth/callback'
+}
+
+describe('CadastroForm — emailRedirectTo por ambiente', () => {
+  it('em local dev aponta para localhost', () => {
+    const url = buildCallbackUrl('http://localhost:3000')
+    expect(url).toBe('http://localhost:3000/api/auth/callback')
+  })
+
+  it('em preview aponta para a URL Vercel do deploy', () => {
+    const url = buildCallbackUrl('https://f5-recompra-git-feat-mo-abc123.vercel.app')
+    expect(url).toBe('https://f5-recompra-git-feat-mo-abc123.vercel.app/api/auth/callback')
+  })
+
+  it('em produção aponta para o domínio de produção', () => {
+    const url = buildCallbackUrl('https://app.f5recompra.com.br')
+    expect(url).toBe('https://app.f5recompra.com.br/api/auth/callback')
+  })
+
+  it('callback de preview não contém localhost', () => {
+    const url = buildCallbackUrl('https://f5-recompra-git-feat-mo-abc123.vercel.app')
+    expect(url).not.toContain('localhost')
+  })
+
+  it('sempre termina com /api/auth/callback independente do origin', () => {
+    const origins = [
+      'http://localhost:3000',
+      'https://f5-recompra-git-feat-mo-abc123.vercel.app',
+      'https://app.f5recompra.com.br',
+    ]
+    for (const origin of origins) {
+      expect(buildCallbackUrl(origin)).toMatch(/\/api\/auth\/callback$/)
+    }
+  })
+
+  it('não adiciona barra dupla entre origin e path', () => {
+    const url = buildCallbackUrl('https://app.f5recompra.com.br')
+    // remove o scheme antes de checar barras duplas no caminho
+    const withoutScheme = url.replace(/^https?:\/\//, '')
+    expect(withoutScheme).not.toContain('//')
+  })
+})
+
+// ── 6. Rota de callback — preservação do ?code ───────────────────────────────
+
+describe('Auth callback — parâmetro code preservado', () => {
+  function parseCallbackParams(url: string): { code: string | null; next: string } {
+    const { searchParams } = new URL(url)
+    return {
+      code: searchParams.get('code'),
+      next: searchParams.get('next') ?? '/dashboard',
+    }
+  }
+
+  it('extrai o code do link de confirmação', () => {
+    const url = 'https://app.f5recompra.com.br/api/auth/callback?code=abc123xyz'
+    const { code } = parseCallbackParams(url)
+    expect(code).toBe('abc123xyz')
+  })
+
+  it('usa /dashboard como next padrão quando ausente', () => {
+    const url = 'https://app.f5recompra.com.br/api/auth/callback?code=abc123xyz'
+    const { next } = parseCallbackParams(url)
+    expect(next).toBe('/dashboard')
+  })
+
+  it('preserva next customizado', () => {
+    const url = 'https://app.f5recompra.com.br/api/auth/callback?code=abc123xyz&next=/atualizar-senha'
+    const { next } = parseCallbackParams(url)
+    expect(next).toBe('/atualizar-senha')
+  })
+
+  it('code ausente resulta em null', () => {
+    const url = 'https://app.f5recompra.com.br/api/auth/callback'
+    const { code } = parseCallbackParams(url)
+    expect(code).toBeNull()
+  })
+})
