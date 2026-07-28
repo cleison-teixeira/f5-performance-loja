@@ -27,6 +27,9 @@ pnpm-debug.log*
 # misc
 .vercel/
 
+# Claude Code — configuração local (não commitável)
+.claude/settings.local.json
+
 # typescript build info (large, regenerated on build)
 *.tsbuildinfo
 .vercel
