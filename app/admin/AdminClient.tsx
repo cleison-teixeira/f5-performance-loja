@@ -192,7 +192,12 @@ export function AdminClient({
 
   // ── Formulário Liberar Loja ──
   const [lojaForm, setLojaForm] = useState<LojaForm>(VAZIO_LOJA)
-  const [resultadoLoja, setResultadoLoja] = useState<{ resultado: 'vinculado' | 'pendente'; nome: string } | null>(null)
+  const [resultadoLoja, setResultadoLoja] = useState<{
+    resultado: 'vinculado' | 'pendente'
+    nome: string
+    email: string
+    appUrl: string
+  } | null>(null)
 
   // ── Formulário Liberar Rede ──
   const [redeForm, setRedeForm] = useState<RedeForm>(VAZIO_REDE)
@@ -323,7 +328,12 @@ export function AdminClient({
         comprovante_url: '',
       })
       if (res.ok) {
-        setResultadoLoja({ resultado: res.resultado!, nome: lojaForm.loja_nome })
+        setResultadoLoja({
+          resultado: res.resultado!,
+          nome: lojaForm.loja_nome,
+          email: lojaForm.email.trim().toLowerCase(),
+          appUrl: window.location.origin,
+        })
         setLojaForm(VAZIO_LOJA)
         router.refresh()
       } else {
@@ -609,17 +619,40 @@ export function AdminClient({
               </div>
 
               {resultadoLoja && (
-                <div className={`rounded-md border p-3 text-sm ${
+                <div className={`rounded-md border p-3 text-sm space-y-2 ${
                   resultadoLoja.resultado === 'vinculado'
                     ? 'bg-green-50 border-green-200 text-green-800'
                     : 'bg-yellow-50 border-yellow-200 text-yellow-800'
                 }`}>
-                  {resultadoLoja.resultado === 'vinculado' ? (
-                    <><strong>{resultadoLoja.nome}</strong> — acesso liberado. O cliente pode logar agora.</>
-                  ) : (
-                    <><strong>{resultadoLoja.nome}</strong> — pendente. O acesso será ativado quando o cliente criar a conta.</>
+                  <div className="flex items-start justify-between gap-2">
+                    <span>
+                      {resultadoLoja.resultado === 'vinculado' ? (
+                        <><strong>{resultadoLoja.nome}</strong> — acesso liberado. O cliente pode logar agora.</>
+                      ) : (
+                        <><strong>{resultadoLoja.nome}</strong> — liberação preparada.</>
+                      )}
+                    </span>
+                    <button onClick={() => setResultadoLoja(null)} className="text-xs underline opacity-60 hover:opacity-100 shrink-0">×</button>
+                  </div>
+                  {resultadoLoja.resultado === 'pendente' && (
+                    <div className="space-y-1.5 text-xs">
+                      <p>
+                        Oriente o cliente a criar a conta <strong>neste mesmo ambiente</strong>, usando exatamente o e-mail informado.
+                      </p>
+                      <p>
+                        E-mail liberado: <span className="font-mono font-medium">{resultadoLoja.email}</span>
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono break-all">{resultadoLoja.appUrl}</span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(resultadoLoja.appUrl)}
+                          className="underline opacity-70 hover:opacity-100 shrink-0"
+                        >
+                          Copiar link
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  <button onClick={() => setResultadoLoja(null)} className="ml-3 text-xs underline opacity-60 hover:opacity-100">×</button>
                 </div>
               )}
 

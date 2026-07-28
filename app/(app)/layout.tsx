@@ -2,6 +2,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Header } from '@/components/layout/Header'
 import { SeletorLojaGlobal } from '@/components/layout/SeletorLojaGlobal'
+import { StagingBanner } from '@/components/StagingBanner'
 import { redirect } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
 import { getNotificacoes } from '@/lib/notifications/getNotificacoes'
@@ -33,18 +34,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   endLayout()
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background">
-      <Sidebar role={role} badgesMap={badgesMap} />
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <Header nomeUsuario={perfil?.nome ?? ''} nomeLoja={appCtx.lojaNome} role={role} notificacoes={notificacoes} userId={appCtx.user?.id} lojaLogoUrl={appCtx.lojaLogoUrl} avatarUrl={appCtx.avatarUrl} isAcessoRede={isAcessoRede} />
-        {isAcessoRede && ctx.lojas.length > 1 && (
-          <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
-        )}
-        <main className="flex-1 overflow-y-auto p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
-          {children}
-        </main>
+    <div className="flex flex-col h-dvh overflow-hidden bg-background">
+      <StagingBanner />
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <Sidebar role={role} badgesMap={badgesMap} />
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          <Header nomeUsuario={perfil?.nome ?? ''} nomeLoja={appCtx.lojaNome} role={role} notificacoes={notificacoes} userId={appCtx.user?.id} lojaLogoUrl={appCtx.lojaLogoUrl} avatarUrl={appCtx.avatarUrl} isAcessoRede={isAcessoRede} />
+          {isAcessoRede && ctx.lojas.length > 1 && (
+            <SeletorLojaGlobal lojas={ctx.lojas} lojaAtiva={ctx.lojaId} />
+          )}
+          <main className="flex-1 overflow-y-auto p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
+            {children}
+          </main>
+        </div>
+        <BottomNav role={role} badgesMap={badgesMap} />
       </div>
-      <BottomNav role={role} badgesMap={badgesMap} />
       {precisaAceitar && <ModalAceite lojaId={ctx.lojaId ?? null} />}
       <RouteProgress />
       <AppRoutePrefetch />
