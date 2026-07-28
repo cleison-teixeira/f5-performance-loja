@@ -1306,7 +1306,7 @@ export async function cancelarVendaCampanha(input: {
   vendaId: string
   lojaId: string
   motivo?: string
-}): Promise<{ ok: boolean; requer_revisao?: boolean; error?: string }> {
+}): Promise<{ ok: boolean; requer_revisao?: boolean; avisos_cancelados?: number; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Não autenticado.' }
@@ -1321,9 +1321,21 @@ export async function cancelarVendaCampanha(input: {
   const result = data as { ok: boolean; requer_revisao?: boolean; error?: string }
   if (!result.ok) return { ok: false, error: result.error }
 
+  // Cancelar avisos futuros da venda (preservar os já enviados/históricos)
+  const admin = createAdminClient()
+  const avisoRes = await admin
+    .from('avisos')
+    .update({ status: 'ignorado' })
+    .eq('venda_id', input.vendaId)
+    .eq('loja_id', input.lojaId)
+    .in('status', ['pendente', 'reagendada'])
+    .is('enviado_em', null)
+    .select('id')
+  const avisosCancelados = (avisoRes.data ?? []).length
+
   revalidatePath('/campanhas')
   revalidatePath(`/campanhas/${input.lojaId}`)
-  return { ok: true, requer_revisao: result.requer_revisao ?? false }
+  return { ok: true, requer_revisao: result.requer_revisao ?? false, avisos_cancelados: avisosCancelados }
 }
 
 // ─── Resolver apuração em revisão (pós-cancelamento com pagamento já efetuado) ─

@@ -45,6 +45,10 @@ const APURACAO_STATUS_INFO: Record<StatusApuracao, { label: string; cls: string 
 
 // ── Aba Financeiro ────────────────────────────────────────────────────────────
 
+type AcaoAtiva =
+  | { tipo: 'pagar'; apuracaoId: string; valor: string; forma: string }
+  | { tipo: 'resolver'; apuracaoId: string; acao: 'aprovar' | 'estornar'; observacao: string }
+
 function AbaFinanceiro({
   apuracoes, campanhaId, lojaId, onRefresh,
 }: {
@@ -53,40 +57,49 @@ function AbaFinanceiro({
   lojaId: string
   onRefresh: () => void
 }) {
+  const [acao, setAcao] = useState<AcaoAtiva | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  function handlePagar(ap: Apuracao) {
-    const valor = prompt(`Valor pago para ${ap.vendedora_nome} (R$):`, ap.valor_apurado.toFixed(2))
-    if (valor == null) return
-    const forma = prompt('Forma de pagamento (ex: pix, dinheiro):', 'pix')
-    if (forma == null) return
-    const data = new Date().toISOString().slice(0, 10)
+  function abrirPagar(ap: Apuracao) {
+    setErro(null)
+    setAcao({ tipo: 'pagar', apuracaoId: ap.id, valor: ap.valor_apurado.toFixed(2), forma: 'pix' })
+  }
+
+  function abrirResolver(ap: Apuracao, resolAcao: 'aprovar' | 'estornar') {
+    setErro(null)
+    setAcao({ tipo: 'resolver', apuracaoId: ap.id, acao: resolAcao, observacao: '' })
+  }
+
+  function cancelarAcao() { setAcao(null); setErro(null) }
+
+  function confirmarPagar() {
+    if (acao?.tipo !== 'pagar') return
+    const valorNum = parseFloat(acao.valor.replace(',', '.'))
+    if (isNaN(valorNum) || valorNum <= 0) { setErro('Valor inválido.'); return }
+    if (!acao.forma.trim()) { setErro('Informe a forma de pagamento.'); return }
     startTransition(async () => {
       const res = await marcarComoPago({
-        apuracaoId: ap.id,
-        campanhaId,
-        lojaId,
-        valorPago: parseFloat(valor.replace(',', '.')),
-        formaPagamento: forma,
-        dataPagamento: data,
+        apuracaoId: acao.apuracaoId, campanhaId, lojaId,
+        valorPago: valorNum,
+        formaPagamento: acao.forma.trim(),
+        dataPagamento: new Date().toISOString().slice(0, 10),
       })
-      if (res.ok) onRefresh()
-      else alert(res.error)
+      if (res.ok) { setAcao(null); onRefresh() }
+      else setErro(res.error ?? 'Erro ao registrar pagamento.')
     })
   }
 
-  function handleResolverRevisao(ap: Apuracao, acao: 'aprovar' | 'estornar') {
-    const obs = prompt(`Observação (opcional):`, '')
-    if (obs == null) return
+  function confirmarResolver() {
+    if (acao?.tipo !== 'resolver') return
     startTransition(async () => {
       const res = await resolverRevisaoApuracao({
-        apuracaoId: ap.id,
-        lojaId,
-        acao,
-        observacao: obs || undefined,
+        apuracaoId: acao.apuracaoId, lojaId,
+        acao: acao.acao,
+        observacao: acao.observacao.trim() || undefined,
       })
-      if (res.ok) onRefresh()
-      else alert(res.error)
+      if (res.ok) { setAcao(null); onRefresh() }
+      else setErro(res.error ?? 'Erro ao resolver revisão.')
     })
   }
 
@@ -106,14 +119,99 @@ function AbaFinanceiro({
       {emRevisao.length > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-950/20 dark:border-orange-800 dark:text-orange-300">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>{emRevisao.length} apuração(ões) em revisão por cancelamento pós-pagamento.</span>
+          <span>{emRevisao.length} apuração(ões) em revisão — cancelamento feito após pagamento. Defina abaixo.</span>
+        </div>
+      )}
+
+      {/* Formulário inline de pagamento */}
+      {acao?.tipo === 'pagar' && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-3">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Registrar pagamento</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Valor pago (R$)</label>
+              <input
+                type="text"
+                value={acao.valor}
+                onChange={e => setAcao({ ...acao, valor: e.target.value })}
+                className="w-full rounded-lg border bg-background px-2 py-1.5 text-sm"
+                data-testid="input-valor-pago"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Forma</label>
+              <input
+                type="text"
+                value={acao.forma}
+                onChange={e => setAcao({ ...acao, forma: e.target.value })}
+                placeholder="pix, dinheiro..."
+                className="w-full rounded-lg border bg-background px-2 py-1.5 text-sm"
+                data-testid="input-forma-pagamento"
+              />
+            </div>
+          </div>
+          {erro && <p className="text-xs text-red-600">{erro}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={confirmarPagar}
+              disabled={isPending}
+              data-testid="btn-confirmar-pagamento"
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {isPending ? 'Salvando…' : 'Confirmar pagamento'}
+            </button>
+            <button onClick={cancelarAcao} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Formulário inline de resolução de revisão */}
+      {acao?.tipo === 'resolver' && (
+        <div className={`rounded-xl border p-4 space-y-3 ${acao.acao === 'aprovar' ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20' : 'border-red-200 bg-red-50 dark:bg-red-950/20'}`}>
+          <p className={`text-sm font-semibold ${acao.acao === 'aprovar' ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+            {acao.acao === 'aprovar' ? 'Manter pagamento (comissão fica paga)' : 'Estornar comissão (desconto em apuração futura)'}
+          </p>
+          {acao.acao === 'estornar' && (
+            <p className="text-xs text-red-700 dark:text-red-300">
+              O valor da comissão será marcado como cancelado. Um ajuste negativo ficará registrado para desconto na próxima apuração da vendedora.
+            </p>
+          )}
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Motivo da decisão (opcional)</label>
+            <textarea
+              value={acao.observacao}
+              onChange={e => setAcao({ ...acao, observacao: e.target.value })}
+              rows={2}
+              placeholder="Ex: vendedora cometeu erro, cliente devolveu..."
+              className="w-full rounded-lg border bg-background px-2 py-1.5 text-sm resize-none"
+              data-testid="input-observacao-revisao"
+            />
+          </div>
+          {erro && <p className="text-xs text-red-600">{erro}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={confirmarResolver}
+              disabled={isPending}
+              data-testid={`btn-confirmar-${acao.acao}`}
+              className={`flex items-center gap-1.5 rounded-lg text-white px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${acao.acao === 'aprovar' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+            >
+              {isPending ? 'Salvando…' : acao.acao === 'aprovar' ? 'Confirmar — manter pago' : 'Confirmar — estornar'}
+            </button>
+            <button onClick={cancelarAcao} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent">
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
       {apuracoes.map(ap => {
         const info = APURACAO_STATUS_INFO[ap.status]
+        const estaAtiva = acao?.apuracaoId === ap.id
         return (
-          <div key={ap.id} className="rounded-xl border bg-card p-4 space-y-2">
+          <div key={ap.id} className={`rounded-xl border bg-card p-4 space-y-2 ${estaAtiva ? 'ring-2 ring-primary/30' : ''}`}>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold truncate">{ap.vendedora_nome}</p>
               <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${info.cls}`}>
@@ -123,15 +221,15 @@ function AbaFinanceiro({
             <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
               <div>
                 <p className="text-[10px] uppercase tracking-wide">Qtd apurada</p>
-                <p className="font-semibold text-foreground">{ap.quantidade_apurada}</p>
+                <p className="font-semibold text-foreground tabular-nums">{ap.quantidade_apurada}</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide">Comissão</p>
-                <p className="font-semibold text-foreground">{fmtBRL(ap.valor_apurado)}</p>
+                <p className="font-semibold text-foreground tabular-nums">{fmtBRL(ap.valor_apurado)}</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide">Pago</p>
-                <p className={`font-semibold ${ap.valor_pago != null ? 'text-emerald-600' : 'text-foreground'}`}>
+                <p className={`font-semibold tabular-nums ${ap.valor_pago != null ? 'text-emerald-600' : 'text-foreground'}`}>
                   {ap.valor_pago != null ? fmtBRL(ap.valor_pago) : '—'}
                 </p>
               </div>
@@ -141,35 +239,43 @@ function AbaFinanceiro({
                 Período: {fmtData(ap.periodo_referencia)} · {ap.periodicidade === 'diaria' ? 'Diária' : 'Total'}
               </p>
             )}
-            {ap.observacao && (
-              <p className="text-[10px] text-muted-foreground italic">{ap.observacao}</p>
+            {ap.data_pagamento && ap.forma_pagamento && (
+              <p className="text-[10px] text-muted-foreground">
+                Pago em {fmtData(ap.data_pagamento)} · {ap.forma_pagamento}
+              </p>
             )}
-            {ap.status === 'aprovado' && (
+            {ap.observacao && (
+              <p className="text-[10px] text-muted-foreground italic leading-relaxed">{ap.observacao}</p>
+            )}
+            {ap.status === 'aprovado' && !estaAtiva && (
               <button
-                onClick={() => handlePagar(ap)}
+                onClick={() => abrirPagar(ap)}
                 disabled={isPending}
+                data-testid="btn-marcar-pago"
                 className="mt-1 flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Marcar como pago
               </button>
             )}
-            {ap.status === 'em_revisao' && (
-              <div className="flex gap-2 mt-1">
+            {ap.status === 'em_revisao' && !estaAtiva && (
+              <div className="flex gap-2 mt-1 flex-wrap">
                 <button
-                  onClick={() => handleResolverRevisao(ap, 'aprovar')}
+                  onClick={() => abrirResolver(ap, 'aprovar')}
                   disabled={isPending}
+                  data-testid="btn-manter-pago"
                   className="flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   Manter pago
                 </button>
                 <button
-                  onClick={() => handleResolverRevisao(ap, 'estornar')}
+                  onClick={() => abrirResolver(ap, 'estornar')}
                   disabled={isPending}
-                  className="flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-50 disabled:opacity-50"
+                  data-testid="btn-estornar"
+                  className="flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-50"
                 >
-                  Estornar
+                  Estornar comissão
                 </button>
               </div>
             )}
@@ -178,8 +284,8 @@ function AbaFinanceiro({
       })}
 
       <div className="rounded-xl border bg-muted/30 p-3 flex items-center justify-between text-sm">
-        <span className="text-muted-foreground font-medium">Total da campanha</span>
-        <span className="font-bold">{fmtBRL(total)}</span>
+        <span className="text-muted-foreground font-medium">Total reconhecido</span>
+        <span className="font-bold tabular-nums">{fmtBRL(total)}</span>
       </div>
     </div>
   )
