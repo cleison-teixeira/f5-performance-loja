@@ -75,19 +75,21 @@ function CampanhaCard({
 }) {
   const router = useRouter()
   const [pending, setPending] = useState(false)
+  const [erroStatus, setErroStatus] = useState<string | null>(null)
 
   const itensAtivos = campanha.itens.filter(i => i.ativo)
   const participantesAtivos = campanha.participantes.filter(p => p.ativo)
 
   async function handleStatusChange(novoStatus: StatusCampanha) {
     setPending(true)
+    setErroStatus(null)
     const res = await atualizarStatusCampanha(campanha.id, lojaId, novoStatus)
     setPending(false)
     if (res.ok) {
       onStatusChange()
       router.refresh()
     } else {
-      alert(res.error)
+      setErroStatus(res.error ?? 'Erro ao alterar status.')
     }
   }
 
@@ -147,6 +149,9 @@ function CampanhaCard({
 
       {podeGerenciar && (
         <div className="border-t px-4 py-2 flex gap-2 flex-wrap">
+          {erroStatus && (
+            <p className="w-full text-xs text-red-600 dark:text-red-400">{erroStatus}</p>
+          )}
           {['rascunho', 'programada', 'ativa', 'pausada'].includes(campanha.status) && (
             <Link
               href={`/campanhas/${campanha.id}/editar`}

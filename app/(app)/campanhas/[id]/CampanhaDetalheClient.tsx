@@ -92,11 +92,12 @@ function AbaFinanceiro({
 
   function confirmarResolver() {
     if (acao?.tipo !== 'resolver') return
+    if (!acao.observacao.trim()) { setErro('O motivo da decisão é obrigatório.'); return }
     startTransition(async () => {
       const res = await resolverRevisaoApuracao({
         apuracaoId: acao.apuracaoId, lojaId,
         acao: acao.acao,
-        observacao: acao.observacao.trim() || undefined,
+        observacao: acao.observacao.trim(),
       })
       if (res.ok) { setAcao(null); onRefresh() }
       else setErro(res.error ?? 'Erro ao resolver revisão.')
@@ -180,7 +181,7 @@ function AbaFinanceiro({
             </p>
           )}
           <div>
-            <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Motivo da decisão (opcional)</label>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Motivo da decisão <span className="text-red-500">*</span></label>
             <textarea
               value={acao.observacao}
               onChange={e => setAcao({ ...acao, observacao: e.target.value })}
@@ -307,6 +308,7 @@ export function CampanhaDetalheClient({ campanha, resultado, apuracoes, lojaId, 
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('Resultado')
   const [isPending, startTransition] = useTransition()
+  const [erroStatus, setErroStatus] = useState<string | null>(null)
   const TABS = podeGerenciar ? TABS_GESTOR : TABS_MEMBRO
 
   const itensAtivos = campanha.itens.filter(i => i.ativo)
@@ -317,10 +319,11 @@ export function CampanhaDetalheClient({ campanha, resultado, apuracoes, lojaId, 
   const isDiaria = campanha.periodicidade === 'diaria'
 
   function handleStatusChange(novoStatus: StatusCampanha) {
+    setErroStatus(null)
     startTransition(async () => {
       const res = await atualizarStatusCampanha(campanha.id, lojaId, novoStatus)
       if (res.ok) router.refresh()
-      else alert(res.error)
+      else setErroStatus(res.error ?? 'Erro ao alterar status.')
     })
   }
 
@@ -425,6 +428,10 @@ export function CampanhaDetalheClient({ campanha, resultado, apuracoes, lojaId, 
             </button>
           )}
         </div>
+      )}
+
+      {erroStatus && (
+        <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">{erroStatus}</p>
       )}
 
       {/* Tabs */}
