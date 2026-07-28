@@ -251,7 +251,7 @@ export async function atualizarCampanha(
   return { ok: true }
 }
 
-// ─── Editar campanha completa (wizard de edição) ──────────────────────────────
+// ─── Editar campanha completa (wizard de edição — transacional via RPC) ──────
 
 export async function editarCampanha(input: {
   campanhaId: string
@@ -261,153 +261,38 @@ export async function editarCampanha(input: {
   participantes: ParticipanteInput[]
   versaoEsperada?: string
 }): Promise<{ ok: boolean; error?: string }> {
+  // Pré-validação rápida (antes de chamar RPC): falha imediata se sem sessão ou role
   const userId = await validarGestor(input.lojaId)
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
-  const admin = createAdminClient()
+  // Chamada transacional via cliente autenticado — auth.uid() identifica o usuário real
+  // A RPC valida tudo internamente e faz rollback automático em caso de falha parcial
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('editar_campanha_transacional_v1', {
+    p_campanha_id:     input.campanhaId,
+    p_loja_id:         input.lojaId,
+    p_campos: {
+      nome:              input.campanha.nome,
+      descricao:         input.campanha.descricao ?? null,
+      orientacao_equipe: input.campanha.orientacao_equipe ?? null,
+      objetivo:          input.campanha.objetivo ?? null,
+      data_inicio:       input.campanha.data_inicio,
+      data_fim:          input.campanha.data_fim,
+      meta_individual:   input.campanha.meta_individual ?? null,
+      meta_loja:         input.campanha.meta_loja ?? null,
+      periodicidade:     input.campanha.periodicidade,
+      unidade_meta:      input.campanha.unidade_meta,
+    },
+    p_itens:           input.itens,
+    p_participantes:   input.participantes,
+    p_premiacao:       input.campanha.premiacao ?? null,
+    p_versao_esperada: input.versaoEsperada ?? null,
+  })
 
-  if (!(await verificarCampanhaLoja(admin, input.campanhaId, input.lojaId))) {
-    return { ok: false, error: 'Campanha não encontrada.' }
-  }
+  if (error) return { ok: false, error: error.message }
 
-  const { data: camp } = await admin
-    .from('campanhas_venda')
-    .select('status, atualizado_em')
-    .eq('id', input.campanhaId)
-    .maybeSingle()
-
-  const campRow = camp as { status: StatusCampanha; atualizado_em: string } | null
-  const status = campRow?.status
-  if (!status || ['encerrada', 'cancelada'].includes(status)) {
-    return { ok: false, error: 'Campanha encerrada ou cancelada não pode ser editada.' }
-  }
-
-  // Controle de concorrência otimista: rejeita se a campanha foi alterada desde o carregamento
-  if (input.versaoEsperada && campRow?.atualizado_em !== input.versaoEsperada) {
-    return { ok: false, error: 'Esta campanha foi alterada por outra pessoa. Atualize a página antes de salvar novamente.' }
-  }
-
-  // Validar que produtos pertencem à loja (defesa contra chamadas diretas à action)
-  if (input.itens.length > 0) {
-    const produtosIds = input.itens.map(i => i.produto_id)
-    const { data: prodCheck } = await admin
-      .from('produtos')
-      .select('id')
-      .in('id', produtosIds)
-      .eq('loja_id', input.lojaId)
-    const produtosValidos = new Set((prodCheck ?? []).map((p: { id: string }) => p.id))
-    if (produtosIds.some(id => !produtosValidos.has(id))) {
-      return { ok: false, error: 'Um ou mais produtos não pertencem à loja.' }
-    }
-  }
-
-  // Validar que participantes são membros ativos da loja
-  if (input.participantes.length > 0) {
-    const perfisIds = input.participantes.map(p => p.perfil_id)
-    const { data: memCheck } = await admin
-      .from('membros_loja')
-      .select('perfil_id')
-      .in('perfil_id', perfisIds)
-      .eq('loja_id', input.lojaId)
-      .eq('ativo', true)
-    const membrosValidos = new Set((memCheck ?? []).map((m: { perfil_id: string }) => m.perfil_id))
-    if (perfisIds.some(id => !membrosValidos.has(id))) {
-      return { ok: false, error: 'Um ou mais participantes não são membros ativos desta loja.' }
-    }
-  }
-
-  const agora = new Date().toISOString()
-
-  // 1. Atualizar cabeçalho (tipo e loja_id são imutáveis)
-  const { error: errC } = await admin
-    .from('campanhas_venda')
-    .update({
-      nome: input.campanha.nome.trim(),
-      descricao: input.campanha.descricao?.trim() || null,
-      orientacao_equipe: input.campanha.orientacao_equipe?.trim() || null,
-      objetivo: input.campanha.objetivo?.trim() || null,
-      data_inicio: input.campanha.data_inicio,
-      data_fim: input.campanha.data_fim,
-      meta_individual: input.campanha.meta_individual || null,
-      meta_loja: input.campanha.meta_loja || null,
-      periodicidade: input.campanha.periodicidade,
-      unidade_meta: input.campanha.unidade_meta,
-      atualizado_em: agora,
-    })
-    .eq('id', input.campanhaId)
-    .eq('loja_id', input.lojaId)
-
-  if (errC) return { ok: false, error: errC.message }
-
-  // 2. Substituir itens: upsert (resolve unique constraint campanha_id+produto_id),
-  //    depois inativar os que saíram do wizard
-  const novosItens = input.itens.map((item, idx) => ({
-    campanha_id: input.campanhaId,
-    produto_id: item.produto_id,
-    quantidade_conteudo: item.quantidade_conteudo,
-    unidade_conteudo: item.unidade_conteudo,
-    preco_campanha: item.preco_campanha,
-    preco_referencia: item.preco_referencia || null,
-    ciclo_recompra_dias: item.ciclo_recompra_dias || null,
-    ativo: true,
-    ordem: item.ordem ?? idx,
-    atualizado_em: agora,
-  }))
-
-  if (novosItens.length > 0) {
-    const { error: errI } = await admin
-      .from('campanhas_venda_itens')
-      .upsert(novosItens, { onConflict: 'campanha_id,produto_id' })
-    if (errI) return { ok: false, error: errI.message }
-  }
-
-  // Inativar produtos que foram removidos do wizard
-  const produtosAtivos = input.itens.map(i => i.produto_id)
-  if (produtosAtivos.length > 0) {
-    await admin
-      .from('campanhas_venda_itens')
-      .update({ ativo: false, atualizado_em: agora })
-      .eq('campanha_id', input.campanhaId)
-      .not('produto_id', 'in', `(${produtosAtivos.join(',')})`)
-  } else {
-    await admin
-      .from('campanhas_venda_itens')
-      .update({ ativo: false, atualizado_em: agora })
-      .eq('campanha_id', input.campanhaId)
-  }
-
-  // 3. Substituir participantes: inativar existentes, reinserir novos
-  await admin
-    .from('campanhas_venda_participantes')
-    .update({ ativo: false, data_fim: agora.slice(0, 10) })
-    .eq('campanha_id', input.campanhaId)
-
-  if (input.participantes.length > 0) {
-    const { error: errP } = await admin
-      .from('campanhas_venda_participantes')
-      .upsert(
-        input.participantes.map(p => ({
-          campanha_id: input.campanhaId,
-          perfil_id: p.perfil_id,
-          meta_individual: p.meta_individual || null,
-          ativo: true,
-          data_fim: null,
-        })),
-        { onConflict: 'campanha_id,perfil_id' }
-      )
-    if (errP) return { ok: false, error: errP.message }
-  }
-
-  // 4. Atualizar premiação
-  if (input.campanha.premiacao && input.campanha.premiacao.tipo !== 'sem_premiacao') {
-    const premRes = await _salvarPremiacao(admin, input.campanhaId, input.campanha.premiacao)
-    if (!premRes.ok) return { ok: false, error: premRes.error }
-  } else {
-    await admin
-      .from('campanhas_premiacao')
-      .update({ ativo: false, atualizado_em: agora })
-      .eq('campanha_id', input.campanhaId)
-  }
+  const result = data as { ok: boolean; error?: string }
+  if (!result.ok) return { ok: false, error: result.error }
 
   revalidatePath('/campanhas')
   revalidatePath(`/campanhas/${input.campanhaId}`)
