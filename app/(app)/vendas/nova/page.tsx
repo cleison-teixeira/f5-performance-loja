@@ -47,8 +47,22 @@ export default async function NovaVendaPage({
   const multiLoja = !isAcessoLoja(userRole)
   const ctx = await getContextoLoja(user.id, multiLoja)
 
-  const lojaId = ctx.lojaId ?? ctx.lojas[0]?.id ?? null
-  const lojaNome = ctx.lojaId ? ctx.lojaNome : (ctx.lojas[0]?.nome ?? '')
+  // Dono/admin_f5 em "Toda a rede" não tem loja selecionada — bloquear antes de qualquer query
+  if (multiLoja && ctx.escopo === 'rede') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-xl font-semibold">Registrar compra para recompra</h1>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Selecione uma loja para registrar esta venda.
+        </div>
+      </div>
+    )
+  }
+
+  const lojaId = ctx.lojaId ?? null
+  const lojaNome = ctx.lojaNome ?? ''
 
   if (!lojaId) {
     return (
