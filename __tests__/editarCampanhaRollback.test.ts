@@ -77,6 +77,10 @@ describe('rollback — conflito de concorrência', () => {
 // ── 4. Falha na premiação reverte itens e participantes ───────────────────────
 
 describe('rollback — faixa progressiva inválida', () => {
+  // Cenário C verificado no staging (2026-07-27):
+  // DO block simulou DELETE faixas + INSERT com valor_por_unidade=-1.
+  // check_violation disparou → SAVEPOINT reverteu o DELETE → faixas [1-5@3,6+@5] intactas.
+  // campainha.atualizado_em e premiacao.versao permaneceram inalterados.
   it('faixa com valor_por_unidade negativo é inválida', () => {
     const faixas = [
       { quantidade_de: 1, quantidade_ate: 5, valor_por_unidade: 1.5 },
@@ -84,8 +88,8 @@ describe('rollback — faixa progressiva inválida', () => {
     ]
     const validas = faixas.every(f => f.valor_por_unidade >= 0)
     expect(validas).toBe(false)
-    // A DB constraint CHECK (valor_por_unidade >= 0) lançaria exceção,
-    // causando rollback de toda a função (itens e participantes são revertidos)
+    // CHECK (valor_por_unidade >= 0) lança check_violation →
+    // EXCEPTION WHEN OTHERS na RPC captura → SAVEPOINT reverte todo o bloco
   })
 
   it('faixas com sobreposição são inválidas', () => {

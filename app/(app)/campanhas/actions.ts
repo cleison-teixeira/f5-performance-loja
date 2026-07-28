@@ -1299,3 +1299,56 @@ export async function buscarCampanhaAtivaGestao(lojaId: string): Promise<{
     porParticipante,
   }
 }
+
+// ─── Cancelar venda vinculada a campanha ─────────────────────────────────────
+
+export async function cancelarVendaCampanha(input: {
+  vendaId: string
+  lojaId: string
+  motivo?: string
+}): Promise<{ ok: boolean; requer_revisao?: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Não autenticado.' }
+
+  const { data, error } = await supabase.rpc('cancelar_venda_campanha_v1', {
+    p_venda_id: input.vendaId,
+    p_loja_id:  input.lojaId,
+    p_motivo:   input.motivo ?? null,
+  })
+
+  if (error) return { ok: false, error: error.message }
+  const result = data as { ok: boolean; requer_revisao?: boolean; error?: string }
+  if (!result.ok) return { ok: false, error: result.error }
+
+  revalidatePath('/campanhas')
+  revalidatePath(`/campanhas/${input.lojaId}`)
+  return { ok: true, requer_revisao: result.requer_revisao ?? false }
+}
+
+// ─── Resolver apuração em revisão (pós-cancelamento com pagamento já efetuado) ─
+
+export async function resolverRevisaoApuracao(input: {
+  apuracaoId: string
+  lojaId: string
+  acao: 'aprovar' | 'estornar'
+  observacao?: string
+}): Promise<{ ok: boolean; status_final?: string; error?: string }> {
+  const userId = await validarGestor(input.lojaId)
+  if (!userId) return { ok: false, error: 'Sem permissão.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('resolver_revisao_apuracao_v1', {
+    p_apuracao_id: input.apuracaoId,
+    p_loja_id:     input.lojaId,
+    p_acao:        input.acao,
+    p_observacao:  input.observacao ?? null,
+  })
+
+  if (error) return { ok: false, error: error.message }
+  const result = data as { ok: boolean; status_final?: string; error?: string }
+  if (!result.ok) return { ok: false, error: result.error }
+
+  revalidatePath('/campanhas')
+  return { ok: true, status_final: result.status_final }
+}
