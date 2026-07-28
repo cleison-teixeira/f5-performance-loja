@@ -7,6 +7,9 @@ import { gerarAvisosParaVenda, type ItemParaGerarAviso } from '@/lib/avisos/gera
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
 import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
 import { normalizarNomePessoa } from '@/lib/utils/normalizacao-texto'
+import { calcularPremiacao } from '@/lib/campanhas/premiacao'
+import type { RegraPremiacao } from '@/lib/campanhas/premiacao'
+import type { TipoPremiacao, FaixaPremiacao, CampanhaPremiacao } from '@/app/(app)/campanhas/types'
 
 export async function buscarCliente(
   whatsapp: string,
@@ -62,6 +65,7 @@ type ResultadoVenda =
       previsao_comissao: number
       percentual_comissao: number
       avisos: Array<{ data_aviso: string; texto_renderizado: string; tipo: string }>
+      snapshot_avisos?: string[]
     }
   | { ok: false; erro: string }
 
@@ -337,6 +341,95 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
       return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
     }
 
+    // 5.6. Snapshot de regra para itens vinculados a campanhas
+    const snapshotAvisos: string[] = []
+
+    const itensCampanha = (itensVendaData as Array<{ id: string; produto_id: string | null }>)
+      .map((row, i) => {
+        const p = itensProcessados[i]
+        const info = p.produto_id ? campanhaMap.get(p.produto_id) : undefined
+        if (!info) return null
+        return {
+          itemVendaId: row.id as string,
+          campanhaId: info.campanhaId,
+          campanhaItemId: info.itemId,
+          quantidade: p.quantidade,
+          valorUnitario: p.preco_unitario,
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+
+    if (itensCampanha.length > 0) {
+      const campanhaIds = [...new Set(itensCampanha.map(i => i.campanhaId))]
+
+      const { data: premiacaoRows } = await admin
+        .from('campanhas_premiacao')
+        .select('campanha_id, tipo, valor, percentual, meta_gatilho, progressiva_retroativa, versao, campanhas_premiacao_faixas(id, premiacao_id, quantidade_de, quantidade_ate, valor_por_unidade, ordem)')
+        .in('campanha_id', campanhaIds)
+        .eq('ativo', true)
+
+      const premiacaoMap = new Map<string, CampanhaPremiacao>()
+      for (const row of premiacaoRows ?? []) {
+        const r = row as unknown as CampanhaPremiacao & { campanhas_premiacao_faixas: FaixaPremiacao[] }
+        premiacaoMap.set(r.campanha_id, {
+          id: '',
+          campanha_id: r.campanha_id,
+          tipo: r.tipo as TipoPremiacao,
+          valor: r.valor,
+          percentual: r.percentual,
+          meta_gatilho: r.meta_gatilho,
+          progressiva_retroativa: r.progressiva_retroativa ?? false,
+          versao: r.versao ?? 1,
+          ativo: true,
+          faixas: r.campanhas_premiacao_faixas ?? [],
+        })
+      }
+
+      for (const item of itensCampanha) {
+        const prem = premiacaoMap.get(item.campanhaId)
+        const regra: RegraPremiacao = prem
+          ? {
+              tipo: prem.tipo,
+              valor: prem.valor,
+              percentual: prem.percentual,
+              meta_gatilho: prem.meta_gatilho,
+              progressiva_retroativa: prem.progressiva_retroativa,
+              faixas: prem.faixas,
+            }
+          : { tipo: 'sem_premiacao' }
+
+        const { comissao } = calcularPremiacao(item.quantidade, item.valorUnitario, regra)
+
+        const { error: snapErr } = await admin
+          .from('campanhas_snapshot_regra')
+          .upsert(
+            {
+              campanha_id: item.campanhaId,
+              campanha_item_id: item.campanhaItemId,
+              venda_id,
+              item_venda_id: item.itemVendaId,
+              loja_id: dados.loja_id,
+              vendedora_id: dados.vendedora_id,
+              quantidade: item.quantidade,
+              valor_unitario: item.valorUnitario,
+              valor_total: Math.round(item.quantidade * item.valorUnitario * 100) / 100,
+              tipo_premiacao: regra.tipo,
+              valor_fixo_snapshot: prem?.valor ?? null,
+              percentual_snapshot: prem?.percentual ?? null,
+              faixa_snapshot: prem?.faixas?.length ? JSON.stringify(prem.faixas) : null,
+              comissao_calculada: comissao > 0 ? comissao : null,
+              versao_regra: prem?.versao ?? 1,
+              status: 'ativo',
+            },
+            { onConflict: 'item_venda_id', ignoreDuplicates: true }
+          )
+
+        if (snapErr) {
+          snapshotAvisos.push(`Snapshot não criado para item ${item.itemVendaId}: ${snapErr.message}`)
+        }
+      }
+    }
+
     // 6. Gerar avisos — sequência única agrupada via função central
     const todosAvisos: AvisoParaInserir[] = []
     const mensagemTipo: Record<string, string> = {}
@@ -400,6 +493,7 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
         texto_renderizado: a.texto_renderizado,
         tipo: mensagemTipo[a.mensagem_id] ?? 'agradecimento',
       })),
+      ...(snapshotAvisos.length > 0 ? { snapshot_avisos: snapshotAvisos } : {}),
     }
   } catch (err) {
     const mensagem = err instanceof Error ? err.message : 'Erro inesperado'
