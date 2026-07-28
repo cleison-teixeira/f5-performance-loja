@@ -1307,6 +1307,8 @@ export async function cancelarVendaCampanha(input: {
   lojaId: string
   motivo?: string
 }): Promise<{ ok: boolean; requer_revisao?: boolean; avisos_cancelados?: number; error?: string }> {
+  if (!input.motivo?.trim()) return { ok: false, error: 'O motivo do cancelamento é obrigatório.' }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Não autenticado.' }
@@ -1346,6 +1348,8 @@ export async function resolverRevisaoApuracao(input: {
   acao: 'aprovar' | 'estornar'
   observacao?: string
 }): Promise<{ ok: boolean; status_final?: string; error?: string }> {
+  if (!input.observacao?.trim()) return { ok: false, error: 'O motivo da decisão é obrigatório.' }
+
   const userId = await validarGestor(input.lojaId)
   if (!userId) return { ok: false, error: 'Sem permissão.' }
 
