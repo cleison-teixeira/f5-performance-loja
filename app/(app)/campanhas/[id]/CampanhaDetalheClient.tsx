@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, Package2, Users, Target, TrendingUp,
-  ShoppingCart, Info, BarChart3, Trophy, Pencil,
+  ShoppingCart, Info, BarChart3, Trophy, Pencil, Wallet,
+  CheckCircle2, AlertCircle,
 } from 'lucide-react'
-import { atualizarStatusCampanha } from '../actions'
-import type { CampanhaVenda, ResultadoCampanha, StatusCampanha } from '../types'
+import { atualizarStatusCampanha, marcarComoPago, resolverRevisaoApuracao } from '../actions'
+import type { CampanhaVenda, ResultadoCampanha, StatusCampanha, Apuracao, StatusApuracao } from '../types'
 import { TIPO_LABELS, STATUS_LABELS, STATUS_CORES, UNIDADE_LABELS } from '../types'
 
 function fmtBRL(v: number) {
@@ -34,20 +35,173 @@ function BarraProgresso({ valor, meta, cor = 'bg-primary' }: { valor: number; me
   )
 }
 
+const APURACAO_STATUS_INFO: Record<StatusApuracao, { label: string; cls: string }> = {
+  pendente:    { label: 'Pendente',    cls: 'bg-amber-100 text-amber-700' },
+  aprovado:    { label: 'Aprovado',    cls: 'bg-blue-100 text-blue-700' },
+  pago:        { label: 'Pago',        cls: 'bg-emerald-100 text-emerald-700' },
+  cancelado:   { label: 'Cancelado',   cls: 'bg-zinc-100 text-zinc-500' },
+  em_revisao:  { label: 'Em revisão',  cls: 'bg-orange-100 text-orange-700' },
+}
+
+// ── Aba Financeiro ────────────────────────────────────────────────────────────
+
+function AbaFinanceiro({
+  apuracoes, campanhaId, lojaId, onRefresh,
+}: {
+  apuracoes: Apuracao[]
+  campanhaId: string
+  lojaId: string
+  onRefresh: () => void
+}) {
+  const [isPending, startTransition] = useTransition()
+
+  function handlePagar(ap: Apuracao) {
+    const valor = prompt(`Valor pago para ${ap.vendedora_nome} (R$):`, ap.valor_apurado.toFixed(2))
+    if (valor == null) return
+    const forma = prompt('Forma de pagamento (ex: pix, dinheiro):', 'pix')
+    if (forma == null) return
+    const data = new Date().toISOString().slice(0, 10)
+    startTransition(async () => {
+      const res = await marcarComoPago({
+        apuracaoId: ap.id,
+        campanhaId,
+        lojaId,
+        valorPago: parseFloat(valor.replace(',', '.')),
+        formaPagamento: forma,
+        dataPagamento: data,
+      })
+      if (res.ok) onRefresh()
+      else alert(res.error)
+    })
+  }
+
+  function handleResolverRevisao(ap: Apuracao, acao: 'aprovar' | 'estornar') {
+    const obs = prompt(`Observação (opcional):`, '')
+    if (obs == null) return
+    startTransition(async () => {
+      const res = await resolverRevisaoApuracao({
+        apuracaoId: ap.id,
+        lojaId,
+        acao,
+        observacao: obs || undefined,
+      })
+      if (res.ok) onRefresh()
+      else alert(res.error)
+    })
+  }
+
+  if (apuracoes.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground">
+        Nenhuma apuração registrada ainda. Apurações aparecem após o processamento de vendas.
+      </div>
+    )
+  }
+
+  const total = apuracoes.reduce((s, a) => s + (a.valor_pago ?? a.valor_apurado ?? 0), 0)
+  const emRevisao = apuracoes.filter(a => a.status === 'em_revisao')
+
+  return (
+    <div className="space-y-3">
+      {emRevisao.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-950/20 dark:border-orange-800 dark:text-orange-300">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{emRevisao.length} apuração(ões) em revisão por cancelamento pós-pagamento.</span>
+        </div>
+      )}
+
+      {apuracoes.map(ap => {
+        const info = APURACAO_STATUS_INFO[ap.status]
+        return (
+          <div key={ap.id} className="rounded-xl border bg-card p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold truncate">{ap.vendedora_nome}</p>
+              <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${info.cls}`}>
+                {info.label}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide">Qtd apurada</p>
+                <p className="font-semibold text-foreground">{ap.quantidade_apurada}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide">Comissão</p>
+                <p className="font-semibold text-foreground">{fmtBRL(ap.valor_apurado)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide">Pago</p>
+                <p className={`font-semibold ${ap.valor_pago != null ? 'text-emerald-600' : 'text-foreground'}`}>
+                  {ap.valor_pago != null ? fmtBRL(ap.valor_pago) : '—'}
+                </p>
+              </div>
+            </div>
+            {ap.periodo_referencia && (
+              <p className="text-[10px] text-muted-foreground">
+                Período: {fmtData(ap.periodo_referencia)} · {ap.periodicidade === 'diaria' ? 'Diária' : 'Total'}
+              </p>
+            )}
+            {ap.observacao && (
+              <p className="text-[10px] text-muted-foreground italic">{ap.observacao}</p>
+            )}
+            {ap.status === 'aprovado' && (
+              <button
+                onClick={() => handlePagar(ap)}
+                disabled={isPending}
+                className="mt-1 flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Marcar como pago
+              </button>
+            )}
+            {ap.status === 'em_revisao' && (
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => handleResolverRevisao(ap, 'aprovar')}
+                  disabled={isPending}
+                  className="flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  Manter pago
+                </button>
+                <button
+                  onClick={() => handleResolverRevisao(ap, 'estornar')}
+                  disabled={isPending}
+                  className="flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-50 disabled:opacity-50"
+                >
+                  Estornar
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      <div className="rounded-xl border bg-muted/30 p-3 flex items-center justify-between text-sm">
+        <span className="text-muted-foreground font-medium">Total da campanha</span>
+        <span className="font-bold">{fmtBRL(total)}</span>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   campanha: CampanhaVenda
   resultado: ResultadoCampanha
+  apuracoes: Apuracao[]
   lojaId: string
   podeGerenciar: boolean
 }
 
-const TABS = ['Resultado', 'Produtos', 'Equipe', 'Informações'] as const
-type Tab = typeof TABS[number]
+const TABS_GESTOR = ['Resultado', 'Produtos', 'Equipe', 'Financeiro', 'Informações'] as const
+const TABS_MEMBRO = ['Resultado', 'Produtos', 'Equipe', 'Informações'] as const
+type Tab = 'Resultado' | 'Produtos' | 'Equipe' | 'Financeiro' | 'Informações'
 
-export function CampanhaDetalheClient({ campanha, resultado, lojaId, podeGerenciar }: Props) {
+export function CampanhaDetalheClient({ campanha, resultado, apuracoes, lojaId, podeGerenciar }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('Resultado')
   const [isPending, startTransition] = useTransition()
+  const TABS = podeGerenciar ? TABS_GESTOR : TABS_MEMBRO
 
   const itensAtivos = campanha.itens.filter(i => i.ativo)
   const participantesAtivos = campanha.participantes.filter(p => p.ativo)
@@ -350,6 +504,16 @@ export function CampanhaDetalheClient({ campanha, resultado, lojaId, podeGerenci
             })
           )}
         </div>
+      )}
+
+      {/* ─── Tab Financeiro ──────────────────────────────────────────────────── */}
+      {tab === 'Financeiro' && (
+        <AbaFinanceiro
+          apuracoes={apuracoes}
+          campanhaId={campanha.id}
+          lojaId={lojaId}
+          onRefresh={() => router.refresh()}
+        />
       )}
 
       {/* ─── Tab Informações ─────────────────────────────────────────────────── */}

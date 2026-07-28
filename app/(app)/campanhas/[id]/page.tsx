@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect, notFound } from 'next/navigation'
 import { getAppContext } from '@/lib/app/contexto'
-import { buscarCampanha, buscarResultadoCampanha } from '../actions'
+import { buscarCampanha, buscarResultadoCampanha, buscarApuracoesCampanha } from '../actions'
 import { CampanhaDetalheClient } from './CampanhaDetalheClient'
 
 export default async function CampanhaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,9 +17,10 @@ export default async function CampanhaDetalhePage({ params }: { params: Promise<
   const lojaId = ctx.lojaId
   const podeGerenciar = ['dono', 'gerente', 'admin_f5', 'lider'].includes(role)
 
-  const [campanha, resultado] = await Promise.all([
+  const [campanha, resultado, apuracoes] = await Promise.all([
     buscarCampanha(id, lojaId),
     buscarResultadoCampanha(id, lojaId),
+    podeGerenciar ? buscarApuracoesCampanha(id, lojaId) : Promise.resolve([]),
   ])
 
   if (!campanha) notFound()
@@ -28,6 +29,7 @@ export default async function CampanhaDetalhePage({ params }: { params: Promise<
     <CampanhaDetalheClient
       campanha={campanha}
       resultado={resultado}
+      apuracoes={apuracoes}
       lojaId={lojaId}
       podeGerenciar={podeGerenciar}
     />

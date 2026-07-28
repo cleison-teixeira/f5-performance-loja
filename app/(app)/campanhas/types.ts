@@ -4,7 +4,7 @@ export type PeriodicidadeMeta = 'diaria' | 'total'
 export type UnidadeMeta = 'pacote' | 'unidade'
 export type UnidadeConteudo = 'g' | 'kg' | 'ml' | 'L' | 'unidade'
 export type TipoPremiacao = 'fixo_unidade' | 'percentual' | 'bonus_meta' | 'faixa_progressiva' | 'premio_fisico' | 'sem_premiacao'
-export type StatusApuracao = 'pendente' | 'aprovado' | 'pago' | 'cancelado'
+export type StatusApuracao = 'pendente' | 'aprovado' | 'pago' | 'cancelado' | 'em_revisao'
 export type TipoMaterial = 'material' | 'treinamento' | 'argumento'
 export type StatusSnapshot = 'ativo' | 'cancelado' | 'estornado'
 
