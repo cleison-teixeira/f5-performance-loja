@@ -181,7 +181,7 @@ export async function gerarAvisosParaVenda(params: Params): Promise<ResultadoGer
     vendedora_id,
     cliente_nome,
     produto_nome: produto_nome_lista,
-    produto_nome_ancora: recorrentes.length > 1 ? anchor.produto_nome : undefined,
+    n_produtos: recorrentes.length,
     vendedora_nome,
     loja_nome,
     categoria: anchor.categoria ?? null,

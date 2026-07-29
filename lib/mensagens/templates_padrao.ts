@@ -15,7 +15,7 @@ export const TEMPLATES_PADRAO = [
     ordem: 3 as const,
     tipo: 'recompra' as const,
     dias_apos_venda: 30,
-    texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando em breve! Quer garantir já o próximo?',
+    texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. {produto_artigo} {produto} {produto_devem} estar acabando em breve! Quer garantir já {produto_proximos}?',
   },
 ] as const
 
@@ -23,14 +23,14 @@ export const TEMPLATE_OFERTA = {
   ordem: 4 as const,
   tipo: 'oferta' as const,
   dias_apos_venda: 45,
-  texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Temos uma novidade especial de {produto} para você. Quer saber mais?',
+  texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Temos uma novidade especial {oferta_frase}. Quer saber mais?',
 }
 
 export const TEMPLATE_FOLLOW_UP = {
   ordem: 5 as const,
   tipo: 'follow_up' as const,
   dias_apos_venda: 32,
-  texto: 'Oi {cliente}, passando só para confirmar se você ainda quer que eu separe o {produto}. Posso deixar reservado para você até o fim do dia?',
+  texto: 'Oi {cliente}, passando só para confirmar se você ainda quer que eu separe {produto_possessivo} {produto}. Posso deixar reservado para você até o fim do dia?',
 }
 
 export interface TemplateEstilo {
@@ -97,9 +97,9 @@ export const TEMPLATES_POR_ESTILO: Record<string, TemplateEstilo[]> = {
   clean: [
     { ordem: 1, tipo: 'agradecimento', texto: 'Olá, aqui é a {vendedora} da {loja}. Estou passando para agradecer pela sua compra. Peço que salve meu contato porque vou acompanhar sua evolução com {produto} nos próximos dias.' },
     { ordem: 2, tipo: 'relacionamento', texto: 'Oi {cliente}! Como está sendo sua experiência com {produto}? Sou {vendedora} da {loja}, qualquer dúvida é só me chamar!' },
-    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Seu {produto} deve estar acabando em breve! Quer garantir já o próximo?' },
-    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Temos uma novidade especial de {produto} para você. Quer saber mais?' },
-    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, passando só para confirmar se você ainda quer que eu separe o {produto}. Posso deixar reservado para você até o fim do dia?' },
+    { ordem: 3, tipo: 'recompra', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. {produto_artigo} {produto} {produto_devem} estar acabando em breve! Quer garantir já {produto_proximos}?' },
+    { ordem: 4, tipo: 'oferta', texto: 'Oi {cliente}! Aqui é {vendedora} da {loja}. Temos uma novidade especial {oferta_frase}. Quer saber mais?' },
+    { ordem: 5, tipo: 'follow_up', texto: 'Oi {cliente}, passando só para confirmar se você ainda quer que eu separe {produto_possessivo} {produto}. Posso deixar reservado para você até o fim do dia?' },
   ],
   consultivo: [
     { ordem: 1, tipo: 'agradecimento', texto: 'Olá, {cliente}! Aqui é {vendedora} da {loja}. Muito obrigada pela confiança e pela compra do {produto}! Salve meu contato — vou acompanhar você nessa jornada e estou disponível para qualquer dúvida.' },

@@ -9,7 +9,7 @@ interface ContextoAviso {
   vendedora_id: string
   cliente_nome: string
   produto_nome: string
-  produto_nome_ancora?: string  // used for recompra/oferta/follow_up in multi-product grouped sequences
+  n_produtos?: number
   vendedora_nome: string
   loja_nome: string
   origem_recompra_id?: string
@@ -99,13 +99,9 @@ export function gerarAvisos(
     const m = String(dataAviso.getMonth() + 1).padStart(2, '0')
     const d = String(dataAviso.getDate()).padStart(2, '0')
 
-    // In multi-product sequences, anchor product name is used for recompra/oferta/follow_up
-    const TIPOS_ANCORA = new Set(['recompra', 'oferta', 'follow_up'])
-    const produtoNomeEfetivo = (ctx.produto_nome_ancora && TIPOS_ANCORA.has(msg.tipo))
-      ? ctx.produto_nome_ancora
-      : ctx.produto_nome
-
     // Mapeamento de variáveis para interpolação de templates comerciais
+    const nProd = ctx.n_produtos ?? 1
+    const multi = nProd > 1
     const primNomeCliente = extrairPrimeiroNome(ctx.cliente_nome)
     const primNomeVendedora = extrairPrimeiroNome(ctx.vendedora_nome)
     const mapVariaveis: Record<string, string> = {
@@ -119,8 +115,13 @@ export function gerarAvisos(
       vendedora_nome_completo: ctx.vendedora_nome,
       loja: ctx.loja_nome,
       loja_nome: ctx.loja_nome,
-      produto: produtoNomeEfetivo,
-      produto_nome: produtoNomeEfetivo,
+      produto: ctx.produto_nome,
+      produto_nome: ctx.produto_nome,
+      produto_artigo: multi ? 'Seus produtos' : 'Seu',
+      produto_devem: multi ? 'devem' : 'deve',
+      produto_proximos: multi ? 'os próximos' : 'o próximo',
+      produto_possessivo: multi ? 'seus produtos:' : 'seu',
+      oferta_frase: multi ? `para seus produtos: ${ctx.produto_nome}` : `de ${ctx.produto_nome} para você`,
       categoria: ctx.categoria || '',
       parceiro: ctx.parceiro || '',
       ciclo_dias: String(N),

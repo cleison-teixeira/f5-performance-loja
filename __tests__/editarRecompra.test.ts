@@ -87,15 +87,15 @@ describe('gerarAvisos', () => {
     expect(dataOfe >= dataRec).toBe(true)
   })
 
-  it('A5: multiple products — produto_nome_ancora used for recompra type', () => {
+  it('A5: multiple products — all types use full produto_nome list', () => {
     const avisos = gerarAvisos(
       [MENSAGEM_RECOMPRA],
-      { ...CTX_BASE, produto_nome: 'Colágeno e Vitamina C', produto_nome_ancora: 'Colágeno' },
+      { ...CTX_BASE, produto_nome: 'Colágeno e Vitamina C', n_produtos: 2 },
       '2026-01-01',
       30
     )
     expect(avisos[0].texto_renderizado).toContain('Colágeno')
-    expect(avisos[0].texto_renderizado).not.toContain('e Vitamina C')
+    expect(avisos[0].texto_renderizado).toContain('Vitamina C')
   })
 })
 
@@ -912,8 +912,7 @@ describe('Bug: substituição Whey→Wheijo — validação por âncora (guard 4
       db,
     })
     // Creatina é âncora (ciclo=30; Wheijo=null→30, tie → primeiro vence)
-    // produto_nome_lista = "Creatina e Wheijo" → usado em relacionamento (não está em TIPOS_ANCORA)
-    // produto_nome_ancora = "Creatina" → usado em recompra/oferta/follow_up (estão em TIPOS_ANCORA)
+    // Todos os tipos agora usam produto_nome_lista ("Creatina e Wheijo")
     // Avisos identificados por mensagem_id: m-p-creatina-2 (rel, ordem=2), m-p-creatina-3 (rec, ordem=3)
     const rel = result.avisos.find(a => a.mensagem_id === 'm-p-creatina-2')
     const rec = result.avisos.find(a => a.mensagem_id === 'm-p-creatina-3')
@@ -922,7 +921,7 @@ describe('Bug: substituição Whey→Wheijo — validação por âncora (guard 4
     expect(rel?.texto_renderizado).toContain('Creatina')
     expect(rel?.texto_renderizado).toContain('Wheijo')
     expect(rec?.texto_renderizado).toContain('Creatina')
-    expect(rec?.texto_renderizado).not.toContain('Wheijo')
+    expect(rec?.texto_renderizado).toContain('Wheijo')
   })
 })
 

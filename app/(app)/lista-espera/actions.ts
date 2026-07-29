@@ -55,7 +55,7 @@ async function gerarAvisosVendaItem(
   vendedoraId: string,
   clienteNome: string,
   produtoNome: string,
-  produtoNomeAncora?: string,
+  nProdutos?: number,
   cicloOverride?: number | null,
   qtdMsgOverride?: number | null,
 ): Promise<void> {
@@ -129,7 +129,7 @@ async function gerarAvisosVendaItem(
     vendedora_id: vendedoraId,
     cliente_nome: clienteNome,
     produto_nome: produtoNome,
-    produto_nome_ancora: produtoNomeAncora,
+    n_produtos: nProdutos ?? 1,
     vendedora_nome,
     loja_nome,
     categoria,
@@ -541,7 +541,7 @@ async function processarConversaoVenda(
         .maybeSingle()
       const itemVendaId = (ivData as unknown as { id: string } | null)?.id ?? null
       if (itemVendaId) {
-        await gerarAvisosVendaItem(existingVendaId, itemVendaId, finalProdutoId, finalClienteId, loja_id, vendedora_id, cliente_nome, produto_nome, undefined, itemCiclo, itemQtdMsg)
+        await gerarAvisosVendaItem(existingVendaId, itemVendaId, finalProdutoId, finalClienteId, loja_id, vendedora_id, cliente_nome, produto_nome, 1, itemCiclo, itemQtdMsg)
       }
     }
     return existingVendaId
@@ -593,7 +593,7 @@ async function processarConversaoVenda(
 
   // Gerar avisos apenas para produto recorrente — lança erro se falhar
   if (itemRecorrente && finalProdutoId && finalClienteId && itemVendaId) {
-    await gerarAvisosVendaItem(newVendaId, itemVendaId, finalProdutoId, finalClienteId, loja_id, vendedora_id, cliente_nome, produto_nome, undefined, itemCiclo, itemQtdMsg)
+    await gerarAvisosVendaItem(newVendaId, itemVendaId, finalProdutoId, finalClienteId, loja_id, vendedora_id, cliente_nome, produto_nome, 1, itemCiclo, itemQtdMsg)
   }
 
   return newVendaId
@@ -709,13 +709,12 @@ export async function atualizarStatusGrupoListaEspera(
           : nomesProdutos.length === 2
             ? `${nomesProdutos[0]} e ${nomesProdutos[1]}`
             : `${nomesProdutos.slice(0, -1).join(', ')} e ${nomesProdutos[nomesProdutos.length - 1]}`
-        const anchorNome = anchorLE.produto_nome as string | undefined
         try {
           await gerarAvisosVendaItem(
             vendaExistente, itemVendaIdRetry, anchorLE.produto_id as string, clienteId,
             lojaId, (itens[0].vendedora_id ?? '') as string,
             cliente_nome, produto_nome_lista,
-            nomesProdutos.length > 1 ? anchorNome : undefined,
+            nomesProdutos.length,
             anchorLE.ciclo_recompra_dias ?? 30,
             anchorLE.qtd_mensagens ?? 5,
           )
@@ -851,13 +850,11 @@ export async function atualizarStatusGrupoListaEspera(
         : nomesProdutos.length === 2
           ? `${nomesProdutos[0]} e ${nomesProdutos[1]}`
           : `${nomesProdutos.slice(0, -1).join(', ')} e ${nomesProdutos[nomesProdutos.length - 1]}`
-      const anchorNome = anchorLE.produto_nome as string | undefined
-
       try {
         await gerarAvisosVendaItem(
           newVendaId, anchorItemVendaId, anchorProdutoId, clienteId,
           lojaId, vendedora_id, cliente_nome, produto_nome_lista,
-          nomesProdutos.length > 1 ? anchorNome : undefined,
+          nomesProdutos.length,
           anchorLE.ciclo_recompra_dias ?? 30,
           anchorLE.qtd_mensagens ?? 5,
         )
