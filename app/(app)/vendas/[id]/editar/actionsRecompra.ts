@@ -148,7 +148,7 @@ export async function editarRecompra(dados: {
       ciclo_recompra_dias: item.ciclo_recompra_dias,
     }))
 
-    const { avisos: avisosPlaneados, porItem } = await planejarAvisosParaVenda({
+    const { avisos: avisosPlaneados, ancora } = await planejarAvisosParaVenda({
       venda_id: dados.venda_id,
       loja_id,
       cliente_id,
@@ -163,20 +163,13 @@ export async function editarRecompra(dados: {
       db: admin,
     })
 
-    // Guard: validação por produto — cada item recorrente deve ter tipos de aviso aplicáveis.
-    // sem_mensagens: produto sem linhas em mensagens_produto (config incompleta).
-    // somente_agradecimento: produto com mensagens, mas nenhuma aplicável à origem recompra (config incompleta).
-    // Ambos bloqueiam; a mensagem diferencia o motivo para orientar a correção.
-    for (const itemResult of porItem) {
-      if (itemResult.tipos.length === 0) {
-        const detalhe = itemResult.motivo_sem_aviso === 'somente_agradecimento'
-          ? 'Ele tem apenas mensagem de agradecimento; configure mensagens de acompanhamento (relacionamento, recompra ou oferta).'
-          : 'Nenhuma mensagem foi encontrada para este produto.'
-        return {
-          ...zero,
-          erro: `Não foi possível salvar. O produto "${itemResult.produto_nome}" não pode gerar avisos de recompra. ${detalhe}`,
-        }
-      }
+    // Guard: valida apenas o produto principal da sequência (produto âncora).
+    // Produtos não-âncora compõem o contexto da venda mas não geram sequência própria.
+    if (ancora && ancora.tipos.length === 0) {
+      const erro = ancora.motivo_sem_aviso === 'somente_agradecimento'
+        ? `Não foi possível salvar. O produto '${ancora.produto_nome}' possui apenas mensagem de agradecimento. Configure ao menos uma mensagem de acompanhamento.`
+        : `Não foi possível salvar. Nenhuma mensagem foi encontrada para o produto '${ancora.produto_nome}'.`
+      return { ...zero, erro }
     }
 
     // 7. Calculate commission without inserting (mirrors gravarComissaoVenda logic)

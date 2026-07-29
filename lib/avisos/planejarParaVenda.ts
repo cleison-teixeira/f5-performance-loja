@@ -47,6 +47,7 @@ export interface ResultadoPlanejamento {
   avisos: AvisoParaInserir[]
   tipos: string[]
   porItem: ItemResultado[]
+  ancora: ItemResultado | null  // entrada do âncora; null quando não há itens recorrentes
 }
 
 interface Params {
@@ -83,7 +84,7 @@ export async function planejarAvisosParaVenda(params: Params): Promise<Resultado
   } = params
 
   const recorrentes = itens.filter(i => i.recorrente && i.produto_id)
-  if (recorrentes.length === 0) return { avisos: [], tipos: [], porItem: [] }
+  if (recorrentes.length === 0) return { avisos: [], tipos: [], porItem: [], ancora: null }
 
   let anchorIdx = 0
   let minCiclo = recorrentes[0].ciclo_recompra_dias ?? 30
@@ -169,9 +170,9 @@ export async function planejarAvisosParaVenda(params: Params): Promise<Resultado
     }
   }
 
-  // ── Per-product check: verify each recurrent item independently ───────────
+  // ── Per-product check: informational only ────────────────────────────────
   // Non-anchor products don't generate their own aviso rows (by design — the anchor's
-  // avisos mention all products in the text), but their message configuration must be valid.
+  // avisos mention all products in the text). Their entries are kept for diagnostics.
 
   const porItem: ItemResultado[] = []
 
@@ -242,5 +243,5 @@ export async function planejarAvisosParaVenda(params: Params): Promise<Resultado
     })
   }
 
-  return { avisos, tipos: anchorTipos, porItem }
+  return { avisos, tipos: anchorTipos, porItem, ancora: porItem[anchorIdx] ?? null }
 }
