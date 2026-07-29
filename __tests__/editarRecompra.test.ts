@@ -504,26 +504,23 @@ describe('garantirMensagensProduto error handling', () => {
   })
 })
 
-// ── Guard de avisos planeados (lógica extraída de actionsRecompra) ───────────
-// O guard ANTIGO exigia exatamente 4 tipos incluindo follow_up (só qtd_mensagens=5 passava).
-// O guard NOVO bloqueia apenas quando não há nenhum aviso planeado para itens recorrentes.
+// ── Guard por produto (lógica extraída de actionsRecompra) ───────────────────
+// O guard ANTIGO (guard 1): exigia 4 tipos fixos incluindo follow_up — só qtd=5 passava.
+// O guard INTERMEDIÁRIO (guard 2): verificava apenas se avisosPlaneados.length === 0 — global.
+// O guard ATUAL (guard 3): verifica porItem individualmente — cada produto recorrente é validado.
 
-type ItemAncora = { produto_nome: string; ciclo_recompra_dias: number | null }
+type ItemPorItem = { produto_nome: string; tipos: string[] }
 
-function guardAvisosPlaneados(
-  recorrentesComProduto: ItemAncora[],
-  avisosPlaneados: unknown[]
-): string | null {
-  if (recorrentesComProduto.length > 0 && avisosPlaneados.length === 0) {
-    const ancora = recorrentesComProduto.reduce((min, cur) =>
-      (cur.ciclo_recompra_dias ?? 30) < (min.ciclo_recompra_dias ?? 30) ? cur : min
-    )
-    return `Não foi possível salvar. O produto "${ancora.produto_nome}" não tem mensagens de recompra configuradas. Verifique as mensagens deste produto antes de salvar.`
+function guardPorItem(porItem: ItemPorItem[]): string | null {
+  for (const item of porItem) {
+    if (item.tipos.length === 0) {
+      return `Não foi possível salvar. O produto "${item.produto_nome}" não gerou os avisos necessários. Revise as mensagens configuradas para este produto.`
+    }
   }
   return null
 }
 
-describe('Guard de avisos planeados (actionsRecompra)', () => {
+describe('Guard por produto (actionsRecompra — guard 3)', () => {
   it('G2: garantir error returns friendly message without calling RPC', async () => {
     const throwingGarantir = async () => { throw new Error('Falha ao garantir mensagens do produto: db error') }
     const rpcCalled = false
@@ -539,70 +536,124 @@ describe('Guard de avisos planeados (actionsRecompra)', () => {
     expect(errorMsg).toBe('Não foi possível preparar as mensagens deste produto. Nenhuma alteração foi salva.')
   })
 
-  it('G3: produto com qtd_mensagens=3 gera avisos → não bloqueia', () => {
-    const avisos = [{ id: 'a-rel' }, { id: 'a-rec' }] // relacionamento + recompra
-    const recorrentes: ItemAncora[] = [{ produto_nome: 'Wheijo', ciclo_recompra_dias: null }]
-    expect(guardAvisosPlaneados(recorrentes, avisos)).toBeNull()
+  it('G3: produto com qtd=3 tem tipos=[rel,rec] → não bloqueia', () => {
+    const porItem: ItemPorItem[] = [{ produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] }]
+    expect(guardPorItem(porItem)).toBeNull()
   })
 
-  it('G4: produto sem nenhum aviso planeado bloqueia e nomeia o produto', () => {
-    const recorrentes: ItemAncora[] = [{ produto_nome: 'Wheijo', ciclo_recompra_dias: null }]
-    const erro = guardAvisosPlaneados(recorrentes, [])
+  it('G4: produto sem tipos bloqueia e nomeia o produto', () => {
+    const porItem: ItemPorItem[] = [{ produto_nome: 'Wheijo', tipos: [] }]
+    const erro = guardPorItem(porItem)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Wheijo')
-    expect(erro).toContain('mensagens de recompra')
+    expect(erro).toContain('não gerou os avisos necessários')
   })
 
-  it('G5: produto com 5 mensagens não bloqueia', () => {
-    const avisos = [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }, { id: 'a4' }]
-    const recorrentes: ItemAncora[] = [{ produto_nome: 'Creatina', ciclo_recompra_dias: 30 }]
-    expect(guardAvisosPlaneados(recorrentes, avisos)).toBeNull()
+  it('G5: produto com 5 mensagens (4 tipos sem agradecimento) não bloqueia', () => {
+    const porItem: ItemPorItem[] = [{ produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra', 'oferta', 'follow_up'] }]
+    expect(guardPorItem(porItem)).toBeNull()
   })
 
-  it('G6: zero recorrentes pula guard — nunca bloqueia', () => {
-    expect(guardAvisosPlaneados([], [])).toBeNull()
+  it('G6: porItem vazio pula guard — nunca bloqueia', () => {
+    expect(guardPorItem([])).toBeNull()
   })
 
-  it('G7: âncora é o produto com menor ciclo_recompra_dias', () => {
-    const recorrentes: ItemAncora[] = [
-      { produto_nome: 'Creatina', ciclo_recompra_dias: 45 },
-      { produto_nome: 'Wheijo', ciclo_recompra_dias: 30 },
+  it('G7: dois produtos — um sem tipos bloqueia e nomeia o problemático', () => {
+    const porItem: ItemPorItem[] = [
+      { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] },
+      { produto_nome: 'Wheijo', tipos: [] },
     ]
-    const erro = guardAvisosPlaneados(recorrentes, [])
+    const erro = guardPorItem(porItem)
+    expect(erro).toContain('Wheijo')
+    expect(erro).not.toContain('Creatina')
+  })
+
+  it('G8: 3 tipos NÃO bloqueia — regressão do bug Creatina→Wheijo (guard 1 bloqueava)', () => {
+    // Guard 1 exigia exatamente follow_up. Guard 3 não exige tipo específico.
+    const porItem: ItemPorItem[] = [{ produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra', 'oferta'] }]
+    expect(guardPorItem(porItem)).toBeNull()
+  })
+
+  it('G9: cenário perigoso — Creatina(0) + Wheijo(2) bloqueia por Creatina', () => {
+    // Cenário que o guard 2 (global) permitia passar: soma total > 0 mas Creatina sem avisos.
+    // Guard 3 bloqueia porque avalia cada produto individualmente.
+    const porItem: ItemPorItem[] = [
+      { produto_nome: 'Creatina', tipos: [] },
+      { produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] },
+    ]
+    const erro = guardPorItem(porItem)
+    expect(erro).not.toBeNull()
+    expect(erro).toContain('Creatina')
+  })
+
+  it('G10: cenário inverso — Creatina(2) + Wheijo(0) bloqueia por Wheijo', () => {
+    const porItem: ItemPorItem[] = [
+      { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] },
+      { produto_nome: 'Wheijo', tipos: [] },
+    ]
+    const erro = guardPorItem(porItem)
+    expect(erro).not.toBeNull()
     expect(erro).toContain('Wheijo')
   })
 
-  it('G8: 3 tipos NÃO bloqueia a edição — regressão do bug Creatina→Wheijo', () => {
-    // BUG ANTERIOR: guard exigia follow_up; qtd_mensagens=3 era sempre rejeitado.
-    // COMPORTAMENTO CORRETO: avisos presentes → salva independente da quantidade de tipos.
-    const avisosParaQtd3 = [{ id: 'a-rel' }, { id: 'a-rec' }]
-    const recorrentes: ItemAncora[] = [{ produto_nome: 'Wheijo', ciclo_recompra_dias: null }]
-    expect(guardAvisosPlaneados(recorrentes, avisosParaQtd3)).toBeNull()
+  it('G11: Creatina(2) + Wheijo(2) — ambos válidos, não bloqueia', () => {
+    const porItem: ItemPorItem[] = [
+      { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] },
+      { produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] },
+    ]
+    expect(guardPorItem(porItem)).toBeNull()
   })
 
-  it('G9: âncora nula (ciclo=null) trata como 30 para comparação', () => {
-    const recorrentes: ItemAncora[] = [
-      { produto_nome: 'A', ciclo_recompra_dias: null },
-      { produto_nome: 'B', ciclo_recompra_dias: 20 },
-    ]
-    const erro = guardAvisosPlaneados(recorrentes, [])
-    expect(erro).toContain('B')
+  it('G12: produto não recorrente não aparece em porItem — não bloqueia', () => {
+    // porItem só contém itens recorrentes; não-recorrentes são omitidos pelo planejador
+    const porItem: ItemPorItem[] = [] // sem itens recorrentes
+    expect(guardPorItem(porItem)).toBeNull()
   })
 })
 
 // ── Cenário exato do bug: Creatina + Whey → Wheijo ───────────────────────────
 
-describe('Bug: substituição Whey→Wheijo bloqueava mesmo com mensagens válidas', () => {
-  function criarDbMockComQtd(qtdMensagens: number, incluiOrdens: number[]) {
-    const MSG_TIPOS: Record<number, string> = {
-      1: 'agradecimento', 2: 'relacionamento', 3: 'recompra', 4: 'oferta', 5: 'follow_up',
-    }
-    const mensagens = incluiOrdens.map(o => ({
-      id: `m-${o}`, ordem: o, tipo: MSG_TIPOS[o], texto: 'Olá {cliente}',
+describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3)', () => {
+  const MSG_TIPOS: Record<number, string> = {
+    1: 'agradecimento', 2: 'relacionamento', 3: 'recompra', 4: 'oferta', 5: 'follow_up',
+  }
+
+  function makeMsgs(ordens: number[], pid: string) {
+    return ordens.map(o => ({
+      id: `m-${pid}-${o}`, ordem: o, tipo: MSG_TIPOS[o], texto: 'Olá {cliente}',
       dias_apos_venda: o * 10, estilo: null, tipo_incentivo: null,
       cupom_codigo: null, desconto_percentual: null, desconto_valor: null,
       beneficio_texto: null, validade_oferta: null,
     }))
+  }
+
+  // Mock que diferencia mensagens por produto_id
+  function criarDbMockMultiProduto(
+    produtos: Record<string, { qtd: number; ordens: number[] }>
+  ) {
+    return {
+      from: (table: string) => ({
+        select: () => ({
+          eq: (col: string, val: string) => {
+            if (table === 'mensagens_produto') {
+              const prod = produtos[val]
+              const msgs = prod ? makeMsgs(prod.ordens, val) : []
+              return { order: () => ({ data: msgs }), single: () => ({ data: null }) }
+            }
+            if (table === 'produtos') {
+              const prod = produtos[val]
+              return { order: () => ({ data: null }), single: () => ({ data: prod ? { qtd_mensagens: prod.qtd } : null }) }
+            }
+            return { order: () => ({ data: null }), single: () => ({ data: null }) }
+          },
+        }),
+      }),
+    }
+  }
+
+  // Mock simples (todos os produtos com mesmas mensagens)
+  function criarDbMockComQtd(qtdMensagens: number, incluiOrdens: number[]) {
+    const mensagens = makeMsgs(incluiOrdens, 'p')
     return {
       from: (table: string) => ({
         select: () => ({
@@ -615,42 +666,104 @@ describe('Bug: substituição Whey→Wheijo bloqueava mesmo com mensagens válid
     }
   }
 
-  it('H1: Wheijo com qtd_mensagens=3 gera 2 avisos (rel+rec) para recompra origin', async () => {
+  it('H1: Wheijo (qtd=3) → porItem tem 1 entrada com tipos [rel,rec]', async () => {
     const db = criarDbMockComQtd(3, [1, 2, 3])
     const result = await planejarAvisosParaVenda({
-      ...CTX_BASE,
-      data_base: '2026-01-01',
-      origem: 'recompra',
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
       itens: [{ id: 'iv-wheijo', produto_id: 'p-wheijo', produto_nome: 'Wheijo', recorrente: true, ciclo_recompra_dias: null }],
       db,
     })
     expect(result.avisos).toHaveLength(2)
-    expect(result.tipos).toContain('relacionamento')
-    expect(result.tipos).toContain('recompra')
-    expect(result.tipos).not.toContain('agradecimento')
-    expect(guardAvisosPlaneados([{ produto_nome: 'Wheijo', ciclo_recompra_dias: null }], result.avisos)).toBeNull()
+    expect(result.porItem).toHaveLength(1)
+    expect(result.porItem[0].produto_nome).toBe('Wheijo')
+    expect(result.porItem[0].tipos).toContain('relacionamento')
+    expect(result.porItem[0].tipos).toContain('recompra')
+    expect(result.porItem[0].tipos).not.toContain('agradecimento')
+    expect(guardPorItem(result.porItem)).toBeNull()
   })
 
-  it('H2: Creatina + Wheijo com qtd=3 não bloqueia a edição', async () => {
-    const db = criarDbMockComQtd(3, [1, 2, 3])
+  it('H2: Creatina (qtd=3) + Wheijo (qtd=3) → porItem tem 2 entradas, ambas com tipos', async () => {
+    // Mock diferenciado: Creatina e Wheijo têm mensagens próprias
+    const db = criarDbMockMultiProduto({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+      'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
+    })
     const result = await planejarAvisosParaVenda({
-      ...CTX_BASE,
-      data_base: '2026-01-01',
-      origem: 'recompra',
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
       itens: [
         { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
-        { id: 'iv-wheijo', produto_id: 'p-wheijo', produto_nome: 'Wheijo', recorrente: true, ciclo_recompra_dias: null },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: null },
       ],
       db,
     })
-    expect(result.avisos.length).toBeGreaterThan(0)
-    expect(guardAvisosPlaneados(
-      [{ produto_nome: 'Creatina', ciclo_recompra_dias: 30 }, { produto_nome: 'Wheijo', ciclo_recompra_dias: null }],
-      result.avisos
-    )).toBeNull()
+    expect(result.porItem).toHaveLength(2)
+    expect(result.porItem.every(p => p.tipos.length > 0)).toBe(true)
+    expect(guardPorItem(result.porItem)).toBeNull()
   })
 
-  it('H3: Whey removido não aparece nos itens finais', () => {
+  it('H3: Creatina (0 msgs) + Wheijo (2 tipos) → guard bloqueia por Creatina', async () => {
+    const db = criarDbMockMultiProduto({
+      'p-creatina': { qtd: 3, ordens: [] },  // sem mensagens
+      'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina Monohidratada 300g', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo', recorrente: true, ciclo_recompra_dias: null },
+      ],
+      db,
+    })
+    const erro = guardPorItem(result.porItem)
+    expect(erro).not.toBeNull()
+    expect(erro).toContain('Creatina Monohidratada 300g')
+    expect(erro).not.toContain('Wheijo')
+  })
+
+  it('H4: Creatina (2 tipos) + Wheijo (0 msgs) → guard bloqueia por Wheijo', async () => {
+    const db = criarDbMockMultiProduto({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+      'p-wheijo':   { qtd: 3, ordens: [] },  // sem mensagens
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: null },
+      ],
+      db,
+    })
+    const erro = guardPorItem(result.porItem)
+    expect(erro).not.toBeNull()
+    expect(erro).toContain('Wheijo')
+  })
+
+  it('H5: produto com qtd=4 → tipos [rel,rec,ofe] — guard 3 aceita', async () => {
+    const db = criarDbMockComQtd(4, [1, 2, 3, 4])
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [{ id: 'iv-1', produto_id: 'p-1', produto_nome: 'Produto4msg', recorrente: true, ciclo_recompra_dias: null }],
+      db,
+    })
+    expect(result.porItem[0].tipos).toContain('relacionamento')
+    expect(result.porItem[0].tipos).toContain('recompra')
+    expect(result.porItem[0].tipos).toContain('oferta')
+    expect(guardPorItem(result.porItem)).toBeNull()
+  })
+
+  it('H6: produto com qtd=5 → tipos [rel,rec,ofe,fup] sem agradecimento — guard 3 aceita', async () => {
+    const db = criarDbMockComQtd(5, [1, 2, 3, 4, 5])
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [{ id: 'iv-1', produto_id: 'p-1', produto_nome: 'Produto5msg', recorrente: true, ciclo_recompra_dias: null }],
+      db,
+    })
+    expect(result.porItem[0].tipos).not.toContain('agradecimento')
+    expect(result.porItem[0].tipos).toHaveLength(4)
+    expect(guardPorItem(result.porItem)).toBeNull()
+  })
+
+  it('H7: Whey removido não aparece nos itens finais', () => {
     const itensAntes = [
       { item_venda_id: 'iv-creatina', produto_nome: 'Creatina' },
       { item_venda_id: 'iv-whey', produto_nome: 'Whey Doce de Leite' },
@@ -668,7 +781,7 @@ describe('Bug: substituição Whey→Wheijo bloqueava mesmo com mensagens válid
     expect(itensDepois.find(i => i.produto_nome === 'Whey Doce de Leite')).toBeUndefined()
   })
 
-  it('H4: total recalculado exclui Whey e inclui Wheijo', () => {
+  it('H8: total recalculado exclui Whey e inclui Wheijo', () => {
     const itensFinais = [
       { produto_nome: 'Creatina', quantidade: 1, preco_unitario: 80 },
       { produto_nome: 'Wheijo', quantidade: 1, preco_unitario: 65 },
@@ -677,16 +790,28 @@ describe('Bug: substituição Whey→Wheijo bloqueava mesmo com mensagens válid
     expect(total).toBe(145)
   })
 
-  it('H5: produto não recorrente não gera avisos e não executa guard', async () => {
+  it('H9: produto não recorrente não aparece em porItem', async () => {
     const db = criarDbMockComQtd(3, [1, 2, 3])
     const result = await planejarAvisosParaVenda({
-      ...CTX_BASE,
-      data_base: '2026-01-01',
-      origem: 'recompra',
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
       itens: [{ id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: false, ciclo_recompra_dias: null }],
       db,
     })
     expect(result.avisos).toHaveLength(0)
-    expect(guardAvisosPlaneados([], result.avisos)).toBeNull()
+    expect(result.porItem).toHaveLength(0)
+    expect(guardPorItem(result.porItem)).toBeNull()
+  })
+
+  it('H10: porItem contém motivo_sem_aviso quando produto sem mensagens', async () => {
+    const db = criarDbMockMultiProduto({
+      'p-creatina': { qtd: 3, ordens: [] },  // sem mensagens
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [{ id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 }],
+      db,
+    })
+    expect(result.porItem[0].tipos).toHaveLength(0)
+    expect(result.porItem[0].motivo_sem_aviso).toBe('sem_mensagens')
   })
 })
