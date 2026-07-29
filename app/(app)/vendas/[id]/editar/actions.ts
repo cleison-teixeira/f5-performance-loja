@@ -148,11 +148,25 @@ export async function editarVenda(dados: {
       })
       .eq('id', dados.venda_id)
 
-    // 6. Recalcular data_aviso se data_compra mudou
-    if (dataMudou) {
+    // Fetch context for text regeneration (used in steps 6 and 8)
+    const { data: clienteData } = await admin
+      .from('clientes').select('nome').eq('id', cliente_id).single()
+    const cliente_nome = (clienteData?.nome as string) ?? ''
+
+    const itensRec = dados.itens.filter(i => i.recorrente)
+    const nomesProd = itensRec.map(i => i.produto_nome)
+    const produto_nome_lista = nomesProd.length === 0
+      ? (dados.itens[0]?.produto_nome ?? '')
+      : nomesProd.length === 1 ? nomesProd[0]
+      : nomesProd.length === 2 ? `${nomesProd[0]} e ${nomesProd[1]}`
+      : `${nomesProd.slice(0, -1).join(', ')} e ${nomesProd[nomesProd.length - 1]}`
+    const n_produtos = Math.max(1, itensRec.length)
+
+    // 6. Regenerar texto_renderizado sempre; recalcular data_aviso se data_compra mudou
+    {
       const { data: avisosAtivos } = await admin
         .from('avisos')
-        .select('id, mensagem_id')
+        .select('id, mensagem_id, item_venda_id')
         .eq('venda_id', dados.venda_id)
         .in('status', [...STATUS_ATIVOS])
         .is('recompra_id', null)
@@ -161,34 +175,89 @@ export async function editarVenda(dados: {
         const mensagemIds = [...new Set(avisosAtivos.map(a => a.mensagem_id as string))]
         const { data: mensagens } = await admin
           .from('mensagens_produto')
-          .select('id, dias_apos_venda')
+          .select('id, tipo, texto, dias_apos_venda, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
           .in('id', mensagemIds)
 
-        const diasMap = new Map(
-          (mensagens ?? []).map(m => [m.id as string, m.dias_apos_venda as number])
+        const mensagemMap = new Map(
+          (mensagens ?? []).map(m => [m.id as string, m])
         )
+
+        const { data: itensVendaDB } = await admin
+          .from('itens_venda')
+          .select('ciclo_recompra_dias, categoria, parceiro')
+          .eq('venda_id', dados.venda_id)
+          .eq('recorrente', true)
+
+        type AnchorInfo = { ciclo_recompra_dias: number | null; categoria: string | null; parceiro: string | null }
+        const anchor = ((itensVendaDB ?? []) as AnchorInfo[]).reduce<AnchorInfo | null>(
+          (a, b) => !a ? b : ((a.ciclo_recompra_dias ?? 30) <= (b.ciclo_recompra_dias ?? 30) ? a : b),
+          null
+        )
+        const minCiclo = anchor?.ciclo_recompra_dias ?? 30
 
         const [ano, mes, dia] = dados.data_compra.split('-').map(Number)
         const dataBase = new Date(ano, mes - 1, dia)
         const agora = new Date().toISOString()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pendingUpdates: any[] = []
 
-        await Promise.all(
-          avisosAtivos
-            .filter(a => diasMap.has(a.mensagem_id as string))
-            .map(aviso => {
-              const dias = diasMap.get(aviso.mensagem_id as string)!
-              const dataAviso = new Date(dataBase)
-              dataAviso.setDate(dataBase.getDate() + dias)
-              const y = dataAviso.getFullYear()
-              const m = String(dataAviso.getMonth() + 1).padStart(2, '0')
-              const d = String(dataAviso.getDate()).padStart(2, '0')
-              avisos_recalculados++
-              return admin
-                .from('avisos')
-                .update({ data_aviso: `${y}-${m}-${d}`, updated_at: agora })
-                .eq('id', aviso.id as string)
-            })
-        )
+        for (const aviso of avisosAtivos) {
+          const raw = mensagemMap.get(aviso.mensagem_id as string)
+          if (!raw) continue
+
+          const msgObj = {
+            id: raw.id as string,
+            tipo: (raw as any).tipo as string,
+            texto: raw.texto as string,
+            dias_apos_venda: raw.dias_apos_venda as number,
+            estilo: null as string | null,
+            tipo_incentivo: (raw as any).tipo_incentivo as string | null,
+            cupom_codigo: (raw as any).cupom_codigo as string | null,
+            desconto_percentual: (raw as any).desconto_percentual != null ? Number((raw as any).desconto_percentual) : null,
+            desconto_valor: (raw as any).desconto_valor != null ? Number((raw as any).desconto_valor) : null,
+            beneficio_texto: (raw as any).beneficio_texto as string | null,
+            validade_oferta: (raw as any).validade_oferta as string | null,
+          }
+
+          const [generated] = gerarAvisos([msgObj], {
+            venda_id: dados.venda_id,
+            item_venda_id: aviso.item_venda_id as string,
+            loja_id,
+            cliente_id,
+            vendedora_id: dados.vendedora_id,
+            cliente_nome,
+            produto_nome: produto_nome_lista,
+            n_produtos,
+            vendedora_nome: dados.vendedora_nome,
+            loja_nome: dados.loja_nome,
+            categoria: anchor?.categoria ?? null,
+            parceiro: anchor?.parceiro ?? null,
+          }, dados.data_compra, minCiclo)
+
+          if (!generated) continue
+
+          const patch: Record<string, unknown> = {
+            texto_renderizado: generated.texto_renderizado,
+            updated_at: agora,
+          }
+
+          if (dataMudou) {
+            const diasMsg = raw.dias_apos_venda as number
+            const dataAviso = new Date(dataBase)
+            dataAviso.setDate(dataBase.getDate() + diasMsg)
+            const y = dataAviso.getFullYear()
+            const m2 = String(dataAviso.getMonth() + 1).padStart(2, '0')
+            const d2 = String(dataAviso.getDate()).padStart(2, '0')
+            patch.data_aviso = `${y}-${m2}-${d2}`
+          }
+
+          pendingUpdates.push(
+            admin.from('avisos').update(patch).eq('id', aviso.id as string)
+          )
+        }
+
+        avisos_recalculados = pendingUpdates.length
+        await Promise.all(pendingUpdates)
       }
     }
 
@@ -203,9 +272,6 @@ export async function editarVenda(dados: {
     }
 
     // 8. Gerar avisos para itens novos e itens que viraram recorrentes
-    const { data: clienteData } = await admin
-      .from('clientes').select('nome').eq('id', cliente_id).single()
-    const cliente_nome = (clienteData?.nome as string) ?? ''
 
     // Itens existentes que viraram recorrentes
     for (const item of itensExistentes) {
@@ -238,7 +304,7 @@ export async function editarVenda(dados: {
         venda_id: dados.venda_id,
         item_venda_id: item.item_venda_id!,
         loja_id, cliente_id, vendedora_id: dados.vendedora_id,
-        cliente_nome, produto_nome: item.produto_nome,
+        cliente_nome, produto_nome: produto_nome_lista, n_produtos,
         vendedora_nome: dados.vendedora_nome, loja_nome: dados.loja_nome,
       }, dados.data_compra)
 
@@ -294,7 +360,7 @@ export async function editarVenda(dados: {
         venda_id: dados.venda_id,
         item_venda_id,
         loja_id, cliente_id, vendedora_id: dados.vendedora_id,
-        cliente_nome, produto_nome: item.produto_nome,
+        cliente_nome, produto_nome: produto_nome_lista, n_produtos,
         vendedora_nome: dados.vendedora_nome, loja_nome: dados.loja_nome,
       }, dados.data_compra)
 

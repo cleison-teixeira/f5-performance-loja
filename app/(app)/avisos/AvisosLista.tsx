@@ -7,6 +7,7 @@ import { AlertCircle, Bell, Calendar, TrendingUp, RefreshCw, Search, X } from 'l
 import { CardAviso } from './CardAviso'
 import { CardGrupoRecompra } from './CardGrupoRecompra'
 import type { AvisoDetalhado, GrupoRecompra, ItemVendaGrupo } from './types'
+import { filtrarAvisosPorBusca } from '@/lib/avisos/filtrarAvisos'
 import type { CatalogoProduto } from './page'
 import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 
@@ -378,15 +379,9 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const qtdProximos7 = listaFiltradaPorResponsavel.filter(a => a.data_aviso > hoje && a.data_aviso <= limite7 && !isContatoFeito(a)).length
 
   // Filtra por busca/produto/data (antes de tipo, para que contadores de tipo reflitam a busca)
-  const listaComFiltrosBusca = listaFiltradaPorResponsavel.filter(a => {
-    if (busca) {
-      const q = busca.toLowerCase()
-      const digits = busca.replace(/\D/g, '')
-      const matchNome = a.cliente_nome.toLowerCase().includes(q)
-      const matchWhatsapp = digits.length >= 4 && a.cliente_whatsapp.includes(digits)
-      const matchProduto = a.produto_nome.toLowerCase().includes(q)
-      if (!matchNome && !matchWhatsapp && !matchProduto) return false
-    }
+  const listaComFiltrosBusca = filtrarAvisosPorBusca(
+    listaFiltradaPorResponsavel, busca, itensVendaPorVenda
+  ).filter(a => {
     if (produtoFiltro && a.produto_nome !== produtoFiltro) return false
     if (dataEspecifica) {
       const campoData = tipData === 'compra' ? a.data_compra : a.data_aviso
