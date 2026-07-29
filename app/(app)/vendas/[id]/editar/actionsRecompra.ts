@@ -163,18 +163,16 @@ export async function editarRecompra(dados: {
       db: admin,
     })
 
-    // Guard: validate sequence completeness when recurrent items exist
-    if (recorrentesComProduto.length > 0) {
-      const tiposObrigatorios = ['relacionamento', 'recompra', 'oferta', 'follow_up']
-      const tiposSet = new Set(tiposPlaneados)
-      const sequenciaCompleta = (
-        tiposPlaneados.length === 4 &&
-        !tiposPlaneados.includes('agradecimento') &&
-        tiposSet.size === tiposPlaneados.length &&
-        tiposObrigatorios.every(t => tiposSet.has(t))
+    // Guard: se há itens recorrentes, o planejador deve ter gerado pelo menos um aviso.
+    // O planejador já filtra 'agradecimento' para origin='recompra' e respeita qtd_mensagens do produto.
+    // Produtos com 3 ou 4 mensagens são válidos — não exigir a sequência completa de 5 aqui.
+    if (recorrentesComProduto.length > 0 && avisosPlaneados.length === 0) {
+      const ancora = recorrentesComProduto.reduce((min, cur) =>
+        (cur.ciclo_recompra_dias ?? 30) < (min.ciclo_recompra_dias ?? 30) ? cur : min
       )
-      if (!sequenciaCompleta) {
-        return { ...zero, erro: 'As mensagens deste produto estão incompletas. Nenhuma alteração foi salva.' }
+      return {
+        ...zero,
+        erro: `Não foi possível salvar. O produto "${ancora.produto_nome}" não tem mensagens de recompra configuradas. Verifique as mensagens deste produto antes de salvar.`,
       }
     }
 
