@@ -148,7 +148,7 @@ export async function editarRecompra(dados: {
       ciclo_recompra_dias: item.ciclo_recompra_dias,
     }))
 
-    const { avisos: avisosPlaneados, tipos: tiposPlaneados } = await planejarAvisosParaVenda({
+    const { avisos: avisosPlaneados, porItem } = await planejarAvisosParaVenda({
       venda_id: dados.venda_id,
       loja_id,
       cliente_id,
@@ -163,16 +163,14 @@ export async function editarRecompra(dados: {
       db: admin,
     })
 
-    // Guard: se há itens recorrentes, o planejador deve ter gerado pelo menos um aviso.
-    // O planejador já filtra 'agradecimento' para origin='recompra' e respeita qtd_mensagens do produto.
-    // Produtos com 3 ou 4 mensagens são válidos — não exigir a sequência completa de 5 aqui.
-    if (recorrentesComProduto.length > 0 && avisosPlaneados.length === 0) {
-      const ancora = recorrentesComProduto.reduce((min, cur) =>
-        (cur.ciclo_recompra_dias ?? 30) < (min.ciclo_recompra_dias ?? 30) ? cur : min
-      )
-      return {
-        ...zero,
-        erro: `Não foi possível salvar. O produto "${ancora.produto_nome}" não tem mensagens de recompra configuradas. Verifique as mensagens deste produto antes de salvar.`,
+    // Guard: validação por produto — cada item recorrente deve ter tipos aplicáveis.
+    // Não exigir sequência fixa; qtd_mensagens do produto define o que é esperado.
+    for (const itemResult of porItem) {
+      if (itemResult.tipos.length === 0) {
+        return {
+          ...zero,
+          erro: `Não foi possível salvar. O produto "${itemResult.produto_nome}" não gerou os avisos necessários. Revise as mensagens configuradas para este produto.`,
+        }
       }
     }
 
