@@ -163,13 +163,18 @@ export async function editarRecompra(dados: {
       db: admin,
     })
 
-    // Guard: validação por produto — cada item recorrente deve ter tipos aplicáveis.
-    // Não exigir sequência fixa; qtd_mensagens do produto define o que é esperado.
+    // Guard: validação por produto — cada item recorrente deve ter tipos de aviso aplicáveis.
+    // sem_mensagens: produto sem linhas em mensagens_produto (config incompleta).
+    // somente_agradecimento: produto com mensagens, mas nenhuma aplicável à origem recompra (config incompleta).
+    // Ambos bloqueiam; a mensagem diferencia o motivo para orientar a correção.
     for (const itemResult of porItem) {
       if (itemResult.tipos.length === 0) {
+        const detalhe = itemResult.motivo_sem_aviso === 'somente_agradecimento'
+          ? 'Ele tem apenas mensagem de agradecimento; configure mensagens de acompanhamento (relacionamento, recompra ou oferta).'
+          : 'Nenhuma mensagem foi encontrada para este produto.'
         return {
           ...zero,
-          erro: `Não foi possível salvar. O produto "${itemResult.produto_nome}" não gerou os avisos necessários. Revise as mensagens configuradas para este produto.`,
+          erro: `Não foi possível salvar. O produto "${itemResult.produto_nome}" não pode gerar avisos de recompra. ${detalhe}`,
         }
       }
     }
