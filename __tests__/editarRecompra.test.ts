@@ -509,12 +509,19 @@ describe('garantirMensagensProduto error handling', () => {
 // O guard INTERMEDIÁRIO (guard 2): verificava apenas se avisosPlaneados.length === 0 — global.
 // O guard ATUAL (guard 3): verifica porItem individualmente — cada produto recorrente é validado.
 
-type ItemPorItem = { produto_nome: string; tipos: string[] }
+type ItemPorItem = {
+  produto_nome: string
+  tipos: string[]
+  motivo_sem_aviso?: 'sem_mensagens' | 'somente_agradecimento'
+}
 
 function guardPorItem(porItem: ItemPorItem[]): string | null {
   for (const item of porItem) {
     if (item.tipos.length === 0) {
-      return `Não foi possível salvar. O produto "${item.produto_nome}" não gerou os avisos necessários. Revise as mensagens configuradas para este produto.`
+      const detalhe = item.motivo_sem_aviso === 'somente_agradecimento'
+        ? 'Ele tem apenas mensagem de agradecimento; configure mensagens de acompanhamento (relacionamento, recompra ou oferta).'
+        : 'Nenhuma mensagem foi encontrada para este produto.'
+      return `Não foi possível salvar. O produto "${item.produto_nome}" não pode gerar avisos de recompra. ${detalhe}`
     }
   }
   return null
@@ -546,7 +553,7 @@ describe('Guard por produto (actionsRecompra — guard 3)', () => {
     const erro = guardPorItem(porItem)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Wheijo')
-    expect(erro).toContain('não gerou os avisos necessários')
+    expect(erro).toContain('não pode gerar avisos de recompra')
   })
 
   it('G5: produto com 5 mensagens (4 tipos sem agradecimento) não bloqueia', () => {
@@ -608,6 +615,24 @@ describe('Guard por produto (actionsRecompra — guard 3)', () => {
     // porItem só contém itens recorrentes; não-recorrentes são omitidos pelo planejador
     const porItem: ItemPorItem[] = [] // sem itens recorrentes
     expect(guardPorItem(porItem)).toBeNull()
+  })
+
+  it('G13: motivo somente_agradecimento → mensagem específica menciona agradecimento', () => {
+    const porItem: ItemPorItem[] = [{ produto_nome: 'Produto Agr', tipos: [], motivo_sem_aviso: 'somente_agradecimento' }]
+    const erro = guardPorItem(porItem)
+    expect(erro).not.toBeNull()
+    expect(erro).toContain('Produto Agr')
+    expect(erro).toContain('agradecimento')
+    expect(erro).toContain('relacionamento, recompra ou oferta')
+  })
+
+  it('G14: motivo sem_mensagens → mensagem genérica sem mencionar agradecimento', () => {
+    const porItem: ItemPorItem[] = [{ produto_nome: 'Produto Vazio', tipos: [], motivo_sem_aviso: 'sem_mensagens' }]
+    const erro = guardPorItem(porItem)
+    expect(erro).not.toBeNull()
+    expect(erro).toContain('Produto Vazio')
+    expect(erro).toContain('Nenhuma mensagem foi encontrada')
+    expect(erro).not.toContain('agradecimento')
   })
 })
 
@@ -813,5 +838,197 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     })
     expect(result.porItem[0].tipos).toHaveLength(0)
     expect(result.porItem[0].motivo_sem_aviso).toBe('sem_mensagens')
+  })
+
+  it('H11: produto com apenas agradecimento (origem=recompra) → motivo somente_agradecimento', async () => {
+    // Simula produto onde lojista configurou todos os tipos como agradecimento
+    const soAgrMsgs = [1, 2, 3].map(o => ({
+      id: `m-agr-${o}`, ordem: o, tipo: 'agradecimento', texto: 'Obrigado {cliente}',
+      dias_apos_venda: 0, estilo: null, tipo_incentivo: null,
+      cupom_codigo: null, desconto_percentual: null, desconto_valor: null,
+      beneficio_texto: null, validade_oferta: null,
+    }))
+    const db = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            order: () => ({ data: table === 'mensagens_produto' ? soAgrMsgs : null }),
+            single: () => ({ data: table === 'produtos' ? { qtd_mensagens: 3 } : null }),
+          }),
+        }),
+      }),
+    }
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [{ id: 'iv-1', produto_id: 'p-agr', produto_nome: 'Produto Só Agr', recorrente: true, ciclo_recompra_dias: 30 }],
+      db,
+    })
+    expect(result.porItem).toHaveLength(1)
+    expect(result.porItem[0].tipos).toHaveLength(0)
+    expect(result.porItem[0].motivo_sem_aviso).toBe('somente_agradecimento')
+    expect(guardPorItem(result.porItem)).toContain('agradecimento')
+  })
+})
+
+// ── FASE 2: Ausência de duplicação ───────────────────────────────────────────
+// Verifica que: âncora não é processada duas vezes, não-âncora não gera avisos
+// próprios, item_venda_id em todos os avisos pertence ao âncora, idempotência.
+
+describe('planejarAvisosParaVenda — ausência de duplicação (fase 2)', () => {
+  const MSG_TIPOS_I: Record<number, string> = {
+    1: 'agradecimento', 2: 'relacionamento', 3: 'recompra', 4: 'oferta', 5: 'follow_up',
+  }
+
+  function makeMsgsI(ordens: number[], pid: string) {
+    return ordens.map(o => ({
+      id: `m-${pid}-${o}`, ordem: o, tipo: MSG_TIPOS_I[o], texto: 'Olá {cliente}',
+      dias_apos_venda: o * 10, estilo: null, tipo_incentivo: null,
+      cupom_codigo: null, desconto_percentual: null, desconto_valor: null,
+      beneficio_texto: null, validade_oferta: null,
+    }))
+  }
+
+  function criarDbMockI(produtos: Record<string, { qtd: number; ordens: number[] }>) {
+    return {
+      from: (table: string) => ({
+        select: () => ({
+          eq: (_col: string, val: string) => {
+            if (table === 'mensagens_produto') {
+              const prod = produtos[val]
+              const msgs = prod ? makeMsgsI(prod.ordens, val) : []
+              return { order: () => ({ data: msgs }), single: () => ({ data: null }) }
+            }
+            if (table === 'produtos') {
+              const prod = produtos[val]
+              return { order: () => ({ data: null }), single: () => ({ data: prod ? { qtd_mensagens: prod.qtd } : null }) }
+            }
+            return { order: () => ({ data: null }), single: () => ({ data: null }) }
+          },
+        }),
+      }),
+    }
+  }
+
+  it('I1: âncora (único produto) — mensagens_produto lido uma única vez', async () => {
+    let mensagemCalls = 0
+    const db = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => {
+            if (table === 'mensagens_produto') mensagemCalls++
+            return {
+              order: () => ({ data: table === 'mensagens_produto' ? makeMsgsI([1, 2, 3], 'p') : null }),
+              single: () => ({ data: table === 'produtos' ? { qtd_mensagens: 3 } : null }),
+            }
+          },
+        }),
+      }),
+    }
+    await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [{ id: 'iv-1', produto_id: 'p-1', produto_nome: 'Produto', recorrente: true, ciclo_recompra_dias: 30 }],
+      db,
+    })
+    expect(mensagemCalls).toBe(1)
+  })
+
+  it('I2: dois produtos — âncora e não-âncora cada um lido uma vez', async () => {
+    const callsPorProduto: Record<string, number> = {}
+    const db = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: (_col: string, val: string) => {
+            if (table === 'mensagens_produto') {
+              callsPorProduto[val] = (callsPorProduto[val] ?? 0) + 1
+            }
+            const prod = { 'p-creatina': [1,2,3], 'p-wheijo': [1,2,3] }[val as string]
+            const msgs = prod ? makeMsgsI(prod, val) : []
+            return {
+              order: () => ({ data: table === 'mensagens_produto' ? msgs : null }),
+              single: () => ({ data: table === 'produtos' ? { qtd_mensagens: 3 } : null }),
+            }
+          },
+        }),
+      }),
+    }
+    await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: null },
+      ],
+      db,
+    })
+    expect(callsPorProduto['p-creatina']).toBe(1) // âncora: leitura completa
+    expect(callsPorProduto['p-wheijo']).toBe(1)   // não-âncora: leitura leve
+  })
+
+  it('I3: dois produtos válidos — contagem de avisos igual à do âncora apenas', async () => {
+    // Creatina = âncora (ciclo=30). Wheijo = não-âncora (ciclo=null→30, tie → primeiro vence).
+    // qtd=3, origem=recompra: ordens [1,2,3] → filtra agradecimento → 2 avisos (rel+rec).
+    // Wheijo não gera avisos próprios — apenas mencionado no texto do âncora.
+    const db = criarDbMockI({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+      'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: null },
+      ],
+      db,
+    })
+    expect(result.avisos).toHaveLength(2)
+  })
+
+  it('I4: todos os avisos têm item_venda_id do âncora, não do não-âncora', async () => {
+    const db = criarDbMockI({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+      'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: null },
+      ],
+      db,
+    })
+    expect(result.avisos.length).toBeGreaterThan(0)
+    expect(result.avisos.every(a => a.item_venda_id === 'iv-creatina')).toBe(true)
+    expect(result.avisos.some(a => a.item_venda_id === 'iv-wheijo')).toBe(false)
+  })
+
+  it('I5: produto não presente em itens não aparece em porItem nem gera aviso', async () => {
+    // Wheijo foi removido da venda — não é passado em itens
+    const db = criarDbMockI({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+      ],
+      db,
+    })
+    expect(result.porItem).toHaveLength(1)
+    expect(result.porItem.find(p => p.produto_nome === 'Wheijo')).toBeUndefined()
+    expect(result.avisos.some(a => a.item_venda_id === 'iv-wheijo')).toBe(false)
+  })
+
+  it('I6: chamada repetida do planejador (idempotência) retorna mesma contagem', async () => {
+    const db = criarDbMockI({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+    })
+    const params = {
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra' as const,
+      itens: [{ id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 }],
+      db,
+    }
+    const r1 = await planejarAvisosParaVenda(params)
+    const r2 = await planejarAvisosParaVenda(params)
+    expect(r2.avisos).toHaveLength(r1.avisos.length)
+    expect(r2.porItem).toHaveLength(r1.porItem.length)
   })
 })
