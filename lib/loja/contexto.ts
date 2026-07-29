@@ -16,12 +16,21 @@ export type ContextoLoja = {
 // Cache por request — getAppContext popula primeiro; getLojasDoUsuario reutiliza sem nova query.
 const _getMembrosAtivos = async (userId: string): Promise<{ loja_id: string; role: string }[]> => {
   const admin = createAdminClient()
-  const { data } = await admin
+  const { data, error } = await admin
     .from('membros_loja')
     .select('loja_id, role')
     .eq('perfil_id', userId)
     .eq('ativo', true)
-  return (data ?? []) as { loja_id: string; role: string }[]
+  if (error) {
+    console.error('[getMembrosAtivos] Falha ao carregar vínculos ativos', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    })
+    throw new Error('Não foi possível carregar os vínculos de acesso às lojas.')
+  }
+  return data ?? []
 }
 export const getMembrosAtivos = cache(_getMembrosAtivos)
 
