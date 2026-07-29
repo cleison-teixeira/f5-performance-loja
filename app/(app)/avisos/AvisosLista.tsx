@@ -53,10 +53,13 @@ function agruparPorVenda(
   avisos: AvisoDetalhado[],
   itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
 ): GrupoRecompra[] {
+  // Chave composta venda_id:tipo — preserva um grupo por (venda, tipo) para que
+  // "Todos" exiba um card por tipo, sem colapsar recompra + oferta + follow_up.
   const mapa = new Map<string, AvisoDetalhado[]>()
   for (const a of avisos) {
-    if (!mapa.has(a.venda_id)) mapa.set(a.venda_id, [])
-    mapa.get(a.venda_id)!.push(a)
+    const chave = `${a.venda_id}:${a.tipo}`
+    if (!mapa.has(chave)) mapa.set(chave, [])
+    mapa.get(chave)!.push(a)
   }
   return Array.from(mapa.values()).map(grupo => {
     const sorted = [...grupo].sort((a, b) => a.data_aviso.localeCompare(b.data_aviso))
@@ -94,6 +97,69 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+// ── Decisão única de componente por grupo ────────────────────────────────────
+// Regra: 1 produto recorrente → CardAviso; 2+ → CardGrupoRecompra.
+// Não depende do filtro de tipo ativo.
+
+type GrupoCallbacks = {
+  onMarcado: (id: string, fecharOppKey?: string) => void
+  onReagendado: (key: string, novaData: string, observacao?: string) => void
+  onGrupoMarcado: (venda_id: string) => void
+  onGrupoReagendado: (venda_id: string, novaData: string) => void
+}
+
+type GrupoOpcoes = {
+  catalogo: CatalogoProduto[]
+  percentuaisPorVendedora: Record<string, number>
+  vendedorasLoja?: VendedoraLoja[]
+  loja_id: string
+  loja_nome: string
+  isVendedora: boolean
+  mostrarLoja: boolean
+}
+
+function renderGrupoCard(grupo: GrupoRecompra, cb: GrupoCallbacks, op: GrupoOpcoes): ReactNode {
+  const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : 1
+  const lojaDisplay = op.mostrarLoja ? grupo.avisos[0].loja_nome : undefined
+  const lojaId = op.mostrarLoja ? (grupo.avisos[0].loja_id ?? op.loja_id) : op.loja_id
+  const aviso = grupo.avisos[0]
+
+  if (nProdutos === 1) {
+    return (
+      <div key={aviso.id}>
+        {lojaDisplay && <p className="text-xs text-muted-foreground mb-1">{lojaDisplay}</p>}
+        <CardAviso
+          aviso={aviso}
+          onMarcado={cb.onMarcado}
+          onReagendado={cb.onReagendado}
+          catalogo={op.catalogo}
+          percentualComissao={op.percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
+          vendedorasLoja={op.vendedorasLoja}
+          loja_id={lojaId}
+          isVendedora={op.isVendedora}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div key={grupo.venda_id}>
+      {lojaDisplay && <p className="text-xs text-muted-foreground mb-1">{lojaDisplay}</p>}
+      <CardGrupoRecompra
+        grupo={grupo}
+        onGrupoMarcado={cb.onGrupoMarcado}
+        onGrupoReagendado={cb.onGrupoReagendado}
+        catalogo={op.catalogo}
+        percentualComissao={op.percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
+        vendedorasLoja={op.vendedorasLoja}
+        loja_id={lojaId}
+        loja_nome={op.loja_nome}
+        isVendedora={op.isVendedora}
+      />
+    </div>
+  )
+}
+
 // ── Cabeçalho de seção ──────────────────────────────────────────────────────
 
 interface SecaoProps {
@@ -125,12 +191,11 @@ function SecaoAvisos({
   catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome, isVendedora, mode, mostrarLoja,
   itensVendaPorVenda,
 }: SecaoProps) {
-  const grupos = mode === 'recompra' ? agruparPorVenda(avisos, itensVendaPorVenda) : null
-  const displayCount = grupos ? grupos.length : avisos.length
+  const grupos = agruparPorVenda(avisos, itensVendaPorVenda)
+  const displayCount = grupos.length
   if (displayCount === 0) return null
 
-  // valorPotencial from groups uses itens_venda totals when available
-  const valorPotencialEfetivo = grupos
+  const valorPotencialEfetivo = grupos.length > 0
     ? grupos.reduce((s, g) => s + g.valor_total, 0)
     : valorPotencial
 
@@ -158,81 +223,20 @@ function SecaoAvisos({
 
       {/* Cards */}
       <div className="space-y-3">
-        {grupos ? grupos.flatMap(grupo => {
-          // When a group has mixed tipos (e.g. tipo filter = 'todos'), render each aviso individually
-          const tiposUnicos = new Set(grupo.avisos.map((a: AvisoDetalhado) => a.tipo))
-          if (tiposUnicos.size > 1) {
-            return grupo.avisos.map(aviso => (
-              <div key={aviso.id}>
-                {mostrarLoja && aviso.loja_nome && (
-                  <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
-                )}
-                <CardAviso
-                  aviso={aviso}
-                  onMarcado={onMarcado}
-                  onReagendado={onReagendado}
-                  catalogo={catalogo}
-                  percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
-                  vendedorasLoja={vendedorasLoja}
-                  loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
-                  isVendedora={isVendedora}
-                />
-              </div>
-            ))
-          }
-          // Use itens_venda count to decide single vs. grouped card
-          const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : grupo.avisos.length
-          return [nProdutos === 1 ? (
-            <div key={grupo.avisos[0].id}>
-              {mostrarLoja && grupo.avisos[0].loja_nome && (
-                <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
-              )}
-              <CardAviso
-                aviso={grupo.avisos[0]}
-                onMarcado={onMarcado}
-                onReagendado={onReagendado}
-                catalogo={catalogo}
-                percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
-                vendedorasLoja={vendedorasLoja}
-                loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
-                isVendedora={isVendedora}
-              />
-            </div>
-          ) : (
-            <div key={grupo.venda_id}>
-              {mostrarLoja && grupo.avisos[0].loja_nome && (
-                <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
-              )}
-              <CardGrupoRecompra
-                grupo={grupo}
-                onGrupoMarcado={onGrupoMarcado}
-                onGrupoReagendado={onGrupoReagendado}
-                catalogo={catalogo}
-                percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
-                vendedorasLoja={vendedorasLoja}
-                loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
-                loja_nome={loja_nome}
-                isVendedora={isVendedora}
-              />
-            </div>
-          )]
-        }) : avisos.map(aviso => (
-          <div key={aviso.id}>
-            {mostrarLoja && aviso.loja_nome && (
-              <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
-            )}
-            <CardAviso
-              aviso={aviso}
-              onMarcado={onMarcado}
-              onReagendado={onReagendado}
-              catalogo={catalogo}
-              percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
-              vendedorasLoja={vendedorasLoja}
-              loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
-              isVendedora={isVendedora}
-            />
-          </div>
-        ))}
+        {grupos.map(grupo => renderGrupoCard(grupo, {
+          onMarcado,
+          onReagendado,
+          onGrupoMarcado,
+          onGrupoReagendado,
+        }, {
+          catalogo,
+          percentuaisPorVendedora,
+          vendedorasLoja,
+          loja_id,
+          loja_nome,
+          isVendedora,
+          mostrarLoja: mostrarLoja ?? false,
+        }))}
       </div>
     </div>
   )
@@ -877,85 +881,24 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
                 </p>
               )}
             </div>
-          ) : mode === 'recompra' ? (
-            <div className="space-y-3">
-              {agruparPorVenda(avisosFiltrados, itensVendaPorVenda).flatMap(grupo => {
-                const tiposUnicos = new Set(grupo.avisos.map((a: AvisoDetalhado) => a.tipo))
-                if (tiposUnicos.size > 1) {
-                  return grupo.avisos.map(aviso => (
-                    <div key={aviso.id}>
-                      {mostrarLoja && aviso.loja_nome && (
-                        <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
-                      )}
-                      <CardAviso
-                        aviso={aviso}
-                        onMarcado={handleMarcado}
-                        onReagendado={handleReagendado}
-                        catalogo={catalogo}
-                        percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
-                        vendedorasLoja={vendedorasLoja}
-                        loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
-                        isVendedora={isVendedora}
-                      />
-                    </div>
-                  ))
-                }
-                const nProdutos = grupo.itens_venda.length > 0 ? grupo.itens_venda.length : grupo.avisos.length
-                return [nProdutos === 1 ? (
-                  <div key={grupo.avisos[0].id}>
-                    {mostrarLoja && grupo.avisos[0].loja_nome && (
-                      <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
-                    )}
-                    <CardAviso
-                      aviso={grupo.avisos[0]}
-                      onMarcado={handleMarcado}
-                      onReagendado={handleReagendado}
-                      catalogo={catalogo}
-                      percentualComissao={percentuaisPorVendedora[grupo.avisos[0].vendedora_id] ?? 0}
-                      vendedorasLoja={vendedorasLoja}
-                      loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
-                      isVendedora={isVendedora}
-                    />
-                  </div>
-                ) : (
-                  <div key={grupo.venda_id}>
-                    {mostrarLoja && grupo.avisos[0].loja_nome && (
-                      <p className="text-xs text-muted-foreground mb-1">{grupo.avisos[0].loja_nome}</p>
-                    )}
-                    <CardGrupoRecompra
-                      grupo={grupo}
-                      onGrupoMarcado={handleGrupoMarcado}
-                      onGrupoReagendado={handleGrupoReagendado}
-                      catalogo={catalogo}
-                      percentualComissao={percentuaisPorVendedora[grupo.vendedora_id] ?? 0}
-                      vendedorasLoja={vendedorasLoja}
-                      loja_id={mostrarLoja ? (grupo.avisos[0].loja_id ?? loja_id) : loja_id}
-                      loja_nome={loja_nome}
-                      isVendedora={isVendedora}
-                    />
-                  </div>
-                )]
-              })}
-            </div>
           ) : (
             <div className="space-y-3">
-              {avisosFiltrados.map(aviso => (
-                <div key={aviso.id}>
-                  {mostrarLoja && aviso.loja_nome && (
-                    <p className="text-xs text-muted-foreground mb-1">{aviso.loja_nome}</p>
-                  )}
-                  <CardAviso
-                    aviso={aviso}
-                    onMarcado={handleMarcado}
-                    onReagendado={handleReagendado}
-                    catalogo={catalogo}
-                    percentualComissao={percentuaisPorVendedora[aviso.vendedora_id] ?? 0}
-                    vendedorasLoja={vendedorasLoja}
-                    loja_id={mostrarLoja ? (aviso.loja_id ?? loja_id) : loja_id}
-                    isVendedora={isVendedora}
-                  />
-                </div>
-              ))}
+              {agruparPorVenda(avisosFiltrados, itensVendaPorVenda).map(grupo =>
+                renderGrupoCard(grupo, {
+                  onMarcado: handleMarcado,
+                  onReagendado: handleReagendado,
+                  onGrupoMarcado: handleGrupoMarcado,
+                  onGrupoReagendado: handleGrupoReagendado,
+                }, {
+                  catalogo,
+                  percentuaisPorVendedora,
+                  vendedorasLoja,
+                  loja_id,
+                  loja_nome,
+                  isVendedora,
+                  mostrarLoja,
+                })
+              )}
             </div>
           )}
         </div>

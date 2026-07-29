@@ -1,11 +1,12 @@
 'use client'
 
 import { AvisosLista } from '@/app/(app)/avisos/AvisosLista'
-import type { AvisoDetalhado } from '@/app/(app)/avisos/types'
+import type { AvisoDetalhado, ItemVendaGrupo } from '@/app/(app)/avisos/types'
 import type { VendedoraLoja } from '@/app/(app)/avisos/AvisosLista'
 
 interface Props {
   initialAvisos: AvisoDetalhado[]
+  initialItensVenda: Record<string, ItemVendaGrupo[]>
   hoje: string
   vendedorasLoja: VendedoraLoja[]
   loja_id: string
@@ -15,6 +16,7 @@ interface Props {
 
 export function RelacionamentoPageClient({
   initialAvisos,
+  initialItensVenda,
   hoje,
   vendedorasLoja,
   loja_id,
@@ -32,6 +34,7 @@ export function RelacionamentoPageClient({
       isVendedora={isVendedora}
       mode="relacionamento"
       mostrarLoja={mostrarLoja}
+      itensVendaPorVenda={initialItensVenda}
     />
   )
 }

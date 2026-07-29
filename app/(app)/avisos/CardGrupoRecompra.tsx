@@ -78,14 +78,12 @@ function badgeTemporal(dataAviso: string): { label: string; cls: string; key: st
   }
 }
 
-function montarMensagemGrupoRecompra(cliente_nome: string, nomesProdutos: string[], loja_nome: string): string {
-  const primeiroNome = cliente_nome.split(' ')[0]
-  const lojaRef = loja_nome ? ` na ${loja_nome}` : ''
-
-  if (nomesProdutos.length === 2) {
-    return `Oi ${primeiroNome}! Passando para lembrar dos seus produtos: ${nomesProdutos[0]} e ${nomesProdutos[1]}. Posso separar para você${lojaRef}?`
-  }
-  return `Oi ${primeiroNome}! Passando para lembrar dos seus produtos de recompra. Posso separar para você${lojaRef}?`
+function fmtQtd(qtd: number, unitario: number, subtotal: number): string {
+  if (qtd <= 1) return `1 un. — ${subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })}`
+  const u = unitario > 0
+    ? `${qtd} un. × ${unitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })}`
+    : `${qtd} un.`
+  return `${u} — ${subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })}`
 }
 
 export function CardGrupoRecompra({
@@ -110,13 +108,13 @@ export function CardGrupoRecompra({
         produto_id: a.produto_id,
         produto_foto_url: a.produto_foto_url,
         valor_produto: a.valor_produto,
+        quantidade: 1,
+        valor_unitario: a.valor_produto,
         ciclo_recompra_dias: null as number | null,
       }))
 
   const isContatoFeito = grupo.avisos.every(a => a.status === 'contato_feito' || (a.status === 'enviado' && !a.recompra_id))
-  const [textoAtual, setTextoAtual] = useState(() =>
-    montarMensagemGrupoRecompra(grupo.cliente_nome, produtos.map(p => p.produto_nome), loja_nome)
-  )
+  const [textoAtual, setTextoAtual] = useState(primaryAviso.texto_renderizado)
   const [editando, setEditando] = useState(false)
   const [rascunho, setRascunho] = useState(textoAtual)
   const [copiado, setCopiado] = useState(false)
@@ -223,10 +221,12 @@ export function CardGrupoRecompra({
                     <Package className="h-4 w-4 text-muted-foreground/30" />
                   </div>
                 )}
-                <span className="flex-1 text-sm text-foreground/80 truncate">{p.produto_nome}</span>
-                <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400 shrink-0">
-                  {fmt(p.valor_produto)}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground/80 truncate">{p.produto_nome}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {fmtQtd(p.quantidade, p.valor_unitario, p.valor_produto)}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -402,7 +402,7 @@ export function CardGrupoRecompra({
           loja_id={loja_id}
           onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
           onFechar={() => setModalRecompra(false)}
-          itensPreenchidos={produtos.map(p => ({ produto_id: p.produto_id, produto_nome: p.produto_nome, preco_unitario: p.valor_produto, ciclo_recompra_dias: p.ciclo_recompra_dias }))}
+          itensPreenchidos={produtos.map(p => ({ produto_id: p.produto_id, produto_nome: p.produto_nome, preco_unitario: p.valor_unitario > 0 ? p.valor_unitario : p.valor_produto, ciclo_recompra_dias: p.ciclo_recompra_dias }))}
           item_venda_ids_grupo={grupo.itens_venda.length > 0
             ? grupo.itens_venda.map(i => i.id)
             : grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}

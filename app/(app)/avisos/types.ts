@@ -34,6 +34,8 @@ export interface ItemVendaGrupo {
   produto_id: string | null
   produto_foto_url: string | null
   valor_produto: number
+  quantidade: number
+  valor_unitario: number
   ciclo_recompra_dias: number | null
 }
 
