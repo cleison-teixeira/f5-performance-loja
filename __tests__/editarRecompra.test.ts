@@ -504,30 +504,27 @@ describe('garantirMensagensProduto error handling', () => {
   })
 })
 
-// ── Guard por produto (lógica extraída de actionsRecompra) ───────────────────
+// ── Guard âncora (lógica extraída de actionsRecompra) ────────────────────────
 // O guard ANTIGO (guard 1): exigia 4 tipos fixos incluindo follow_up — só qtd=5 passava.
 // O guard INTERMEDIÁRIO (guard 2): verificava apenas se avisosPlaneados.length === 0 — global.
-// O guard ATUAL (guard 3): verifica porItem individualmente — cada produto recorrente é validado.
+// Guard 3: verificava porItem — cada produto recorrente (violava arquitetura: 1 sequência por venda).
+// O guard ATUAL (guard 4): verifica apenas o produto âncora; não-âncora não bloqueia.
 
-type ItemPorItem = {
+type ItemAncora = {
   produto_nome: string
   tipos: string[]
   motivo_sem_aviso?: 'sem_mensagens' | 'somente_agradecimento'
 }
 
-function guardPorItem(porItem: ItemPorItem[]): string | null {
-  for (const item of porItem) {
-    if (item.tipos.length === 0) {
-      const detalhe = item.motivo_sem_aviso === 'somente_agradecimento'
-        ? 'Ele tem apenas mensagem de agradecimento; configure mensagens de acompanhamento (relacionamento, recompra ou oferta).'
-        : 'Nenhuma mensagem foi encontrada para este produto.'
-      return `Não foi possível salvar. O produto "${item.produto_nome}" não pode gerar avisos de recompra. ${detalhe}`
-    }
+function guardAncora(ancora: ItemAncora | null | undefined): string | null {
+  if (!ancora || ancora.tipos.length > 0) return null
+  if (ancora.motivo_sem_aviso === 'somente_agradecimento') {
+    return `Não foi possível salvar. O produto '${ancora.produto_nome}' possui apenas mensagem de agradecimento. Configure ao menos uma mensagem de acompanhamento.`
   }
-  return null
+  return `Não foi possível salvar. Nenhuma mensagem foi encontrada para o produto '${ancora.produto_nome}'.`
 }
 
-describe('Guard por produto (actionsRecompra — guard 3)', () => {
+describe('Guard âncora (actionsRecompra — guard 4)', () => {
   it('G2: garantir error returns friendly message without calling RPC', async () => {
     const throwingGarantir = async () => { throw new Error('Falha ao garantir mensagens do produto: db error') }
     const rpcCalled = false
@@ -543,102 +540,92 @@ describe('Guard por produto (actionsRecompra — guard 3)', () => {
     expect(errorMsg).toBe('Não foi possível preparar as mensagens deste produto. Nenhuma alteração foi salva.')
   })
 
-  it('G3: produto com qtd=3 tem tipos=[rel,rec] → não bloqueia', () => {
-    const porItem: ItemPorItem[] = [{ produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] }]
-    expect(guardPorItem(porItem)).toBeNull()
+  it('G3: âncora com tipos válidos — não bloqueia', () => {
+    const ancora: ItemAncora = { produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] }
+    expect(guardAncora(ancora)).toBeNull()
   })
 
-  it('G4: produto sem tipos bloqueia e nomeia o produto', () => {
-    const porItem: ItemPorItem[] = [{ produto_nome: 'Wheijo', tipos: [] }]
-    const erro = guardPorItem(porItem)
+  it('G4: âncora sem tipos → bloqueia e nomeia o produto', () => {
+    const ancora: ItemAncora = { produto_nome: 'Wheijo', tipos: [] }
+    const erro = guardAncora(ancora)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Wheijo')
-    expect(erro).toContain('não pode gerar avisos de recompra')
   })
 
-  it('G5: produto com 5 mensagens (4 tipos sem agradecimento) não bloqueia', () => {
-    const porItem: ItemPorItem[] = [{ produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra', 'oferta', 'follow_up'] }]
-    expect(guardPorItem(porItem)).toBeNull()
+  it('G5: âncora com 5 mensagens (4 tipos sem agradecimento) não bloqueia', () => {
+    const ancora: ItemAncora = { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra', 'oferta', 'follow_up'] }
+    expect(guardAncora(ancora)).toBeNull()
   })
 
-  it('G6: porItem vazio pula guard — nunca bloqueia', () => {
-    expect(guardPorItem([])).toBeNull()
+  it('G6: ancora null — nunca bloqueia', () => {
+    expect(guardAncora(null)).toBeNull()
   })
 
-  it('G7: dois produtos — um sem tipos bloqueia e nomeia o problemático', () => {
-    const porItem: ItemPorItem[] = [
-      { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] },
-      { produto_nome: 'Wheijo', tipos: [] },
-    ]
-    const erro = guardPorItem(porItem)
-    expect(erro).toContain('Wheijo')
-    expect(erro).not.toContain('Creatina')
+  it('G7: âncora com tipos válidos — não-âncora sem tipos não bloqueia', () => {
+    // Guard 4 verifica apenas o âncora; não-âncora é ignorado
+    const ancora: ItemAncora = { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] }
+    expect(guardAncora(ancora)).toBeNull()
   })
 
   it('G8: 3 tipos NÃO bloqueia — regressão do bug Creatina→Wheijo (guard 1 bloqueava)', () => {
-    // Guard 1 exigia exatamente follow_up. Guard 3 não exige tipo específico.
-    const porItem: ItemPorItem[] = [{ produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra', 'oferta'] }]
-    expect(guardPorItem(porItem)).toBeNull()
+    // Guard 1 exigia exatamente follow_up. Guard 4 não exige tipo específico.
+    const ancora: ItemAncora = { produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra', 'oferta'] }
+    expect(guardAncora(ancora)).toBeNull()
   })
 
-  it('G9: cenário perigoso — Creatina(0) + Wheijo(2) bloqueia por Creatina', () => {
-    // Cenário que o guard 2 (global) permitia passar: soma total > 0 mas Creatina sem avisos.
-    // Guard 3 bloqueia porque avalia cada produto individualmente.
-    const porItem: ItemPorItem[] = [
-      { produto_nome: 'Creatina', tipos: [] },
-      { produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] },
-    ]
-    const erro = guardPorItem(porItem)
+  it('G9: âncora sem tipos → bloqueia e nomeia o âncora', () => {
+    // Cenário que o guard 2 (global) permitia passar: Wheijo com avisos, Creatina sem.
+    // Guard 4 bloqueia porque o âncora (Creatina) não tem tipos aplicáveis.
+    const ancora: ItemAncora = { produto_nome: 'Creatina', tipos: [] }
+    const erro = guardAncora(ancora)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Creatina')
   })
 
-  it('G10: cenário inverso — Creatina(2) + Wheijo(0) bloqueia por Wheijo', () => {
-    const porItem: ItemPorItem[] = [
-      { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] },
-      { produto_nome: 'Wheijo', tipos: [] },
-    ]
-    const erro = guardPorItem(porItem)
-    expect(erro).not.toBeNull()
-    expect(erro).toContain('Wheijo')
+  it('G10: não-âncora sem tipos — não bloqueia (guard verifica apenas âncora)', () => {
+    // Cenário: âncora=Creatina(2 tipos), não-âncora=Wheijo(0 tipos)
+    // Guard 4 só olha o âncora → passa
+    const ancora: ItemAncora = { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] }
+    expect(guardAncora(ancora)).toBeNull()
   })
 
-  it('G11: Creatina(2) + Wheijo(2) — ambos válidos, não bloqueia', () => {
-    const porItem: ItemPorItem[] = [
-      { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] },
-      { produto_nome: 'Wheijo', tipos: ['relacionamento', 'recompra'] },
-    ]
-    expect(guardPorItem(porItem)).toBeNull()
+  it('G11: âncora com tipos — não bloqueia independente de outros produtos', () => {
+    const ancora: ItemAncora = { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] }
+    expect(guardAncora(ancora)).toBeNull()
   })
 
-  it('G12: produto não recorrente não aparece em porItem — não bloqueia', () => {
-    // porItem só contém itens recorrentes; não-recorrentes são omitidos pelo planejador
-    const porItem: ItemPorItem[] = [] // sem itens recorrentes
-    expect(guardPorItem(porItem)).toBeNull()
+  it('G12: ancora undefined — não bloqueia (cobertura de chamada sem itens recorrentes)', () => {
+    expect(guardAncora(undefined)).toBeNull()
   })
 
   it('G13: motivo somente_agradecimento → mensagem específica menciona agradecimento', () => {
-    const porItem: ItemPorItem[] = [{ produto_nome: 'Produto Agr', tipos: [], motivo_sem_aviso: 'somente_agradecimento' }]
-    const erro = guardPorItem(porItem)
+    const ancora: ItemAncora = { produto_nome: 'Produto Agr', tipos: [], motivo_sem_aviso: 'somente_agradecimento' }
+    const erro = guardAncora(ancora)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Produto Agr')
     expect(erro).toContain('agradecimento')
-    expect(erro).toContain('relacionamento, recompra ou oferta')
+    expect(erro).toContain('acompanhamento')
   })
 
   it('G14: motivo sem_mensagens → mensagem genérica sem mencionar agradecimento', () => {
-    const porItem: ItemPorItem[] = [{ produto_nome: 'Produto Vazio', tipos: [], motivo_sem_aviso: 'sem_mensagens' }]
-    const erro = guardPorItem(porItem)
+    const ancora: ItemAncora = { produto_nome: 'Produto Vazio', tipos: [], motivo_sem_aviso: 'sem_mensagens' }
+    const erro = guardAncora(ancora)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Produto Vazio')
     expect(erro).toContain('Nenhuma mensagem foi encontrada')
     expect(erro).not.toContain('agradecimento')
   })
+
+  it('G15: não-âncora com somente_agradecimento — não bloqueia', () => {
+    // Produto não-âncora com todas mensagens de agradecimento não é avaliado pelo guard
+    const ancora: ItemAncora = { produto_nome: 'Creatina', tipos: ['relacionamento', 'recompra'] }
+    expect(guardAncora(ancora)).toBeNull()
+  })
 })
 
 // ── Cenário exato do bug: Creatina + Whey → Wheijo ───────────────────────────
 
-describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3)', () => {
+describe('Bug: substituição Whey→Wheijo — validação por âncora (guard 4)', () => {
   const MSG_TIPOS: Record<number, string> = {
     1: 'agradecimento', 2: 'relacionamento', 3: 'recompra', 4: 'oferta', 5: 'follow_up',
   }
@@ -691,7 +678,7 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     }
   }
 
-  it('H1: Wheijo (qtd=3) → porItem tem 1 entrada com tipos [rel,rec]', async () => {
+  it('H1: Wheijo (qtd=3) → ancora aponta para Wheijo com tipos [rel,rec]', async () => {
     const db = criarDbMockComQtd(3, [1, 2, 3])
     const result = await planejarAvisosParaVenda({
       ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
@@ -704,11 +691,10 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     expect(result.porItem[0].tipos).toContain('relacionamento')
     expect(result.porItem[0].tipos).toContain('recompra')
     expect(result.porItem[0].tipos).not.toContain('agradecimento')
-    expect(guardPorItem(result.porItem)).toBeNull()
+    expect(guardAncora(result.ancora)).toBeNull()
   })
 
-  it('H2: Creatina (qtd=3) + Wheijo (qtd=3) → porItem tem 2 entradas, ambas com tipos', async () => {
-    // Mock diferenciado: Creatina e Wheijo têm mensagens próprias
+  it('H2: Creatina (qtd=3) + Wheijo (qtd=3) → ambos com tipos, ancora não bloqueia', async () => {
     const db = criarDbMockMultiProduto({
       'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
       'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
@@ -723,10 +709,10 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     })
     expect(result.porItem).toHaveLength(2)
     expect(result.porItem.every(p => p.tipos.length > 0)).toBe(true)
-    expect(guardPorItem(result.porItem)).toBeNull()
+    expect(guardAncora(result.ancora)).toBeNull()
   })
 
-  it('H3: Creatina (0 msgs) + Wheijo (2 tipos) → guard bloqueia por Creatina', async () => {
+  it('H3: Creatina (âncora, 0 msgs) + Wheijo (2 tipos) → guard bloqueia por Creatina', async () => {
     const db = criarDbMockMultiProduto({
       'p-creatina': { qtd: 3, ordens: [] },  // sem mensagens
       'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
@@ -739,13 +725,14 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
       ],
       db,
     })
-    const erro = guardPorItem(result.porItem)
+    // Creatina é o âncora (ciclo=30; Wheijo=null→30, tie → primeiro vence)
+    const erro = guardAncora(result.ancora)
     expect(erro).not.toBeNull()
     expect(erro).toContain('Creatina Monohidratada 300g')
     expect(erro).not.toContain('Wheijo')
   })
 
-  it('H4: Creatina (2 tipos) + Wheijo (0 msgs) → guard bloqueia por Wheijo', async () => {
+  it('H4: Creatina (âncora, 2 tipos) + Wheijo (não-âncora, 0 msgs) — guard não bloqueia', async () => {
     const db = criarDbMockMultiProduto({
       'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
       'p-wheijo':   { qtd: 3, ordens: [] },  // sem mensagens
@@ -758,12 +745,16 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
       ],
       db,
     })
-    const erro = guardPorItem(result.porItem)
-    expect(erro).not.toBeNull()
-    expect(erro).toContain('Wheijo')
+    // Creatina é o âncora (ciclo=30; Wheijo=null→30, tie → primeiro vence)
+    // Âncora tem tipos válidos → guard retorna null
+    // Wheijo (não-âncora) com 0 msgs é ignorado pelo guard 4
+    expect(result.ancora).not.toBeNull()
+    expect(result.ancora?.produto_nome).toBe('Creatina')
+    expect(result.ancora?.tipos.length).toBeGreaterThan(0)
+    expect(guardAncora(result.ancora)).toBeNull()
   })
 
-  it('H5: produto com qtd=4 → tipos [rel,rec,ofe] — guard 3 aceita', async () => {
+  it('H5: produto com qtd=4 → tipos [rel,rec,ofe] — guard aceita', async () => {
     const db = criarDbMockComQtd(4, [1, 2, 3, 4])
     const result = await planejarAvisosParaVenda({
       ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
@@ -773,10 +764,10 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     expect(result.porItem[0].tipos).toContain('relacionamento')
     expect(result.porItem[0].tipos).toContain('recompra')
     expect(result.porItem[0].tipos).toContain('oferta')
-    expect(guardPorItem(result.porItem)).toBeNull()
+    expect(guardAncora(result.ancora)).toBeNull()
   })
 
-  it('H6: produto com qtd=5 → tipos [rel,rec,ofe,fup] sem agradecimento — guard 3 aceita', async () => {
+  it('H6: produto com qtd=5 → tipos [rel,rec,ofe,fup] sem agradecimento — guard aceita', async () => {
     const db = criarDbMockComQtd(5, [1, 2, 3, 4, 5])
     const result = await planejarAvisosParaVenda({
       ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
@@ -785,7 +776,7 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     })
     expect(result.porItem[0].tipos).not.toContain('agradecimento')
     expect(result.porItem[0].tipos).toHaveLength(4)
-    expect(guardPorItem(result.porItem)).toBeNull()
+    expect(guardAncora(result.ancora)).toBeNull()
   })
 
   it('H7: Whey removido não aparece nos itens finais', () => {
@@ -824,7 +815,7 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     })
     expect(result.avisos).toHaveLength(0)
     expect(result.porItem).toHaveLength(0)
-    expect(guardPorItem(result.porItem)).toBeNull()
+    expect(guardAncora(result.ancora)).toBeNull()
   })
 
   it('H10: porItem contém motivo_sem_aviso quando produto sem mensagens', async () => {
@@ -840,8 +831,7 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     expect(result.porItem[0].motivo_sem_aviso).toBe('sem_mensagens')
   })
 
-  it('H11: produto com apenas agradecimento (origem=recompra) → motivo somente_agradecimento', async () => {
-    // Simula produto onde lojista configurou todos os tipos como agradecimento
+  it('H11: âncora com apenas agradecimento (origem=recompra) → guard bloqueia com mensagem de agradecimento', async () => {
     const soAgrMsgs = [1, 2, 3].map(o => ({
       id: `m-agr-${o}`, ordem: o, tipo: 'agradecimento', texto: 'Obrigado {cliente}',
       dias_apos_venda: 0, estilo: null, tipo_incentivo: null,
@@ -866,7 +856,73 @@ describe('Bug: substituição Whey→Wheijo — validação por produto (guard 3
     expect(result.porItem).toHaveLength(1)
     expect(result.porItem[0].tipos).toHaveLength(0)
     expect(result.porItem[0].motivo_sem_aviso).toBe('somente_agradecimento')
-    expect(guardPorItem(result.porItem)).toContain('agradecimento')
+    expect(guardAncora(result.ancora)).toContain('agradecimento')
+  })
+
+  it('H12: Wheijo como âncora (ciclo=15 < Creatina ciclo=30) — ancora aponta para Wheijo', async () => {
+    const db = criarDbMockMultiProduto({
+      'p-creatina': { qtd: 3, ordens: [1, 2, 3] },
+      'p-wheijo':   { qtd: 3, ordens: [1, 2, 3] },
+    })
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: 15 },
+      ],
+      db,
+    })
+    // Wheijo (ciclo=15) é âncora por ter menor ciclo
+    expect(result.ancora).not.toBeNull()
+    expect(result.ancora?.produto_nome).toBe('Wheijo')
+    // Todos os avisos têm item_venda_id de Wheijo (âncora)
+    expect(result.avisos.every(a => a.item_venda_id === 'iv-wheijo')).toBe(true)
+  })
+
+  it('H13: texto rel menciona todos os produtos; rec menciona apenas âncora', async () => {
+    function makeMsgsProduto(ordens: number[], pid: string) {
+      const tipos: Record<number, string> = { 1: 'agradecimento', 2: 'relacionamento', 3: 'recompra' }
+      return ordens.map(o => ({
+        id: `m-${pid}-${o}`, ordem: o, tipo: tipos[o],
+        texto: 'Olá {{cliente}}, seu produto {{produto}} espera!',
+        dias_apos_venda: o * 10, estilo: null, tipo_incentivo: null,
+        cupom_codigo: null, desconto_percentual: null, desconto_valor: null,
+        beneficio_texto: null, validade_oferta: null,
+      }))
+    }
+    const db = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: (_col: string, val: string) => {
+            if (table === 'mensagens_produto') {
+              const msgs = makeMsgsProduto([1, 2, 3], val)
+              return { order: () => ({ data: msgs }), single: () => ({ data: null }) }
+            }
+            return { order: () => ({ data: null }), single: () => ({ data: { qtd_mensagens: 3 } }) }
+          },
+        }),
+      }),
+    }
+    const result = await planejarAvisosParaVenda({
+      ...CTX_BASE, data_base: '2026-01-01', origem: 'recompra',
+      itens: [
+        { id: 'iv-creatina', produto_id: 'p-creatina', produto_nome: 'Creatina', recorrente: true, ciclo_recompra_dias: 30 },
+        { id: 'iv-wheijo',   produto_id: 'p-wheijo',   produto_nome: 'Wheijo',   recorrente: true, ciclo_recompra_dias: null },
+      ],
+      db,
+    })
+    // Creatina é âncora (ciclo=30; Wheijo=null→30, tie → primeiro vence)
+    // produto_nome_lista = "Creatina e Wheijo" → usado em relacionamento (não está em TIPOS_ANCORA)
+    // produto_nome_ancora = "Creatina" → usado em recompra/oferta/follow_up (estão em TIPOS_ANCORA)
+    // Avisos identificados por mensagem_id: m-p-creatina-2 (rel, ordem=2), m-p-creatina-3 (rec, ordem=3)
+    const rel = result.avisos.find(a => a.mensagem_id === 'm-p-creatina-2')
+    const rec = result.avisos.find(a => a.mensagem_id === 'm-p-creatina-3')
+    expect(rel).toBeDefined()
+    expect(rec).toBeDefined()
+    expect(rel?.texto_renderizado).toContain('Creatina')
+    expect(rel?.texto_renderizado).toContain('Wheijo')
+    expect(rec?.texto_renderizado).toContain('Creatina')
+    expect(rec?.texto_renderizado).not.toContain('Wheijo')
   })
 })
 
