@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Send, CalendarClock, XCircle, Package, User, Layers, Copy, Check, Pencil, ShieldOff } from 'lucide-react'
 import { gerarLinkWhatsApp } from '@/lib/whatsapp/link'
 import { formatarWhatsapp } from '@/lib/whatsapp/mask'
@@ -116,6 +116,14 @@ export function CardGrupoRecompra({
   const isContatoFeito = grupo.avisos.every(a => a.status === 'contato_feito' || (a.status === 'enviado' && !a.recompra_id))
   const [textoAtual, setTextoAtual] = useState(primaryAviso.texto_renderizado)
   const [editando, setEditando] = useState(false)
+
+  // grupo troca (ex.: alternar entre abas Recompra/Oferta/Confirmação) sem que o
+  // componente seja remontado — o wrapper mantém key={venda_id}. Resincroniza o
+  // texto exibido sempre que a mensagem representada (primaryAviso) mudar.
+  useEffect(() => {
+    setTextoAtual(primaryAviso.texto_renderizado)
+    setEditando(false)
+  }, [primaryAviso.id, primaryAviso.texto_renderizado])
   const [rascunho, setRascunho] = useState(textoAtual)
   const [copiado, setCopiado] = useState(false)
   const [loading, setLoading] = useState(false)

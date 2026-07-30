@@ -43,6 +43,17 @@ interface VendasListaProps {
 
 type Periodo = '7' | '30' | '90' | '180' | '365' | 'tudo'
 
+// Item exibido no resumo de uma venda multiproduto: quando há filtro de produto
+// ativo, mostra o item que efetivamente bateu com o filtro — não sempre o
+// primeiro item da venda, que poderia não ter relação nenhuma com o que foi buscado.
+export function itemDestaque(
+  itens: VendaItemExtrato[],
+  produtoFiltro?: string
+): VendaItemExtrato | undefined {
+  if (!produtoFiltro) return itens[0]
+  return itens.find(i => i.produto_nome === produtoFiltro) ?? itens[0]
+}
+
 function formatarBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -245,7 +256,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
           {showMobile && (
           <div className="space-y-3 md:hidden">
             {filtradas.map(v => (
-              <VendaCard key={v.id} venda={v} isVendedora={isVendedora} mostrarLoja={mostrarLoja} />
+              <VendaCard key={v.id} venda={v} isVendedora={isVendedora} mostrarLoja={mostrarLoja} produtoFiltro={produtoNome} />
             ))}
           </div>
           )}
@@ -289,7 +300,7 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
                       <td className="px-4 py-3 text-muted-foreground">{v.loja_nome ?? '—'}</td>
                     )}
                     <td className="px-4 py-3 max-w-[220px]">
-                      <ProdutosCell itens={v.itens} />
+                      <ProdutosCell itens={v.itens} produtoFiltro={produtoNome} />
                     </td>
                     <td className="px-4 py-3">
                       <BadgeOrigem origem={v.origem} />
@@ -437,9 +448,10 @@ export function VendasLista({ vendas, isVendedora, vendedoras, mostrarLoja }: Ve
   )
 }
 
-function VendaCard({ venda: v, isVendedora, mostrarLoja }: { venda: VendaExtrato; isVendedora: boolean; mostrarLoja?: boolean }) {
+function VendaCard({ venda: v, isVendedora, mostrarLoja, produtoFiltro }: { venda: VendaExtrato; isVendedora: boolean; mostrarLoja?: boolean; produtoFiltro?: string }) {
   const [expandido, setExpandido] = useState(false)
   const mostrarExpandir = v.itens.length > 1
+  const destaque = itemDestaque(v.itens, produtoFiltro)
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
@@ -458,7 +470,7 @@ function VendaCard({ venda: v, isVendedora, mostrarLoja }: { venda: VendaExtrato
 
       {!expandido && (
         <p className="text-sm text-muted-foreground">
-          {v.itens[0]?.produto_nome ?? '—'}
+          {destaque?.produto_nome ?? '—'}
           {v.itens.length > 1 && ` e mais ${v.itens.length - 1}`}
         </p>
       )}
@@ -524,9 +536,9 @@ function VendaCard({ venda: v, isVendedora, mostrarLoja }: { venda: VendaExtrato
   )
 }
 
-function ProdutosCell({ itens }: { itens: VendaItemExtrato[] }) {
+function ProdutosCell({ itens, produtoFiltro }: { itens: VendaItemExtrato[]; produtoFiltro?: string }) {
   if (itens.length === 0) return <span className="text-muted-foreground">—</span>
-  const primeiro = itens[0]
+  const primeiro = itemDestaque(itens, produtoFiltro)!
   return (
     <span>
       {primeiro.produto_nome}

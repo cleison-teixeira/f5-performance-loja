@@ -243,6 +243,37 @@ function SecaoAvisos({
   )
 }
 
+// ── Produto por grupo (mesma origem de dados da busca multiproduto) ─────────
+// Um aviso individual só carrega o nome do produto âncora (item_venda_id
+// compartilhado por todos os avisos da venda). itensVendaPorVenda traz TODOS
+// os itens da venda, âncora e não-âncora — mesma fonte já usada por
+// filtrarAvisosPorBusca. Usar aqui evita a divergência onde a busca encontra
+// um produto não-âncora, mas o seletor/filtro por produto não o reconhece.
+
+export function listarProdutosUnicos(
+  avisos: AvisoDetalhado[],
+  itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
+): string[] {
+  const nomes = new Set(avisos.map(a => a.produto_nome))
+  for (const a of avisos) {
+    for (const item of itensVendaPorVenda?.[a.venda_id] ?? []) {
+      nomes.add(item.produto_nome)
+    }
+  }
+  return [...nomes].sort()
+}
+
+export function avisoCombinaProduto(
+  aviso: AvisoDetalhado,
+  produtoFiltro: string,
+  itensVendaPorVenda?: Record<string, ItemVendaGrupo[]>
+): boolean {
+  if (!produtoFiltro) return true
+  const matchAncora = aviso.produto_nome === produtoFiltro
+  const matchGrupo = (itensVendaPorVenda?.[aviso.venda_id] ?? []).some(i => i.produto_nome === produtoFiltro)
+  return matchAncora || matchGrupo
+}
+
 // ── Lista principal ─────────────────────────────────────────────────────────
 
 export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false, taxaConversao, itensVendaPorVenda }: AvisosListaProps) {
@@ -262,8 +293,8 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   }, [avisosIniciais])
 
   const produtosUnicos = useMemo(
-    () => [...new Set(lista.map(a => a.produto_nome))].sort(),
-    [lista]
+    () => listarProdutosUnicos(lista, itensVendaPorVenda),
+    [lista, itensVendaPorVenda]
   )
 
   const temFiltrosBusca = busca !== '' || produtoFiltro !== '' || dataEspecifica !== ''
@@ -382,7 +413,7 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   const listaComFiltrosBusca = filtrarAvisosPorBusca(
     listaFiltradaPorResponsavel, busca, itensVendaPorVenda
   ).filter(a => {
-    if (produtoFiltro && a.produto_nome !== produtoFiltro) return false
+    if (!avisoCombinaProduto(a, produtoFiltro, itensVendaPorVenda)) return false
     if (dataEspecifica) {
       const campoData = tipData === 'compra' ? a.data_compra : a.data_aviso
       if (campoData !== dataEspecifica) return false
