@@ -15,6 +15,15 @@
 9. O F5 deve permanecer preparado para novos atores do ecossistema: indústria, distribuidor, marca, representante, rede, loja, gerente, vendedor e consumidor.
 10. O repositório é a fonte oficial da verdade técnica.
 
+## Soberania do Schema
+
+11. Toda alteração estrutural no banco de dados deve existir como migration versionada no repositório.
+12. É proibida alteração manual de schema em produção sem migration correspondente.
+13. Desenvolvimento, staging, produção e ambientes futuros devem ser reconstruíveis a partir do repositório e das migrations oficiais.
+14. Divergências de schema entre ambientes devem ser corrigidas restaurando rastreabilidade e paridade, nunca ocultadas ou contornadas.
+15. Mudanças de banco seguem os mesmos gates de staging e homologação já exigidos para mudanças críticas (princípio 8), aplicados obrigatoriamente antes da produção.
+16. Nenhuma mudança manual em produção pode permanecer fora do histórico oficial de migrations do repositório.
+
 ## Documentos subordinados
 
 - `docs/01_PLAYBOOK_FABRICA_F5.md`
