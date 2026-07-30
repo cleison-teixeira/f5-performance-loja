@@ -6,7 +6,8 @@ Entregar software com velocidade, segurança e rastreabilidade, liberando Cleiso
 
 ## Papéis
 
-- **Cleison:** visão do produto, prioridade, decisão de negócio, homologação e autorização de produção.
+- **Cleison:** visão do produto, prioridade, decisão de negócio, homologação e autorização de produção. É a autoridade final sobre arquitetura, banco de dados, segurança, produção e produto.
+- **Hermes:** orquestrador operacional do F5 OS. Coordena o fluxo entre Cleison, ChatGPT, Claude, Codex e demais agentes; encaminha cada tarefa ao agente adequado; preserva contexto, evidências e rastreabilidade; exige o cumprimento dos testes e gates obrigatórios; interrompe o fluxo quando um gate falhar; e nunca autoriza autonomamente mudanças irreversíveis ou ações em produção.
 - **ChatGPT:** arquitetura, especificação, regras de negócio, decomposição, auditoria e coordenação.
 - **Claude:** implementação principal e correções críticas.
 - **Kimi:** investigação, leitura de grande contexto, tarefas paralelas, documentação e testes.
