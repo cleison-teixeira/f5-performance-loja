@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { confirmarRecompra } from './actions'
 import type { AvisoDetalhado } from './types'
 import type { CatalogoProduto } from './page'
@@ -90,6 +90,13 @@ export function ConfirmarRecompraModal({
   const [erro, setErro] = useState<string | null>(null)
   const [vendedoraIdSelecionada, setVendedoraIdSelecionada] = useState(aviso.vendedora_id)
 
+  // Evita setState num componente já desmontado (ex.: usuário fecha o modal
+  // clicando no backdrop enquanto a confirmação ainda está em andamento).
+  const montadoRef = useRef(true)
+  useEffect(() => {
+    return () => { montadoRef.current = false }
+  }, [])
+
   function atualizar(key: string, patch: Partial<ItemForm>) {
     setItens(prev => prev.map(i => i.key === key ? { ...i, ...patch } : i))
   }
@@ -126,32 +133,38 @@ export function ConfirmarRecompraModal({
     setSalvando(true)
     setErro(null)
 
-    const resultado = await confirmarRecompra({
-      aviso_id: aviso.id,
-      venda_original_id: aviso.venda_id,
-      loja_id,
-      cliente_id: aviso.cliente_id,
-      vendedora_id: vendedoraIdSelecionada,
-      itens: itens.map(item => ({
-        produto_id: item.produtoId || null,
-        produto_nome: item.produtoNome.trim(),
-        comissionavel: item.comissionavel,
-        quantidade: item.quantidade,
-        preco_unitario: parseBRL(item.precoBRL),
-        ciclo_recompra_dias: item.cicloRecompraDias ?? null,
-      })),
-      item_venda_ids_grupo,
-    })
+    try {
+      const resultado = await confirmarRecompra({
+        aviso_id: aviso.id,
+        venda_original_id: aviso.venda_id,
+        loja_id,
+        cliente_id: aviso.cliente_id,
+        vendedora_id: vendedoraIdSelecionada,
+        itens: itens.map(item => ({
+          produto_id: item.produtoId || null,
+          produto_nome: item.produtoNome.trim(),
+          comissionavel: item.comissionavel,
+          quantidade: item.quantidade,
+          preco_unitario: parseBRL(item.precoBRL),
+          ciclo_recompra_dias: item.cicloRecompraDias ?? null,
+        })),
+        item_venda_ids_grupo,
+      })
 
-    setSalvando(false)
+      if (!resultado.ok) {
+        if (montadoRef.current) setErro(resultado.erro)
+        return
+      }
 
-    if (!resultado.ok) {
-      setErro(resultado.erro)
-      return
+      tocarCaixaRegistradora()
+      onSucesso(aviso.id)
+    } catch {
+      if (montadoRef.current) {
+        setErro('Não foi possível confirmar a recompra. Verifique sua conexão e tente novamente.')
+      }
+    } finally {
+      if (montadoRef.current) setSalvando(false)
     }
-
-    tocarCaixaRegistradora()
-    onSucesso(aviso.id)
   }
 
   return (
