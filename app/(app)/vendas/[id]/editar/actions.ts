@@ -194,9 +194,6 @@ export async function editarVenda(dados: {
           null
         )
         const minCiclo = anchor?.ciclo_recompra_dias ?? 30
-
-        const [ano, mes, dia] = dados.data_compra.split('-').map(Number)
-        const dataBase = new Date(ano, mes - 1, dia)
         const agora = new Date().toISOString()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pendingUpdates: any[] = []
@@ -242,13 +239,7 @@ export async function editarVenda(dados: {
           }
 
           if (dataMudou) {
-            const diasMsg = raw.dias_apos_venda as number
-            const dataAviso = new Date(dataBase)
-            dataAviso.setDate(dataBase.getDate() + diasMsg)
-            const y = dataAviso.getFullYear()
-            const m2 = String(dataAviso.getMonth() + 1).padStart(2, '0')
-            const d2 = String(dataAviso.getDate()).padStart(2, '0')
-            patch.data_aviso = `${y}-${m2}-${d2}`
+            patch.data_aviso = generated.data_aviso
           }
 
           pendingUpdates.push(
