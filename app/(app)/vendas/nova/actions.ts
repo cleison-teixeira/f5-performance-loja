@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { revalidatePath } from 'next/cache'
 import { type AvisoParaInserir } from '@/lib/avisos/gerador'
 import { gerarAvisosParaVenda, type ItemParaGerarAviso } from '@/lib/avisos/gerarParaVenda'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
@@ -380,6 +381,15 @@ export async function salvarVenda(dados: DadosVenda): Promise<ResultadoVenda> {
     if (todosAvisos.length > 0) {
       await admin.from('avisos').insert(todosAvisos)
     }
+
+    // PILOT-0003: sem isto, telas/contadores já abertos (navegação client-side
+    // ou o layout compartilhado que renderiza sino/badges) continuavam com
+    // dados antigos até um F5 manual — reproduzido e comprovado antes desta
+    // correção. 'layout' revalida o layout raiz (e os aninhados sob ele,
+    // incluindo o menu/sino) além das páginas específicas.
+    revalidatePath('/avisos')
+    revalidatePath('/relacionamento')
+    revalidatePath('/', 'layout')
 
     return {
       ok: true,

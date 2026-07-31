@@ -441,6 +441,17 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Erro inesperado ao confirmar a recompra.' }
     }
 
+    // PILOT-0003: confirmarRecompra não revalidava nada — avisos antigos
+    // convertidos só somiam da lista por remoção otimista local, e os avisos
+    // futuros recém-gerados pela RPC (relacionamento/recompra/oferta/
+    // follow-up) nunca apareciam sem F5 manual (reproduzido e comprovado:
+    // card do cliente ia de 3 para 0 em vez de para o novo total real).
+    // 'layout' revalida também sino/badges do menu, que vivem no layout
+    // compartilhado e não são recomputados por revalidatePath de página.
+    revalidatePath('/avisos')
+    revalidatePath('/relacionamento')
+    revalidatePath('/', 'layout')
+
     return {
       ok: true,
       recompra_id: resultado.recompra_id,
