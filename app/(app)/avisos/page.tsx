@@ -18,7 +18,6 @@ export interface CatalogoProduto {
 }
 
 export default async function AvisosPage() {
-  console.log('[PILOT-0003-DEBUG] AvisosPage render', new Date().toISOString())
   const appCtx = await getAppContext()
   if (!appCtx) redirect('/login')
 

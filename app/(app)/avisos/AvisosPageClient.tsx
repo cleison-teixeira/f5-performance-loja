@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { AvisosLista } from './AvisosLista'
 import type { AvisoDetalhado, ItemVendaGrupo } from './types'
 import type { CatalogoProduto } from './page'
@@ -38,12 +37,9 @@ export function AvisosPageClient({
   mostrarLoja,
   taxaConversao,
 }: Props) {
-  const [avisos] = useState<AvisoDetalhado[]>(initialAvisos)
-  const [itensVendaPorVenda] = useState<Record<string, ItemVendaGrupo[]>>(initialItensVenda)
-
   return (
     <AvisosLista
-      avisos={avisos}
+      avisos={initialAvisos}
       hoje={hoje}
       catalogo={catalogo}
       percentuaisPorVendedora={percentuaisPorVendedora}
@@ -56,7 +52,7 @@ export function AvisosPageClient({
       qtdRecomprasMes={qtdRecomprasMes}
       mostrarLoja={mostrarLoja}
       taxaConversao={taxaConversao}
-      itensVendaPorVenda={itensVendaPorVenda}
+      itensVendaPorVenda={initialItensVenda}
     />
   )
 }
