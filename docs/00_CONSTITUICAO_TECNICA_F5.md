@@ -24,6 +24,17 @@
 15. Mudanças de banco seguem os mesmos gates de staging e homologação já exigidos para mudanças críticas (princípio 8), aplicados obrigatoriamente antes da produção.
 16. Nenhuma mudança manual em produção pode permanecer fora do histórico oficial de migrations do repositório.
 
+## Governança de Agentes e Evolução do F5 OS
+
+17. O F5 não depende de nenhum fornecedor específico de IA; agentes são escolhidos por capacidade, não por vínculo.
+18. A seleção de agente para uma tarefa deve considerar a capacidade necessária para executá-la, não preferência arbitrária.
+19. Na ausência ou falha de um agente, o sistema deve degradar de forma controlada e registrada, nunca falhar silenciosamente.
+20. O uso de recursos de IA deve ser eficiente — não introduzir custo, camada ou complexidade além do necessário para resolver a dor real.
+21. A autonomia dos agentes é progressiva: cada nível só se expande depois de o nível anterior ser validado em uso real.
+22. A autoridade final sobre produto, arquitetura, banco de dados, segurança e produção pertence sempre a Cleison ou a quem ele designar explicitamente, consistente com o princípio 6.
+23. Existe uma barreira absoluta entre staging e produção: nenhum agente, script ou automação pode atravessá-la sem autorização humana explícita e específica.
+24. A arquitetura do F5 OS deve evoluir na velocidade da dor real que resolve, nunca à frente dela.
+
 ## Documentos subordinados
 
 - `docs/01_PLAYBOOK_FABRICA_F5.md`
