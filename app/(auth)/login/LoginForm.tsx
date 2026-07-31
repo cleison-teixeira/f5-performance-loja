@@ -134,6 +134,8 @@ export function LoginForm() {
           Cadastre-se
         </Link>
       </p>
+      {/* MARCADOR TEMPORÁRIO PILOT-0002 — remover antes do merge final */}
+      <span data-pilot0002-marker="VERSAO-A" style={{ display: 'none' }} />
     </form>
   )
 }
