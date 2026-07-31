@@ -37,6 +37,13 @@ export function AvisosPageClient({
   mostrarLoja,
   taxaConversao,
 }: Props) {
+  if (typeof window !== 'undefined') {
+    console.log('[PILOT0003-CHAIN][AvisosPageClient]', JSON.stringify({
+      ts: new Date().toISOString(),
+      initialAvisosCount: initialAvisos.length,
+      nomesClientes: initialAvisos.map(a => a.cliente_nome),
+    }))
+  }
   return (
     <AvisosLista
       avisos={initialAvisos}

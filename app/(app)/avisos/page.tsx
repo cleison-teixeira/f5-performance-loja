@@ -179,6 +179,14 @@ export default async function AvisosPage() {
     }
   })
 
+  console.log('[PILOT0003-CHAIN][SERVER]', JSON.stringify({
+    ts: new Date().toISOString(),
+    deployment: process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev',
+    pathname: '/avisos',
+    initialAvisosCount: avisos.length,
+    nomesClientes: avisos.map(a => a.cliente_nome),
+  }))
+
   const taxaConversao = await calcularTaxaRecompraMes(ctx.lojaIds, admin, inicioMes)
 
   // Fetch all recurrent itens_venda for every unique venda_id that has active avisos

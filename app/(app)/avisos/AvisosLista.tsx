@@ -289,8 +289,20 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
   // Sync with fresh server data after router.refresh()
   useEffect(() => {
+    console.log('[PILOT0003-CHAIN][AvisosLista-effect-INICIO]', JSON.stringify({
+      ts: new Date().toISOString(), avisosIniciaisCount: avisosIniciais.length,
+      nomesClientes: avisosIniciais.map(a => a.cliente_nome),
+    }))
     setLista(avisosIniciais)
+    console.log('[PILOT0003-CHAIN][AvisosLista-effect-FIM]', JSON.stringify({ ts: new Date().toISOString() }))
   }, [avisosIniciais])
+
+  useEffect(() => {
+    console.log('[PILOT0003-CHAIN][AvisosLista-lista-atualizada]', JSON.stringify({
+      ts: new Date().toISOString(), listaCount: lista.length,
+      nomesClientes: lista.map(a => a.cliente_nome),
+    }))
+  }, [lista])
 
   const produtosUnicos = useMemo(
     () => listarProdutosUnicos(lista, itensVendaPorVenda),
@@ -423,6 +435,18 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
   // Filtra por tipo
   const listaPorTipo = listaComFiltrosBusca.filter(a => tipo === 'todos' || a.tipo === tipo)
+
+  if (typeof window !== 'undefined' && busca.trim() !== '') {
+    console.log('[PILOT0003-CHAIN][AvisosLista-filtro]', JSON.stringify({
+      ts: new Date().toISOString(),
+      busca,
+      listaCount: lista.length,
+      listaFiltradaPorResponsavelCount: listaFiltradaPorResponsavel.length,
+      listaComFiltrosBuscaCount: listaComFiltrosBusca.length,
+      listaPorTipoCount: listaPorTipo.length,
+      nomesEncontrados: listaComFiltrosBusca.map(a => a.cliente_nome),
+    }))
+  }
 
   // Contadores por período (sobre a lista já filtrada por tipo)
   const counts: Record<Periodo, number> = {
