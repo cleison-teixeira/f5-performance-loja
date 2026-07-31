@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
+import { AppUpdateChecker } from '@/components/AppUpdateChecker'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -50,10 +51,12 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const versaoAtual = process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
         <ServiceWorkerRegister />
+        <AppUpdateChecker versaoAtual={versaoAtual} />
         {children}
       </body>
     </html>
