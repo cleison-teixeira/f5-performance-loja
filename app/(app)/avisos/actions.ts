@@ -103,6 +103,11 @@ type ResultadoRecompra =
       valor_comissao: number
       percentual: number
       jaConfirmada?: boolean
+      // Traço informativo (não persistido): true somente se o item que originou a
+      // oportunidade (item_venda_id do aviso âncora) permaneceu na venda final com
+      // o MESMO produto. false cobre tanto remoção quanto substituição do produto
+      // de origem — ambas válidas para o negócio, mas úteis de distinguir em logs.
+      produto_original_preservado?: boolean
     }
   | { ok: false; erro: string }
 
@@ -220,6 +225,10 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       .not('item_venda_id', 'is', null)
 
     // ── Validação do payload contra o conjunto autorizado ──
+    // O item que originou a oportunidade (âncora) segue determinando escopo
+    // (venda/loja/cliente/avisos a encerrar), mas NÃO é mais obrigatório na
+    // seleção final: o cliente pode decidir na loja comprar produto diferente
+    // do que motivou o aviso, inclusive substituindo o item de origem inteiro.
     const idsRecebidos = dados.itens
       .map(i => i.item_venda_id)
       .filter((id): id is string => !!id)
@@ -228,31 +237,28 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Produto duplicado na confirmação.' }
     }
 
-    // Item âncora obrigatório: não pode ser retirado nesta correção (ver Bug 2 para
-    // a revisão completa de concorrência/idempotência).
-    if (itemVendaIdAncora && !idsRecebidos.includes(itemVendaIdAncora)) {
-      return { ok: false, erro: 'O produto que originou esta recompra não pode ser removido.' }
-    }
+    // Produtos existentes na loja: qualquer produto_id enviado (item original
+    // reaproveitado ou produto novo adicionado na confirmação) precisa pertencer
+    // ao catálogo desta loja. produto_id nulo é permitido (produto sem vínculo de
+    // catálogo, ex.: aviso legado) e não é validado aqui.
+    const produtoIdsSubmetidos = [...new Set(dados.itens.map(i => i.produto_id).filter((id): id is string => !!id))]
+    const { data: produtosValidos } = produtoIdsSubmetidos.length > 0
+      ? await admin.from('produtos').select('id').eq('loja_id', lojaId).in('id', produtoIdsSubmetidos)
+      : { data: [] as { id: string }[] }
+    const produtoIdsValidos = new Set((produtosValidos ?? []).map(p => p.id as string))
 
     for (const item of dados.itens) {
+      if (item.produto_id && !produtoIdsValidos.has(item.produto_id)) {
+        return { ok: false, erro: 'Um dos produtos não existe nesta loja.' }
+      }
       if (!item.item_venda_id) continue
+      // item_venda_id continua validado contra o conjunto autorizado (impede
+      // reaproveitar um item de outra venda/loja) — mas o produto anexado a ele
+      // pode ter sido substituído; não exigimos mais que bata com o registro
+      // original de itens_venda.
       if (!itemVendaIdsElegiveis.has(item.item_venda_id)) {
         return { ok: false, erro: 'Um dos produtos não pertence a esta oportunidade de recompra.' }
       }
-      const original = itensVendaMap.get(item.item_venda_id)
-      const produtoBate = !!original && (
-        (item.produto_id != null && item.produto_id === original.produto_id) ||
-        (item.produto_id == null && original.produto_id == null && item.produto_nome.trim() === original.produto_nome.trim())
-      )
-      if (!produtoBate) {
-        return { ok: false, erro: 'Um dos produtos não corresponde ao registro original.' }
-      }
-    }
-
-    // Defesa adicional: pelo menos um item original validado precisa permanecer
-    // (já garantido pela obrigatoriedade do âncora acima, mas mantido como segunda camada).
-    if (idsRecebidos.length === 0) {
-      return { ok: false, erro: 'A confirmação precisa manter pelo menos um produto original.' }
     }
 
     const hoje = new Date().toISOString().slice(0, 10)
@@ -388,14 +394,20 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     // 7. Fechar avisos por ID exato, capturado no snapshot autorizado (substitui os
     //    antigos passos 7/7b/7c). Fecha: (a) sempre o próprio dados.aviso_id — garante
     //    o fechamento mesmo no caso legado de item_venda_id nulo, que fica de fora do
-    //    snapshot; (b) todo aviso ativo (qualquer tipo) cujo item_venda_id tenha sido
-    //    validado como mantido no payload — preserva a regra atual de fechar também
-    //    agradecimento/relacionamento residuais do mesmo item.
+    //    snapshot; (b) todo aviso ativo (qualquer tipo) cujo item_venda_id pertença ao
+    //    item âncora OU a algum item mantido no payload — preserva a regra atual de
+    //    fechar também agradecimento/relacionamento residuais do mesmo item. O item
+    //    âncora entra sempre neste conjunto, mesmo quando substituído/removido da
+    //    seleção final: a oportunidade original foi resolvida (com ou sem o produto
+    //    que a originou), então seus avisos residuais não podem ficar pendentes.
     const agora = new Date().toISOString()
+
+    const itemVendaIdsParaFechar = new Set(idsRecebidos)
+    if (itemVendaIdAncora) itemVendaIdsParaFechar.add(itemVendaIdAncora)
 
     const avisoIdsParaFechar = new Set<string>([dados.aviso_id])
     for (const a of avisosAtivosRaw ?? []) {
-      if (idsRecebidos.includes(a.item_venda_id as string)) {
+      if (itemVendaIdsParaFechar.has(a.item_venda_id as string)) {
         avisoIdsParaFechar.add(a.id as string)
       }
     }
@@ -469,6 +481,15 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       }
     }
 
+    // Traço informativo: o produto de origem só é considerado "preservado" se o
+    // item âncora permaneceu na seleção final E com o mesmo produto_id gravado
+    // originalmente em itens_venda — distingue recompra do produto original de
+    // conversão com substituição, sem exigir nenhuma coluna nova.
+    const itemAncoraNoPayload = dados.itens.find(item => item.item_venda_id === itemVendaIdAncora)
+    const registroOriginalAncora = itemVendaIdAncora ? itensVendaMap.get(itemVendaIdAncora) : undefined
+    const produto_original_preservado = !!itemAncoraNoPayload && !!registroOriginalAncora &&
+      itemAncoraNoPayload.produto_id === registroOriginalAncora.produto_id
+
     return {
       ok: true,
       recompra_id,
@@ -476,6 +497,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       valor_base_comissao,
       valor_comissao: comissaoResult.valor_comissao,
       percentual: comissaoResult.percentual,
+      produto_original_preservado,
     }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }

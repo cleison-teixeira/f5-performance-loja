@@ -177,7 +177,7 @@ export function ConfirmarRecompraModal({
       />
 
       {/* Modal */}
-      <div className="relative z-[90] w-full sm:max-w-lg bg-background rounded-t-2xl sm:rounded-xl shadow-xl max-h-[calc(100dvh-80px)] sm:max-h-[90vh] flex flex-col">
+      <div className="relative z-[90] w-full sm:max-w-lg bg-background rounded-t-2xl sm:rounded-xl overflow-hidden shadow-xl max-h-[calc(100dvh-80px)] sm:max-h-[90vh] flex flex-col">
         <div className="sticky top-0 bg-background border-b px-4 py-3 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl z-20">
           <div>
             <h2 className="text-base font-semibold">Confirmar Recompra</h2>
@@ -198,8 +198,11 @@ export function ConfirmarRecompraModal({
               const preco = parseBRL(item.precoBRL)
               const subtotal = !isNaN(preco) && preco > 0 ? preco * item.quantidade : null
               // O item cujo item_venda_id é o mesmo do aviso que abriu o modal é o
-              // produto que originou esta confirmação — não pode ser retirado (ver
-              // validação equivalente e obrigatória em confirmarRecompra no servidor).
+              // produto que originou esta confirmação. Não oferece botão Retirar direto
+              // (a linha em si não é removível), mas o produto pode ser trocado pelo
+              // seletor abaixo — o servidor não exige mais que esse produto específico
+              // permaneça na venda final (ver confirmarRecompra: cliente pode substituir
+              // o produto de origem por outro efetivamente comprado).
               const isAncora = item.itemVendaId != null && item.itemVendaId === aviso.item_venda_id
 
               return (
