@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
-import { gerarAvisosParaVenda, type ItemParaGerarAviso } from '@/lib/avisos/gerarParaVenda'
+import { calcularComissaoSemGravar } from '@/lib/comissoes/gravar'
+import { garantirMensagensProduto } from '@/lib/avisos/garantirMensagensProduto'
+import { planejarAvisosParaVenda, type ItemParaPlanejamento } from '@/lib/avisos/planejarParaVenda'
 
 export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -116,10 +117,13 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     const supabase = await createClient()
     const admin = createAdminClient()
 
-    // ── Âncora confiável: busca o aviso diretamente no banco. venda_id, loja_id,
-    //    cliente_id e item_venda_id vêm SEMPRE daqui — nunca dos campos equivalentes
-    //    que o cliente manda em `dados` (esses são só dado legado do payload, ignorado
-    //    como fonte de autoridade). ──
+    // ── Pré-checagem rápida (UX): busca o aviso âncora para respostas de erro
+    //    imediatas antes de montar o payload da RPC. NÃO é a fonte de
+    //    autoridade — confirmar_recompra_transacional revalida tudo sob
+    //    SELECT ... FOR UPDATE e é ela quem decide de fato, inclusive em caso
+    //    de corrida com outra requisição simultânea para o mesmo aviso_id
+    //    (Bug 2). Em qualquer divergência entre esta pré-checagem e a RPC, a
+    //    RPC prevalece. ──
     const { data: avisoAncora } = await admin
       .from('avisos')
       .select('id, venda_id, loja_id, cliente_id, item_venda_id, status, recompra_id, mensagem_id')
@@ -130,7 +134,6 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Aviso não encontrado.' }
     }
 
-    // Idempotency guard: if aviso already converted, return safe success
     if (avisoAncora.status === 'convertida' || avisoAncora.recompra_id) {
       return {
         ok: true,
@@ -143,9 +146,6 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       }
     }
 
-    // Validação de tipo do aviso âncora: só recompra/oferta/follow_up podem originar
-    // uma recompra. Impede que um aviso de agradecimento/relacionamento (ou uma
-    // chamada direta/adulterada) seja usado para criar uma recompra.
     let tipoAncora: string | null = null
     if (avisoAncora.mensagem_id) {
       const { data: msgAncora } = await admin
@@ -164,8 +164,8 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     const clienteId = avisoAncora.cliente_id as string
     const itemVendaIdAncora = avisoAncora.item_venda_id as string | null
 
-    // Validar usuário logado e pertencimento à loja antes de gravar com admin
-    // (loja derivada do aviso — dados.loja_id nunca é usado aqui)
+    // Autenticação e autorização acontecem aqui, em TS — não são repetidas na
+    // RPC (executável só por service_role, inatingível por anon/authenticated).
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, erro: 'Não autenticado' }
 
@@ -193,13 +193,9 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'A recompra precisa ter pelo menos um produto.' }
     }
 
-    // ── Conjunto autorizado: itens recorrentes da própria venda de origem (vendaId,
-    //    derivado do aviso âncora). Numa venda multiproduto, o motor de avisos gera
-    //    avisos só para o item âncora (menor ciclo_recompra_dias) — o texto menciona
-    //    todos os produtos recorrentes, mas estruturalmente só o âncora tem avisos
-    //    próprios. Por isso a elegibilidade é por "pertence à venda + é recorrente",
-    //    não por "tem aviso ativo próprio" — do contrário, itens secundários mantidos
-    //    na confirmação seriam rejeitados por engano. ──
+    // ── Pré-validações de UX (resposta rápida) — a RPC refaz todas estas
+    //    checagens sob lock a partir do zero; não duplicamos aqui a validação
+    //    estrutural completa, só o suficiente para um erro rápido comum. ──
     const { data: itensVendaOriginais } = await admin
       .from('itens_venda')
       .select('id, produto_id, produto_nome')
@@ -211,24 +207,6 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     )
     const itemVendaIdsElegiveis = new Set(itensVendaMap.keys())
 
-    // Avisos ativos desta oportunidade (venda/loja/cliente), usados só para fechar
-    // residuais de qualquer tipo cujo item_venda_id permaneça na confirmação — mesma
-    // regra hoje aplicada pelos antigos passos 7b/7c.
-    const { data: avisosAtivosRaw } = await admin
-      .from('avisos')
-      .select('id, item_venda_id')
-      .eq('venda_id', vendaId)
-      .eq('loja_id', lojaId)
-      .eq('cliente_id', clienteId)
-      .is('recompra_id', null)
-      .in('status', ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagendada'])
-      .not('item_venda_id', 'is', null)
-
-    // ── Validação do payload contra o conjunto autorizado ──
-    // O item que originou a oportunidade (âncora) segue determinando escopo
-    // (venda/loja/cliente/avisos a encerrar), mas NÃO é mais obrigatório na
-    // seleção final: o cliente pode decidir na loja comprar produto diferente
-    // do que motivou o aviso, inclusive substituindo o item de origem inteiro.
     const idsRecebidos = dados.itens
       .map(i => i.item_venda_id)
       .filter((id): id is string => !!id)
@@ -237,10 +215,6 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Produto duplicado na confirmação.' }
     }
 
-    // Produtos existentes na loja: qualquer produto_id enviado (item original
-    // reaproveitado ou produto novo adicionado na confirmação) precisa pertencer
-    // ao catálogo desta loja. produto_id nulo é permitido (produto sem vínculo de
-    // catálogo, ex.: aviso legado) e não é validado aqui.
     const produtoIdsSubmetidos = [...new Set(dados.itens.map(i => i.produto_id).filter((id): id is string => !!id))]
     const { data: produtosValidos } = produtoIdsSubmetidos.length > 0
       ? await admin.from('produtos').select('id').eq('loja_id', lojaId).in('id', produtoIdsSubmetidos)
@@ -252,45 +226,18 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
         return { ok: false, erro: 'Um dos produtos não existe nesta loja.' }
       }
       if (!item.item_venda_id) continue
-      // item_venda_id continua validado contra o conjunto autorizado (impede
-      // reaproveitar um item de outra venda/loja) — mas o produto anexado a ele
-      // pode ter sido substituído; não exigimos mais que bata com o registro
-      // original de itens_venda.
       if (!itemVendaIdsElegiveis.has(item.item_venda_id)) {
         return { ok: false, erro: 'Um dos produtos não pertence a esta oportunidade de recompra.' }
       }
     }
 
+    // ── Planejamento: cálculo de comissão e texto dos avisos futuros
+    //    acontecem aqui, em TS, ANTES de qualquer escrita — a venda e a
+    //    recompra ainda não existem neste ponto. IDs de itens_venda/venda são
+    //    pré-gerados (mesmo padrão de 057_editar_recompra_transacional.sql)
+    //    para que os avisos futuros já possam referenciá-los. ──
     const hoje = new Date().toISOString().slice(0, 10)
-    const valor_total = dados.itens.reduce(
-      (acc, item) => acc + item.quantidade * item.preco_unitario, 0
-    )
-    const valor_base_comissao = dados.itens
-      .filter(item => item.comissionavel)
-      .reduce((acc, item) => acc + item.quantidade * item.preco_unitario, 0)
 
-    // 1. Criar venda canônica com origem='recompra'
-    const { data: vendaData, error: vendaError } = await admin
-      .from('vendas')
-      .insert({
-        loja_id: lojaId,
-        cliente_id: clienteId,
-        vendedora_id: dados.vendedora_id,
-        valor: valor_total,
-        data_compra: hoje,
-        origem: 'recompra',
-      })
-      .select('id')
-      .single()
-
-    if (vendaError || !vendaData) {
-      return { ok: false, erro: 'Erro ao criar venda: ' + (vendaError?.message ?? 'desconhecido') }
-    }
-
-    const nova_venda_id = vendaData.id as string
-
-    // 2. Resolver ciclo_recompra_dias: usa o valor enviado pelo cliente; para itens sem ciclo,
-    //    busca dias_apos_venda da mensagem tipo='recompra' do produto; fallback 30.
     const itensComCiclo = await Promise.all(
       dados.itens.map(async (item) => {
         let ciclo: number | null = item.ciclo_recompra_dias ?? null
@@ -311,152 +258,85 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       })
     )
 
-    // 3. INSERT itens_venda (com ciclo_recompra_dias propagado)
-    const { data: itensVendaData, error: itensVendaError } = await admin
-      .from('itens_venda')
-      .insert(
-        itensComCiclo.map(item => ({
-          venda_id: nova_venda_id,
-          produto_id: item.produto_id,
-          produto_nome: item.produto_nome,
-          recorrente: true,
-          comissionavel: item.comissionavel,
-          quantidade: item.quantidade,
-          valor_unitario: item.preco_unitario,
-          subtotal: item.quantidade * item.preco_unitario,
-          ciclo_recompra_dias: item.ciclo_recompra_dias,
-        }))
-      )
-      .select('id, produto_id, produto_nome, ciclo_recompra_dias')
+    const novaVendaId = crypto.randomUUID()
+    const itensPlanejados = itensComCiclo.map(item => ({
+      item_venda_id_novo: crypto.randomUUID(),
+      item_venda_id_original: item.item_venda_id ?? null,
+      produto_id: item.produto_id,
+      produto_nome: item.produto_nome,
+      comissionavel: item.comissionavel,
+      quantidade: item.quantidade,
+      preco_unitario: item.preco_unitario,
+      ciclo_recompra_dias: item.ciclo_recompra_dias,
+    }))
 
-    if (itensVendaError || !itensVendaData) {
-      return { ok: false, erro: 'Erro ao registrar itens da venda: ' + (itensVendaError?.message ?? 'desconhecido') }
-    }
+    const valor_total = itensPlanejados.reduce((acc, item) => acc + item.quantidade * item.preco_unitario, 0)
 
-    // 4. INSERT recompra com venda_id canônico
-    const { data: recompraData, error: recompraError } = await admin
-      .from('recompras')
-      .insert({
-        loja_id: lojaId,
-        cliente_id: clienteId,
-        vendedora_id: dados.vendedora_id,
-        aviso_id: dados.aviso_id,
-        venda_original_id: vendaId,
-        valor_total,
-        valor_base_comissao,
-        venda_id: nova_venda_id,
-      })
-      .select('id')
-      .single()
-
-    if (recompraError || !recompraData) {
-      return { ok: false, erro: 'Erro ao registrar recompra: ' + (recompraError?.message ?? 'desconhecido') }
-    }
-
-    const recompra_id = recompraData.id as string
-
-    // 5. INSERT itens_recompra (mantidos)
-    const { error: itensRecompraError } = await admin.from('itens_recompra').insert(
-      dados.itens.map(item => ({
-        recompra_id,
-        produto_id: item.produto_id,
-        produto_nome: item.produto_nome,
-        comissionavel: item.comissionavel,
-        quantidade: item.quantidade,
-        valor_unitario: item.preco_unitario,
-        subtotal: item.quantidade * item.preco_unitario,
-      }))
-    )
-
-    if (itensRecompraError) {
-      return { ok: false, erro: 'Erro ao registrar itens da recompra: ' + itensRecompraError.message }
-    }
-
-    // 6. Gerar comissão via helper canônico
-    const comissaoResult = await gravarComissaoVenda({
+    // Comissão: calculada sem gravar nada (a RPC grava). A meta mensal soma
+    // explicitamente o valor desta própria recompra ao total já persistido —
+    // preserva o comportamento histórico, no qual a venda já estava
+    // persistida (e portanto já contava no total) no momento do cálculo, já
+    // que agora o cálculo acontece antes de a venda existir. Ver decisão da
+    // auditoria do Bug 2 (totalVendasMesParaCalculo = totalVendasMesPersistido
+    // + valor_total desta recompra).
+    const calculoComissao = await calcularComissaoSemGravar({
       loja_id: lojaId,
-      venda_id: nova_venda_id,
       vendedora_id: dados.vendedora_id,
-      data_venda: hoje,
-      recompra_id,
-      itens: dados.itens.map(item => ({
+      itens: itensPlanejados.map(item => ({
         produto_id: item.produto_id,
         produto_nome: item.produto_nome,
         subtotal: item.quantidade * item.preco_unitario,
         comissionavel: item.comissionavel,
       })),
+      data_venda: hoje,
+      ajusteTotalVendasMes: valor_total,
     })
 
-    if (!comissaoResult.ok) {
-      return { ok: false, erro: 'Erro ao registrar comissão: ' + comissaoResult.erro }
+    if (!calculoComissao.ok) {
+      return { ok: false, erro: 'Erro ao calcular comissão: ' + calculoComissao.erro }
     }
 
-    // 7. Fechar avisos por ID exato, capturado no snapshot autorizado (substitui os
-    //    antigos passos 7/7b/7c). Fecha: (a) sempre o próprio dados.aviso_id — garante
-    //    o fechamento mesmo no caso legado de item_venda_id nulo, que fica de fora do
-    //    snapshot; (b) todo aviso ativo (qualquer tipo) cujo item_venda_id pertença ao
-    //    item âncora OU a algum item mantido no payload — preserva a regra atual de
-    //    fechar também agradecimento/relacionamento residuais do mesmo item. O item
-    //    âncora entra sempre neste conjunto, mesmo quando substituído/removido da
-    //    seleção final: a oportunidade original foi resolvida (com ou sem o produto
-    //    que a originou), então seus avisos residuais não podem ficar pendentes.
-    const agora = new Date().toISOString()
-
-    const itemVendaIdsParaFechar = new Set(idsRecebidos)
-    if (itemVendaIdAncora) itemVendaIdsParaFechar.add(itemVendaIdAncora)
-
-    const avisoIdsParaFechar = new Set<string>([dados.aviso_id])
-    for (const a of avisosAtivosRaw ?? []) {
-      if (itemVendaIdsParaFechar.has(a.item_venda_id as string)) {
-        avisoIdsParaFechar.add(a.id as string)
-      }
-    }
-
-    // O aviso âncora recebe enviado_em (é o aviso efetivamente "acionado"); os demais
-    // fechados como efeito colateral da mesma recompra não recebem — igual à regra anterior.
-    await admin
-      .from('avisos')
-      .update({
-        status: 'convertida',
-        enviado_em: agora,
-        encerrado_em: agora,
-        encerrado_por: dados.vendedora_id,
-        updated_at: agora,
-        recompra_id,
-      })
-      .eq('id', dados.aviso_id)
-
-    const outrosAvisoIds = [...avisoIdsParaFechar].filter(id => id !== dados.aviso_id)
-    if (outrosAvisoIds.length > 0) {
-      await admin
-        .from('avisos')
-        .update({
-          status: 'convertida',
-          encerrado_em: agora,
-          encerrado_por: dados.vendedora_id,
-          updated_at: agora,
-          recompra_id,
-        })
-        .in('id', outrosAvisoIds)
-    }
-
-    // 8. Gerar novos avisos futuros — sequência agrupada (motor unificado, sem agradecimento)
     const [clienteRes, vendedoraRes, lojaRes] = await Promise.all([
       admin.from('clientes').select('nome').eq('id', clienteId).single(),
       admin.from('perfis').select('nome').eq('id', dados.vendedora_id).single(),
       admin.from('lojas').select('nome').eq('id', lojaId).single(),
     ])
 
-    const itensParaGerar: ItemParaGerarAviso[] = itensVendaData.map(iv => ({
-      id: iv.id as string,
-      produto_id: iv.produto_id as string | null,
-      produto_nome: iv.produto_nome as string,
+    // Garantir mensagens do(s) produto(s) recorrente(s) ANTES do planejamento —
+    // preparação explícita e independente da transação da RPC (mesmo padrão de
+    // app/(app)/vendas/[id]/editar/actionsRecompra.ts). garantirMensagensProduto
+    // é idempotente de verdade (upsert com ON CONFLICT ... DO NOTHING, apoiado
+    // na UNIQUE constraint mensagens_produto_produto_id_ordem_key) — seguro sob
+    // chamadas concorrentes, ao contrário do bootstrap embutido que existia no
+    // antigo gerarAvisosParaVenda. Só grava mensagens_produto (catálogo do
+    // produto), nunca avisos/venda/recompra — não faz parte da atomicidade da
+    // RPC, que cobre exclusivamente vendas, itens_venda, recompras,
+    // itens_recompra, comissao_venda, fechamento de avisos e avisos futuros.
+    const produtoIdsRecorrentes = [
+      ...new Set(itensPlanejados.map(item => item.produto_id).filter((id): id is string => !!id)),
+    ]
+    if (produtoIdsRecorrentes.length > 0) {
+      try {
+        await Promise.all(produtoIdsRecorrentes.map(pid => garantirMensagensProduto(pid, admin)))
+      } catch {
+        return { ok: false, erro: 'Não foi possível preparar as mensagens deste produto. Nenhuma alteração foi salva.' }
+      }
+    }
+
+    const itensParaPlanejar: ItemParaPlanejamento[] = itensPlanejados.map(item => ({
+      id: item.item_venda_id_novo,
+      produto_id: item.produto_id,
+      produto_nome: item.produto_nome,
       recorrente: true,
-      ciclo_recompra_dias: (iv as unknown as { ciclo_recompra_dias: number | null }).ciclo_recompra_dias ?? null,
+      ciclo_recompra_dias: item.ciclo_recompra_dias,
     }))
 
-    const { avisos: novosAvisos } = await gerarAvisosParaVenda({
-      venda_id: nova_venda_id,
+    // planejarAvisosParaVenda é um planejador puro — só lê, nunca escreve
+    // (ver lib/avisos/planejarParaVenda.ts:77-78). Mesma função já usada por
+    // actionsRecompra.ts para o mesmo propósito (dry-run antes de uma RPC
+    // transacional).
+    const { avisos: avisosPlanejados, ancora } = await planejarAvisosParaVenda({
+      venda_id: novaVendaId,
       loja_id: lojaId,
       cliente_id: clienteId,
       vendedora_id: dados.vendedora_id,
@@ -465,39 +345,90 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       loja_nome: (lojaRes.data?.nome as string) ?? '',
       data_base: hoje,
       origem: 'recompra',
-      itens: itensParaGerar,
-      origem_recompra_id: recompra_id,
+      itens: itensParaPlanejar,
       db: admin,
     })
 
-    // Idempotência: não inserir se já existem avisos para esta venda
-    if (novosAvisos.length > 0) {
-      const { count } = await admin
-        .from('avisos')
-        .select('id', { count: 'exact', head: true })
-        .eq('venda_id', nova_venda_id)
-      if (!count || count === 0) {
-        await admin.from('avisos').insert(novosAvisos)
-      }
+    // Guard: valida apenas o produto âncora da sequência (mesma regra de
+    // actionsRecompra.ts) — produtos não-âncora compõem a venda mas não geram
+    // sequência própria de avisos.
+    if (ancora && ancora.tipos.length === 0) {
+      const erro = ancora.motivo_sem_aviso === 'somente_agradecimento'
+        ? `Não foi possível confirmar. O produto '${ancora.produto_nome}' possui apenas mensagem de agradecimento. Configure ao menos uma mensagem de acompanhamento.`
+        : `Não foi possível confirmar. Nenhuma mensagem foi encontrada para o produto '${ancora.produto_nome}'.`
+      return { ok: false, erro }
     }
 
-    // Traço informativo: o produto de origem só é considerado "preservado" se o
-    // item âncora permaneceu na seleção final E com o mesmo produto_id gravado
-    // originalmente em itens_venda — distingue recompra do produto original de
-    // conversão com substituição, sem exigir nenhuma coluna nova.
-    const itemAncoraNoPayload = dados.itens.find(item => item.item_venda_id === itemVendaIdAncora)
-    const registroOriginalAncora = itemVendaIdAncora ? itensVendaMap.get(itemVendaIdAncora) : undefined
-    const produto_original_preservado = !!itemAncoraNoPayload && !!registroOriginalAncora &&
-      itemAncoraNoPayload.produto_id === registroOriginalAncora.produto_id
+    // Não confiar nos IDs de loja/cliente/vendedora planejados aqui: a RPC
+    // deriva loja_id/cliente_id do aviso âncora travado e vendedora_id do
+    // parâmetro p_vendedora_id — por isso não vão no payload dos avisos
+    // futuros (Bug 2, ponto 1). origem_recompra_id também não vai: a
+    // recompra ainda não existe nesta fase de planejamento — a RPC preenche
+    // com o recompra_id real que ela mesma cria.
+    const avisosFuturosPayload = avisosPlanejados.map(a => ({
+      item_venda_id: a.item_venda_id,
+      mensagem_id: a.mensagem_id,
+      texto_renderizado: a.texto_renderizado,
+      data_aviso: a.data_aviso,
+      previsao_comissao: a.previsao_comissao ?? null,
+    }))
+
+    // ── Commit atômico: uma única chamada RPC. Reserva o aviso âncora com
+    //    FOR UPDATE, revalida toda a integridade sob lock e escreve tudo em
+    //    uma transação — all-or-nothing, sem estado intermediário observável
+    //    por nenhuma outra sessão. ──
+    const { data: rpcResult, error: rpcError } = await admin.rpc('confirmar_recompra_transacional', {
+      p_actor_id: user.id,
+      p_aviso_id: dados.aviso_id,
+      p_vendedora_id: dados.vendedora_id,
+      p_nova_venda_id: novaVendaId,
+      p_itens: itensPlanejados,
+      p_avisos_futuros: avisosFuturosPayload,
+      p_comissao: {
+        valor_base: calculoComissao.valor_base,
+        percentual: calculoComissao.percentual,
+        valor_comissao: calculoComissao.valor_comissao,
+        tipo_comissao: calculoComissao.tipo_comissao,
+        campanha_id: calculoComissao.campanha_id,
+        comissao_fixa_produto_id: calculoComissao.comissao_fixa_produto_id,
+      },
+    })
+
+    if (rpcError) {
+      const msg = rpcError.message ?? ''
+      if (msg.includes('VALIDATION:')) {
+        return { ok: false, erro: msg.replace(/.*VALIDATION:/, '').trim() }
+      }
+      if (msg.includes('CONFLICT:')) {
+        return { ok: false, erro: msg.replace(/.*CONFLICT:/, '').trim() }
+      }
+      return { ok: false, erro: 'Erro ao confirmar a recompra. Tente novamente.' }
+    }
+
+    const resultado = rpcResult as {
+      ok: boolean
+      ja_confirmada: boolean
+      recompra_id: string
+      valor_total: number
+      valor_base_comissao: number
+      valor_comissao: number
+      percentual: number
+      produto_original_preservado: boolean | null
+    } | null
+
+    if (!resultado?.ok) {
+      return { ok: false, erro: 'Erro inesperado ao confirmar a recompra.' }
+    }
 
     return {
       ok: true,
-      recompra_id,
-      valor_total,
-      valor_base_comissao,
-      valor_comissao: comissaoResult.valor_comissao,
-      percentual: comissaoResult.percentual,
-      produto_original_preservado,
+      recompra_id: resultado.recompra_id,
+      valor_total: resultado.valor_total,
+      valor_base_comissao: resultado.valor_base_comissao,
+      valor_comissao: resultado.valor_comissao,
+      percentual: resultado.percentual,
+      jaConfirmada: resultado.ja_confirmada || undefined,
+      produto_original_preservado: resultado.produto_original_preservado ?? undefined,
     }
   } catch (err) {
     return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }

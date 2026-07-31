@@ -35,76 +35,60 @@ export type ResultadoGravarComissao =
     }
   | { ok: false; erro: string }
 
-// ── Helper principal ────────────────────────────────────────────────────────
+// ── Cálculo puro (sem gravação) ──────────────────────────────────────────────
+// Extraído de gravarComissaoVenda para uso por fluxos transacionais (RPC), onde
+// o cálculo precisa acontecer ANTES de qualquer escrita — a inserção real fica
+// a cargo da transação (ver confirmar_recompra_transacional). Mantém byte-a-byte
+// a mesma sequência de prioridades (fixo > campanha > meta > padrão) que
+// gravarComissaoVenda sempre usou, só sem o guard-por-venda_id e sem o INSERT.
+export interface CalcularComissaoParams {
+  loja_id: string
+  vendedora_id: string
+  itens: ItemComissaoInput[]
+  data_venda: string // YYYY-MM-DD — define o mês para cálculo de meta
+  // Ajuste explícito somado ao total de vendas do mês antes de comparar com a
+  // meta. Necessário quando a venda desta própria operação ainda não existe no
+  // banco no momento do cálculo (ex.: confirmarRecompra planeja a comissão
+  // ANTES de criar a venda via RPC transacional) — sem este ajuste, o
+  // comportamento mudaria em relação ao fluxo histórico, no qual a venda já
+  // estava persistida (e portanto já contava no total) no momento do cálculo.
+  // Ver decisão registrada na auditoria do Bug 2: preservar
+  // totalVendasMesParaCalculo = totalVendasMesPersistido + valor_total_desta_venda.
+  ajusteTotalVendasMes?: number
+}
 
-export async function gravarComissaoVenda(
-  params: GravarComissaoParams
-): Promise<ResultadoGravarComissao> {
+export type ResultadoCalculoComissao =
+  | {
+      ok: true
+      valor_base: number
+      percentual: number
+      valor_comissao: number
+      tipo_comissao: TipoComissao | null
+      campanha_id: string | null
+      comissao_fixa_produto_id: string | null
+    }
+  | { ok: false; erro: string }
+
+export async function calcularComissaoSemGravar(
+  params: CalcularComissaoParams
+): Promise<ResultadoCalculoComissao> {
   try {
-    const { loja_id, venda_id, vendedora_id, itens, data_venda, recompra_id } = params
+    const { loja_id, vendedora_id, itens, data_venda, ajusteTotalVendasMes = 0 } = params
     const admin = createAdminClient()
 
-    // ── Guard: evita comissão duplicada para a mesma venda ──────────────────
-    // Usa admin para bypassar RLS — o guard deve enxergar registros de qualquer vendedora.
-    const { data: existente, error: guardError } = await admin
-      .from('comissao_venda')
-      .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
-      .eq('venda_id', venda_id)
-      .maybeSingle()
-
-    // PGRST116 = múltiplas linhas (duplicata já no banco): retorna a primeira via .limit(1)
-    if (guardError && guardError.code !== 'PGRST116') {
-      return { ok: false, erro: 'Erro ao verificar comissão existente: ' + guardError.message }
-    }
-
-    if (existente) {
-      return {
-        ok: true,
-        valor_base: existente.valor_venda as number,
-        percentual: existente.percentual as number,
-        valor_comissao: existente.valor_comissao as number,
-        tipo_comissao: (existente.tipo_comissao as TipoComissao) ?? null,
-        comissao_id: existente.id as string,
-        ja_existia: true,
-      }
-    }
-
-    // Fallback para PGRST116: busca a primeira comissão existente e retorna sem inserir
-    if (guardError?.code === 'PGRST116') {
-      const { data: primeira } = await admin
-        .from('comissao_venda')
-        .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
-        .eq('venda_id', venda_id)
-        .order('criado_em', { ascending: true })
-        .limit(1)
-        .single()
-      if (primeira) {
-        return {
-          ok: true,
-          valor_base: primeira.valor_venda as number,
-          percentual: primeira.percentual as number,
-          valor_comissao: primeira.valor_comissao as number,
-          tipo_comissao: (primeira.tipo_comissao as TipoComissao) ?? null,
-          comissao_id: primeira.id as string,
-          ja_existia: true,
-        }
-      }
+    const zero = {
+      ok: true as const,
+      valor_base: 0,
+      percentual: 0,
+      valor_comissao: 0,
+      tipo_comissao: null,
+      campanha_id: null,
+      comissao_fixa_produto_id: null,
     }
 
     // ── Filtrar itens comissionáveis ────────────────────────────────────────
     const itensComissionaveis = itens.filter(i => i.comissionavel)
-
-    if (itensComissionaveis.length === 0) {
-      return {
-        ok: true,
-        valor_base: 0,
-        percentual: 0,
-        valor_comissao: 0,
-        tipo_comissao: null,
-        comissao_id: null,
-        ja_existia: false,
-      }
-    }
+    if (itensComissionaveis.length === 0) return zero
 
     const produtosComissionaveis = [
       ...new Set(
@@ -223,10 +207,13 @@ export async function gravarComissaoVenda(
           .gte('data_compra', inicioMes)
           .lt('data_compra', inicioProxMes)
 
-        totalVendasMes = (vendasMesData ?? []).reduce(
+        const totalVendasMesPersistido = (vendasMesData ?? []).reduce(
           (sum, v) => sum + ((v.valor as number) ?? 0),
           0
         )
+        // totalVendasMesParaCalculo = totalVendasMesPersistido + ajuste explícito
+        // (ver documentação do parâmetro ajusteTotalVendasMes acima).
+        totalVendasMes = totalVendasMesPersistido + ajusteTotalVendasMes
       }
     }
 
@@ -258,8 +245,85 @@ export async function gravarComissaoVenda(
 
     const valorBase = itensComissionaveis.reduce((s, i) => s + i.subtotal, 0)
 
-    // Não gravar registro zerado sem base
-    if (resultado.valor_comissao === 0 && valorBase === 0) {
+    if (resultado.valor_comissao === 0 && valorBase === 0) return zero
+
+    return {
+      ok: true,
+      valor_base: valorBase,
+      percentual: resultado.percentual,
+      valor_comissao: resultado.valor_comissao,
+      tipo_comissao: resultado.tipo,
+      campanha_id: resultado.campanha_id,
+      comissao_fixa_produto_id: resultado.comissao_fixa_produto_id,
+    }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Erro inesperado' }
+  }
+}
+
+// ── Helper principal (calcula + grava) ───────────────────────────────────────
+// Comportamento inalterado para os chamadores existentes (nova venda, edição de
+// venda) — agora delega o cálculo a calcularComissaoSemGravar internamente.
+
+export async function gravarComissaoVenda(
+  params: GravarComissaoParams
+): Promise<ResultadoGravarComissao> {
+  try {
+    const { loja_id, venda_id, vendedora_id, itens, data_venda, recompra_id } = params
+    const admin = createAdminClient()
+
+    // ── Guard: evita comissão duplicada para a mesma venda ──────────────────
+    // Usa admin para bypassar RLS — o guard deve enxergar registros de qualquer vendedora.
+    const { data: existente, error: guardError } = await admin
+      .from('comissao_venda')
+      .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
+      .eq('venda_id', venda_id)
+      .maybeSingle()
+
+    // PGRST116 = múltiplas linhas (duplicata já no banco): retorna a primeira via .limit(1)
+    if (guardError && guardError.code !== 'PGRST116') {
+      return { ok: false, erro: 'Erro ao verificar comissão existente: ' + guardError.message }
+    }
+
+    if (existente) {
+      return {
+        ok: true,
+        valor_base: existente.valor_venda as number,
+        percentual: existente.percentual as number,
+        valor_comissao: existente.valor_comissao as number,
+        tipo_comissao: (existente.tipo_comissao as TipoComissao) ?? null,
+        comissao_id: existente.id as string,
+        ja_existia: true,
+      }
+    }
+
+    // Fallback para PGRST116: busca a primeira comissão existente e retorna sem inserir
+    if (guardError?.code === 'PGRST116') {
+      const { data: primeira } = await admin
+        .from('comissao_venda')
+        .select('id, percentual, valor_comissao, tipo_comissao, valor_venda')
+        .eq('venda_id', venda_id)
+        .order('criado_em', { ascending: true })
+        .limit(1)
+        .single()
+      if (primeira) {
+        return {
+          ok: true,
+          valor_base: primeira.valor_venda as number,
+          percentual: primeira.percentual as number,
+          valor_comissao: primeira.valor_comissao as number,
+          tipo_comissao: (primeira.tipo_comissao as TipoComissao) ?? null,
+          comissao_id: primeira.id as string,
+          ja_existia: true,
+        }
+      }
+    }
+
+    // ── Calcular (sem ajuste — a venda já está persistida neste ponto do fluxo) ──
+    const calculo = await calcularComissaoSemGravar({ loja_id, vendedora_id, itens, data_venda })
+    if (!calculo.ok) return calculo
+
+    if (calculo.valor_comissao === 0 && calculo.valor_base === 0) {
       return {
         ok: true,
         valor_base: 0,
@@ -277,12 +341,12 @@ export async function gravarComissaoVenda(
       .insert({
         venda_id,
         vendedora_id,
-        valor_venda: valorBase,
-        percentual: resultado.percentual,
-        valor_comissao: resultado.valor_comissao,
-        tipo_comissao: resultado.tipo,
-        campanha_id: resultado.campanha_id ?? null,
-        comissao_fixa_produto_id: resultado.comissao_fixa_produto_id ?? null,
+        valor_venda: calculo.valor_base,
+        percentual: calculo.percentual,
+        valor_comissao: calculo.valor_comissao,
+        tipo_comissao: calculo.tipo_comissao,
+        campanha_id: calculo.campanha_id,
+        comissao_fixa_produto_id: calculo.comissao_fixa_produto_id,
         recompra_id: recompra_id ?? null,
       })
       .select('id')
@@ -322,10 +386,10 @@ export async function gravarComissaoVenda(
 
     return {
       ok: true,
-      valor_base: valorBase,
-      percentual: resultado.percentual,
-      valor_comissao: resultado.valor_comissao,
-      tipo_comissao: resultado.tipo as TipoComissao,
+      valor_base: calculo.valor_base,
+      percentual: calculo.percentual,
+      valor_comissao: calculo.valor_comissao,
+      tipo_comissao: calculo.tipo_comissao,
       comissao_id: comissaoData.id as string,
       ja_existia: false,
     }
