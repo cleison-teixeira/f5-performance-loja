@@ -410,10 +410,17 @@ export function CardGrupoRecompra({
           loja_id={loja_id}
           onSucesso={() => { setModalRecompra(false); onGrupoMarcado(grupo.venda_id) }}
           onFechar={() => setModalRecompra(false)}
-          itensPreenchidos={produtos.map(p => ({ produto_id: p.produto_id, produto_nome: p.produto_nome, preco_unitario: p.valor_unitario > 0 ? p.valor_unitario : p.valor_produto, ciclo_recompra_dias: p.ciclo_recompra_dias }))}
-          item_venda_ids_grupo={grupo.itens_venda.length > 0
-            ? grupo.itens_venda.map(i => i.id)
-            : grupo.avisos.map(a => a.item_venda_id).filter((id): id is string => !!id)}
+          itensPreenchidos={produtos.map(p => ({
+            produto_id: p.produto_id,
+            produto_nome: p.produto_nome,
+            preco_unitario: p.valor_unitario > 0 ? p.valor_unitario : p.valor_produto,
+            ciclo_recompra_dias: p.ciclo_recompra_dias,
+            // p.id só é um item_venda_id real quando grupo.itens_venda está populado;
+            // no fallback legado (dados antigos sem itens_venda), p.id é o aviso.id e
+            // não deve ser tratado como item_venda_id — envia null para não autorizar
+            // fechamento indevido nem falhar a validação do servidor.
+            item_venda_id: grupo.itens_venda.length > 0 ? p.id : null,
+          }))}
           isGrupo
         />
       )}

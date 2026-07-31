@@ -16,13 +16,13 @@ interface Props {
   loja_id: string
   onSucesso: (aviso_id: string) => void
   onFechar: () => void
-  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string; preco_unitario?: number; ciclo_recompra_dias?: number | null }>
-  item_venda_ids_grupo?: string[]
+  itensPreenchidos?: Array<{ produto_id: string | null; produto_nome: string; preco_unitario?: number; ciclo_recompra_dias?: number | null; item_venda_id?: string | null }>
   isGrupo?: boolean
 }
 
 interface ItemForm {
   key: string
+  itemVendaId: string | null
   produtoId: string
   produtoNome: string
   quantidade: number
@@ -50,7 +50,6 @@ export function ConfirmarRecompraModal({
   onSucesso,
   onFechar,
   itensPreenchidos,
-  item_venda_ids_grupo,
   isGrupo = false,
 }: Props) {
   function criarItensIniciais(): ItemForm[] {
@@ -62,6 +61,7 @@ export function ConfirmarRecompraModal({
           : (prod?.preco_sugerido ?? null)
         return {
           key: crypto.randomUUID(),
+          itemVendaId: item.item_venda_id ?? null,
           produtoId: item.produto_id ?? '',
           produtoNome: item.produto_nome,
           quantidade: 1,
@@ -74,6 +74,7 @@ export function ConfirmarRecompraModal({
     const produtoInicial = catalogo.find(p => p.id === aviso.produto_id)
     return [{
       key: crypto.randomUUID(),
+      itemVendaId: aviso.item_venda_id,
       produtoId: aviso.produto_id ?? '',
       produtoNome: aviso.produto_nome,
       quantidade: 1,
@@ -147,8 +148,8 @@ export function ConfirmarRecompraModal({
           quantidade: item.quantidade,
           preco_unitario: parseBRL(item.precoBRL),
           ciclo_recompra_dias: item.cicloRecompraDias ?? null,
+          item_venda_id: item.itemVendaId,
         })),
-        item_venda_ids_grupo,
       })
 
       if (!resultado.ok) {
@@ -196,13 +197,19 @@ export function ConfirmarRecompraModal({
             {itens.map((item, idx) => {
               const preco = parseBRL(item.precoBRL)
               const subtotal = !isNaN(preco) && preco > 0 ? preco * item.quantidade : null
+              // O item cujo item_venda_id é o mesmo do aviso que abriu o modal é o
+              // produto que originou esta confirmação — não pode ser retirado (ver
+              // validação equivalente e obrigatória em confirmarRecompra no servidor).
+              const isAncora = item.itemVendaId != null && item.itemVendaId === aviso.item_venda_id
 
               return (
                 <div key={item.key} className="rounded-lg border border-input bg-muted/20 p-3 space-y-2.5">
                   {(itens.length > 1 || isGrupo) && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                      {isGrupo ? (
+                      {isAncora ? (
+                        <span className="text-xs text-muted-foreground">Produto original</span>
+                      ) : isGrupo ? (
                         <button
                           type="button"
                           onClick={() => setItens(prev => prev.filter(i => i.key !== item.key))}
@@ -279,6 +286,7 @@ export function ConfirmarRecompraModal({
               type="button"
               onClick={() => setItens(prev => [...prev, {
                 key: crypto.randomUUID(),
+                itemVendaId: null,
                 produtoId: '',
                 produtoNome: '',
                 quantidade: 1,
