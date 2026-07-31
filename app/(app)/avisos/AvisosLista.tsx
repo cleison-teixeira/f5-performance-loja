@@ -144,7 +144,7 @@ function renderGrupoCard(grupo: GrupoRecompra, cb: GrupoCallbacks, op: GrupoOpco
   }
 
   return (
-    <div key={grupo.venda_id}>
+    <div key={`${grupo.venda_id}:${grupo.avisos[0].tipo}`}>
       {lojaDisplay && <p className="text-xs text-muted-foreground mb-1">{lojaDisplay}</p>}
       <CardGrupoRecompra
         grupo={grupo}
