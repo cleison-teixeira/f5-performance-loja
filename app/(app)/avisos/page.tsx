@@ -13,6 +13,7 @@ export interface CatalogoProduto {
   id: string
   nome: string
   preco_sugerido: number | null
+  recorrente: boolean
   comissionavel_recompra: boolean
 }
 
@@ -66,7 +67,7 @@ export default async function AvisosPage() {
       .order('data_aviso', { ascending: true }),
     supabase
       .from('produtos')
-      .select('id, nome, preco_sugerido, comissionavel_recompra')
+      .select('id, nome, preco_sugerido, recorrente, comissionavel_recompra')
       .in('loja_id', ctx.lojaIds)
       .eq('ativo', true)
       .order('nome'),
@@ -92,6 +93,7 @@ export default async function AvisosPage() {
     id: p.id as string,
     nome: p.nome as string,
     preco_sugerido: p.preco_sugerido as number | null,
+    recorrente: (p as unknown as { recorrente: boolean }).recorrente ?? false,
     comissionavel_recompra: (p as unknown as { comissionavel_recompra: boolean }).comissionavel_recompra ?? true,
   }))
 

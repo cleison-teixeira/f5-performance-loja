@@ -30,6 +30,7 @@ interface Props {
   produtoId: string
   onSelect: (resultado: ProdutoSelecionadoResult) => void
   inputClass?: string
+  hintNovoProduto?: string
 }
 
 function fmtPreco(v: number): string {
@@ -38,7 +39,14 @@ function fmtPreco(v: number): string {
 
 const MAX_SUGESTOES = 8
 
-export function ProdutoSearchInput({ produtos, nome, produtoId, onSelect, inputClass }: Props) {
+export function ProdutoSearchInput({
+  produtos,
+  nome,
+  produtoId,
+  onSelect,
+  inputClass,
+  hintNovoProduto = 'Novo produto será criado na loja ao registrar a venda.',
+}: Props) {
   const [query, setQuery] = useState(nome)
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -139,7 +147,7 @@ export function ProdutoSearchInput({ produtos, nome, produtoId, onSelect, inputC
       )}
       {isNew && (
         <p className="mt-1 text-xs text-muted-foreground">
-          Novo produto será criado na loja ao registrar a venda.
+          {hintNovoProduto}
         </p>
       )}
     </div>

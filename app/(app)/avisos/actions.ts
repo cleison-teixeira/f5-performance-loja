@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { calcularComissaoSemGravar } from '@/lib/comissoes/gravar'
 import { garantirMensagensProduto } from '@/lib/avisos/garantirMensagensProduto'
 import { planejarAvisosParaVenda, type ItemParaPlanejamento } from '@/lib/avisos/planejarParaVenda'
+import { resolverOuCriarProduto } from '@/lib/produtos/resolver'
 
 export async function marcarEnviado(aviso_id: string): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -193,6 +194,26 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'A recompra precisa ter pelo menos um produto.' }
     }
 
+    // ── Resolver produtos digitados sem produto_id — reaproveita o mesmo
+    //    find-or-create já usado em Registrar Venda (lib/produtos/resolver.ts),
+    //    sem duplicar lógica de cadastro de produto. A partir daqui todo item
+    //    tem um produto_id real, criado ou encontrado por dedup nesta loja. ──
+    let itensComProdutoId: ItemRecompraInput[]
+    try {
+      itensComProdutoId = await Promise.all(
+        dados.itens.map(async (item) => {
+          if (item.produto_id) return item
+          const resolvido = await resolverOuCriarProduto(item.produto_nome, lojaId, {
+            recorrente: true,
+            comissionavel_recompra: item.comissionavel,
+          })
+          return { ...item, produto_id: resolvido.id, produto_nome: resolvido.nome }
+        })
+      )
+    } catch {
+      return { ok: false, erro: 'Não foi possível criar ou vincular o produto. Tente novamente.' }
+    }
+
     // ── Pré-validações de UX (resposta rápida) — a RPC refaz todas estas
     //    checagens sob lock a partir do zero; não duplicamos aqui a validação
     //    estrutural completa, só o suficiente para um erro rápido comum. ──
@@ -207,7 +228,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     )
     const itemVendaIdsElegiveis = new Set(itensVendaMap.keys())
 
-    const idsRecebidos = dados.itens
+    const idsRecebidos = itensComProdutoId
       .map(i => i.item_venda_id)
       .filter((id): id is string => !!id)
 
@@ -215,13 +236,13 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
       return { ok: false, erro: 'Produto duplicado na confirmação.' }
     }
 
-    const produtoIdsSubmetidos = [...new Set(dados.itens.map(i => i.produto_id).filter((id): id is string => !!id))]
+    const produtoIdsSubmetidos = [...new Set(itensComProdutoId.map(i => i.produto_id).filter((id): id is string => !!id))]
     const { data: produtosValidos } = produtoIdsSubmetidos.length > 0
       ? await admin.from('produtos').select('id').eq('loja_id', lojaId).in('id', produtoIdsSubmetidos)
       : { data: [] as { id: string }[] }
     const produtoIdsValidos = new Set((produtosValidos ?? []).map(p => p.id as string))
 
-    for (const item of dados.itens) {
+    for (const item of itensComProdutoId) {
       if (item.produto_id && !produtoIdsValidos.has(item.produto_id)) {
         return { ok: false, erro: 'Um dos produtos não existe nesta loja.' }
       }
@@ -239,7 +260,7 @@ export async function confirmarRecompra(dados: DadosRecompra): Promise<Resultado
     const hoje = new Date().toISOString().slice(0, 10)
 
     const itensComCiclo = await Promise.all(
-      dados.itens.map(async (item) => {
+      itensComProdutoId.map(async (item) => {
         let ciclo: number | null = item.ciclo_recompra_dias ?? null
         if (ciclo == null && item.produto_id) {
           const { data: msgRec } = await admin

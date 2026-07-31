@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { buscarCliente, salvarVenda } from './actions'
 import { ResumoVenda } from './ResumoVenda'
-import { ProdutoSearchInput, type ProdutoSelecionadoResult } from './ProdutoSearchInput'
+import { ProdutoSearchInput, type ProdutoSelecionadoResult } from '@/components/produtos/ProdutoSearchInput'
 import { normalizarWhatsapp, formatarWhatsapp } from '@/lib/whatsapp/mask'
 import { normalizarNomePessoa, normalizarNomeProduto } from '@/lib/utils/normalizacao-texto'
 import { CheckCircle, Loader2, UserPlus, Plus, X, ShieldOff, Megaphone, Package } from 'lucide-react'

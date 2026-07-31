@@ -7,6 +7,7 @@ import type { CatalogoProduto } from './page'
 import type { VendedoraLoja } from './AvisosLista'
 import { Plus, X } from 'lucide-react'
 import { tocarCaixaRegistradora } from '@/lib/audio/caixaRegistradora'
+import { ProdutoSearchInput, type ProdutoSelecionadoResult } from '@/components/produtos/ProdutoSearchInput'
 
 interface Props {
   aviso: AvisoDetalhado
@@ -102,14 +103,29 @@ export function ConfirmarRecompraModal({
     setItens(prev => prev.map(i => i.key === key ? { ...i, ...patch } : i))
   }
 
-  function handleProdutoChange(key: string, produtoId: string) {
-    const prod = catalogo.find(p => p.id === produtoId)
-    atualizar(key, {
-      produtoId,
-      produtoNome: prod?.nome ?? '',
-      precoBRL: prod?.preco_sugerido != null ? prod.preco_sugerido.toFixed(2).replace('.', ',') : '',
-      comissionavel: prod?.comissionavel_recompra ?? true,
-    })
+  // Mesmo padrão de handleProdutoSelect em app/(app)/vendas/nova/FormNovaVenda.tsx:
+  // produto do catálogo atualiza preço/comissão; nome digitado sem correspondência
+  // preserva o que já foi preenchido (preço, quantidade) e fica sem produtoId —
+  // resolverOuCriarProduto (reaproveitado de lib/produtos/resolver.ts) cria o
+  // produto de verdade no servidor ao confirmar a recompra.
+  function handleProdutoSelect(key: string, resultado: ProdutoSelecionadoResult) {
+    if (!resultado.nome.trim()) {
+      atualizar(key, { produtoId: '', produtoNome: '', precoBRL: '' })
+      return
+    }
+    if (resultado.id) {
+      atualizar(key, {
+        produtoId: resultado.id,
+        produtoNome: resultado.nome,
+        precoBRL: resultado.preco_sugerido != null
+          ? resultado.preco_sugerido.toFixed(2).replace('.', ',')
+          : '',
+        comissionavel: resultado.comissionavel_recompra ?? true,
+        cicloRecompraDias: resultado.ciclo_padrao ?? null,
+      })
+      return
+    }
+    atualizar(key, { produtoId: '', produtoNome: resultado.nome })
   }
 
   function handlePrecoBlur(key: string, raw: string) {
@@ -234,16 +250,14 @@ export function ConfirmarRecompraModal({
                     </div>
                   )}
 
-                  <select
-                    value={item.produtoId}
-                    onChange={e => handleProdutoChange(item.key, e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Selecione um produto…</option>
-                    {catalogo.map(p => (
-                      <option key={p.id} value={p.id}>{p.nome}</option>
-                    ))}
-                  </select>
+                  <ProdutoSearchInput
+                    produtos={catalogo}
+                    nome={item.produtoNome}
+                    produtoId={item.produtoId}
+                    onSelect={resultado => handleProdutoSelect(item.key, resultado)}
+                    inputClass={inputClass}
+                    hintNovoProduto="Novo produto será criado nesta loja ao confirmar a recompra."
+                  />
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
