@@ -221,5 +221,17 @@ SELECT count(*) FROM pg_policies WHERE schemaname='public'
 ### Pendências / próximos passos
 
 - Homologação humana com login real em produção (ver limitação acima) — opcional, não bloqueante.
-- SEC-0002 (grants excessivos) — não iniciado, aguardando priorização.
+- SEC-0002 (grants excessivos) — em andamento, ver seção própria abaixo.
 - Housekeeping dos scripts `.mjs` soltos na raiz do repo — tarefa separada, já registrada, não relacionada a este incidente.
+
+## SEC-0002B — Default privileges excessivos no schema `public` (registrado, não iniciado)
+
+Durante a auditoria do SEC-0002, foi confirmado que `postgres` e `supabase_admin` têm `ALTER DEFAULT PRIVILEGES` configurado no schema `public` concedendo automaticamente privilégio total (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`/`REFERENCES`/`TRIGGER`) a `anon`/`authenticated`/`service_role` em **qualquer tabela nova** criada nesse schema.
+
+**Não faz parte da migration 068 nem do escopo do SEC-0002** — aquele incidente tratou só os grants já existentes nas 7 tabelas específicas auditadas. Este é um problema sistêmico e prospectivo (afeta tabelas ainda não criadas), tratado deliberadamente como incidente separado por exigir, antes de qualquer `ALTER DEFAULT PRIVILEGES`:
+
+- mapear qual role efetivamente cria tabelas em produção hoje (migrations rodam como qual role?);
+- confirmar em qual(is) schema(s) o problema se repete;
+- avaliar risco de quebrar migrations futuras que dependem do comportamento atual (ex.: uma migration que cria tabela e espera que o service role já tenha acesso implícito).
+
+Não iniciado. Sem branch, sem investigação além da constatação inicial.
