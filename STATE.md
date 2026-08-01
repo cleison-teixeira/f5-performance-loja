@@ -23,6 +23,17 @@
 - **Escopo:** `app/api/version/route.ts` (novo, isento de auth), `components/AppUpdateChecker.tsx` (novo), `app/layout.tsx` (monta o checker com a versão do build).
 - **Nenhuma migration necessária. Nenhuma regra de negócio alterada.** Service Worker (`public/sw.js`) não foi alterado.
 
+## PILOT-0003 — Dados novos não aparecem sem recarregar a página
+
+- **Status:** STAGING PRONTO PARA HOMOLOGAÇÃO (aguardando aprovação humana). Não mergeado em `main`.
+- **Branch:** `fix/atualizacao-dados-pos-mutacao`.
+- **Causas raiz (duas, sequenciais):**
+  1. `AvisosPageClient` guardava os dados iniciais em `useState` sem sincronizar com props atualizadas — a lista da própria sessão que fez a mutação ficava congelada até F5. **Corrigido** (remoção do `useState` redundante) e comprovado com testes automatizados e homologação humana real (Silvana/Cleison).
+  2. Mesmo corrigido (1), uma **sessão diferente e independente**, já aberta em `/avisos`, nunca recebia a atualização — comprovado com um teste distribuído real de duas sessões (PILOT-0003B): 210 segundos parado, sem navegar, sem F5, sem nenhuma mudança visível. `revalidatePath` só invalida cache de rota para navegações futuras da própria sessão; não existe push entre sessões.
+- **Correção (2):** Supabase Realtime (Postgres Changes) em `public.avisos` — `useAvisosRealtime` (hook em `AvisosLista`) assina INSERT/UPDATE/DELETE, agrupa rajadas com debounce de 700ms e chama `router.refresh()`. Testado em staging: sincronização em ~2s entre sessões, sem F5, sem navegar.
+- **Migration:** `066_enable_realtime_avisos.sql` — habilita `public.avisos` na publicação `supabase_realtime`. Aplicada **somente em staging**. Idempotente, sem mudança de schema funcional.
+- **Segurança entre lojas:** sem filtro de `loja_id` no client — a RLS já existente (`membros_veem_avisos`, escopada por `loja_id IN lojas_do_usuario()`) é aplicada pelo Realtime por assinante. Requer `supabase.realtime.setAuth(session.access_token)` explícito antes de assinar (sem isso a conexão fica no papel anon e não recebe nada — comprovado empiricamente).
+
 ## Pausa operacional do F5 OS
 
 Fases 2b, 3 e 4 do F5 OS permanecem pausadas (pausa controlada solicitada antes do PILOT-0001). PILOT-0001 e PILOT-0002 foram executados sob essa pausa, com uma única sessão executora e uma tarefa por vez. Nenhuma decisão foi tomada sobre retomar ou não as fases pausadas — isso segue pendente de autorização explícita separada.
