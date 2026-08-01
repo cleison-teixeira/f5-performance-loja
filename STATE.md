@@ -5,7 +5,7 @@
 ## Estado atual
 
 - `main`: sincronizada com `origin/main`.
-- Produção (`nhcppfovsxcsulyvwvgs`): estável, migrations até `066_enable_realtime_avisos` aplicadas.
+- Produção (`nhcppfovsxcsulyvwvgs`): estável, migrations até `067_sec_rls_tabelas_e_revoga_enumeracao` aplicadas.
 - Staging (`ynrffhacpjzohrhkpuiq`): paridade com produção nas migrations do fluxo de recompra; contém dados fictícios adicionais de homologação (ver HANDOFF.md).
 
 ## PILOT-0001 — Cadastro rápido de produto na confirmação de recompra
@@ -34,6 +34,16 @@
 - **Migration:** `066_enable_realtime_avisos.sql` — habilita `public.avisos` na publicação `supabase_realtime`. Idempotente, sem mudança de schema funcional. Aplicada em staging e em produção (`nhcppfovsxcsulyvwvgs`).
 - **Segurança entre lojas:** sem filtro de `loja_id` no client — a RLS já existente (`membros_veem_avisos`, escopada por `loja_id IN lojas_do_usuario()`) é aplicada pelo Realtime por assinante. Requer `supabase.realtime.setAuth(session.access_token)` explícito antes de assinar (sem isso a conexão fica no papel anon e não recebe nada — comprovado empiricamente). Um único channel (`avisos-realtime-sync`) por sessão.
 - Indicador de diagnóstico de status da conexão (usado só para a homologação física) foi removido antes do merge — nenhum código de debug foi para produção.
+
+## SEC-0001 — Escalação de privilégio via `liberacoes_acesso` sem RLS
+
+- **Status:** CONCLUÍDO — auditado, corrigido, homologado em staging, promovido a produção.
+- **Branch:** `fix/sec-0001-rls-liberacoes` (mergeada em `main` via PR #2, squash).
+- **Vulnerabilidade:** `public.liberacoes_acesso` (e mais 6 tabelas) sem RLS, gravável por `anon`/`authenticated` via REST direto. A trigger `on_auth_user_liberacao` (`AFTER INSERT ON auth.users`, `SECURITY DEFINER`) aplica automaticamente qualquer liberação pendente casada por e-mail, inserindo o `role` indicado (inclusive `admin_f5`/`dono`) em `membros_loja` — permitia que qualquer pessoa se auto-promovesse a dono/admin de uma loja real, sem pagamento, só inserindo uma linha via API pública e se cadastrando com o mesmo e-mail. `public.buscar_auth_user_por_email(text)` (`SECURITY DEFINER`) também permitia enumeração de e-mails cadastrados, sem autenticação.
+- **Tabelas afetadas:** `liberacoes_acesso`, `assinaturas`, `planos`, `parceiros`, `bibliotecas`, `biblioteca_itens`, `instalacoes_biblioteca`.
+- **Migration:** `067_sec_rls_tabelas_e_revoga_enumeracao.sql` — habilita RLS nas 7 tabelas (sem policies — 100% do acesso legítimo já passa pelo client `admin`/service role, que bypassa RLS) e revoga `EXECUTE` de `anon`/`authenticated` em `buscar_auth_user_por_email(text)`. Idempotente. Aplicada em staging e em produção.
+- **Forense:** sem evidência de exploração histórica em staging ou produção (nenhuma linha `pendente`/`admin_f5` suspeita em `liberacoes_acesso`, nenhum `membros_loja` órfão).
+- **Riscos residuais / SEC-0002 recomendado:** grants de tabela (`GRANT ALL`) continuam amplos para `anon`/`authenticated` nas 7 tabelas — a proteção hoje é só via RLS sem policy; revisar/apertar esses grants como defesa em profundidade fica para uma tarefa separada (SEC-0002).
 
 ## Pausa operacional do F5 OS
 

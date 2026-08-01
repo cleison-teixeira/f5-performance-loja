@@ -160,3 +160,66 @@ Sem filtro de `loja_id` no client. A RLS já existente em `avisos` (`membros_vee
 - Reconexão de rede (Teste 6 do pilot) não foi testada ao vivo (queda/retomada de conexão); o comportamento de reconexão automática do `supabase-js` é o padrão da biblioteca, sem código adicional neste piloto.
 - Limpeza de dados fictícios de staging (deste e de pilotos anteriores) segue como item de organização futura.
 - Retomada das Fases 2b/3/4 do F5 OS segue pendente de autorização explícita separada.
+
+## SEC-0001 — Escalação de privilégio via `liberacoes_acesso` sem RLS
+
+### Resumo
+
+Auditoria de segurança (motivada pelo achado de RLS desabilitado em 7 tabelas durante o PILOT-0004) encontrou uma cadeia de escalação de privilégio explorável sem nenhuma credencial privada: `public.liberacoes_acesso` estava sem RLS e gravável por `anon`/`authenticated` via API REST direta do Supabase. A trigger `on_auth_user_liberacao` (`AFTER INSERT ON auth.users`, `SECURITY DEFINER`) aplica automaticamente qualquer liberação pendente casada por e-mail, inserindo o `role` indicado — inclusive `admin_f5`/`dono` — em `membros_loja`.
+
+Era possível criar uma liberação de acesso não autorizada por meio da API pública e, posteriormente, fazer com que o fluxo automático de cadastro aplicasse uma role privilegiada a uma loja. Cadeia confirmada por leitura de código (binding da trigger via `pg_trigger`) e reproduzida de fato em staging antes da correção — detalhes de exploração não documentados aqui por política de segurança.
+
+Mesma ausência de RLS e mesmos grants completos (`SELECT`/`INSERT`/`UPDATE`/`DELETE` para `anon`/`authenticated`) confirmados em mais 6 tabelas: `assinaturas`, `planos`, `parceiros`, `bibliotecas`, `biblioteca_itens`, `instalacoes_biblioteca`. `public.buscar_auth_user_por_email(text)` (`SECURITY DEFINER`) também era executável por `anon`/`authenticated`, permitindo enumerar e-mails cadastrados em `auth.users` sem autenticação.
+
+### O que mudou
+
+- `supabase/migrations/067_sec_rls_tabelas_e_revoga_enumeracao.sql` (novo) — único arquivo do PR:
+  - `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` nas 7 tabelas listadas acima, sem nenhuma policy adicional (100% do acesso legítimo já passa pelo client `admin`/service role no backend, que bypassa RLS — habilitar RLS sem policy não quebra nenhum fluxo existente e bloqueia por padrão qualquer acesso via `anon`/`authenticated`).
+  - `REVOKE ALL ... FROM PUBLIC` e `REVOKE EXECUTE ... FROM anon, authenticated` em `public.buscar_auth_user_por_email(text)`.
+  - Idempotente, com rollback documentado (comentado, não deve ser usado sem autorização — reabre a escalação).
+
+Nenhum código de aplicação, trigger, dado ou regra de negócio foi alterado.
+
+### Como confirmar
+
+Em staging ou produção, via SQL (conexão privilegiada):
+
+```sql
+-- RLS ativo nas 7 tabelas
+SELECT relname, relrowsecurity FROM pg_class
+WHERE relname IN ('liberacoes_acesso','assinaturas','planos','parceiros','bibliotecas','biblioteca_itens','instalacoes_biblioteca')
+  AND relnamespace = 'public'::regnamespace;
+-- todas devem retornar relrowsecurity = true
+
+-- zero policies
+SELECT count(*) FROM pg_policies WHERE schemaname='public'
+  AND tablename IN ('liberacoes_acesso','assinaturas','planos','parceiros','bibliotecas','biblioteca_itens','instalacoes_biblioteca');
+-- deve retornar 0
+```
+
+(Testes de acesso via chave `anon` pública foram executados durante a validação — ver seção "Testes cobertos" — mas os comandos específicos não são reproduzidos aqui.)
+
+### Testes cobertos
+
+- Forense em staging e produção: sem evidência de exploração histórica (nenhuma linha `pendente` ou `admin_f5` suspeita em `liberacoes_acesso`, nenhum `membros_loja` órfão fora do padrão esperado do fluxo legítimo).
+- Staging: 7/7 RLS ativo, 0 policies, `anon` bloqueado (SELECT/INSERT/UPDATE/DELETE), `authenticated` bloqueado (com JWT real, não simulado), service role funcionando (fluxo de instalação de biblioteca/liberação intacto), função bloqueada para `PUBLIC`/`anon`/`authenticated`.
+- `npx vitest run` 128/128, `npm run build` OK, `git diff --check` limpo.
+- Produção, pós-aplicação: 7/7 RLS ativo, 0 policies, 0 grants públicos na função, `SELECT` anon → `[]`, RPC anon → `permission denied`, leituras via conexão privilegiada (equivalente ao service role) sem erro em `membros_loja`/`bibliotecas`/`parceiros`/`biblioteca_itens`/`instalacoes_biblioteca`/`produtos`/`liberacoes_acesso`/`planos`/`assinaturas`, contagens de linhas inalteradas (nenhum dado tocado). Zero erros de runtime em produção atribuídos ao deploy do commit `0af5291` nas 2h seguintes ao merge.
+- **Limitação conhecida:** não foi feito um teste de sessão real autenticada (login de verdade) contra produção nesta rodada — por não ter e não dever obter credencial de uma conta real, e por instrução explícita de não fabricar JWT/cookie manualmente. A validação de "fluxo legítimo" em produção se apoiou em (a) logs de runtime reais (sem erros) e (b) leitura direta via conexão privilegiada espelhando exatamente as queries do backend. Recomenda-se um clique manual humano (login real) como confirmação complementar, sem bloquear o encerramento deste incidente.
+
+### Estado no momento deste handoff
+
+- Branch `fix/sec-0001-rls-liberacoes` mergeada em `main` via PR #2 (squash) — commit `0af5291`.
+- Migration `067_sec_rls_tabelas_e_revoga_enumeracao.sql` aplicada em staging e em produção (`nhcppfovsxcsulyvwvgs`).
+- Deploy de produção do commit `0af5291`: `dpl_AMhJct7tFvbxCJRYoRNDeKH9jwhG`, READY.
+
+### Riscos residuais / SEC-0002 recomendado
+
+- Os `GRANT`s de tabela (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`) para `anon`/`authenticated` continuam amplos nas 7 tabelas — a proteção hoje depende inteiramente do RLS sem policy (deny-all por padrão). Isso é suficiente e correto, mas não é defesa em profundidade. Recomenda-se abrir **SEC-0002** para revisar/apertar esses grants nas 7 tabelas (e auditar se o mesmo padrão existe em outras tabelas do schema `public` fora do escopo desta auditoria).
+- O gap de leitura de `.env` identificado no PILOT-0004 (deny list só cobre `cat`/`less`/`more`, não `head`/`grep`/`Read` tool/etc.) segue sem correção — fora do escopo do SEC-0001, mas relacionado à mesma frente de segurança.
+
+### Pendências / próximos passos
+
+- Homologação humana com login real em produção (ver limitação acima) — opcional, não bloqueante.
+- SEC-0002 (grants excessivos) — não iniciado, aguardando priorização.
+- Housekeeping dos scripts `.mjs` soltos na raiz do repo — tarefa separada, já registrada, não relacionada a este incidente.
