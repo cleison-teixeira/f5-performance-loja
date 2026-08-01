@@ -141,13 +141,14 @@ Sem filtro de `loja_id` no client. A RLS já existente em `avisos` (`membros_vee
 - Teste 1 (venda nova, duas sessões): sincronizado em ~2s sem F5/navegação; 5 eventos Realtime → 1 único `router.refresh()`.
 - Teste 2 (confirmar recompra, duas sessões): sincronizado em ~2s sem F5/navegação; 7 eventos Realtime → 1 único `router.refresh()`.
 - Isolamento entre lojas: verificado por simulação de RLS via SQL + prova empírica de que conexão anon recebe zero eventos (ver seção de segurança acima).
+- **Homologação física real (PILOT-0003C):** Windows (Silvana) e macOS (Cleison), duas sessões independentes. Antes de comprovar, uma primeira rodada de homologação física **reprovou** — sessão B não atualizou. Investigação: em vez de presumir causa, expôs-se temporariamente o status da subscription (`SUBSCRIBED`/`CHANNEL_ERROR`/`TIMED_OUT`/`CLOSED`) via indicador visível só em staging (`NEXT_PUBLIC_MOSTRAR_DEBUG_REALTIME`), sem tocar em debounce/RLS/regra de negócio. Gate técnico confirmou 1 subscribe, 1 channel, 1 `SUBSCRIBED`, 5 eventos, 1 refresh — nenhuma duplicação. Nova rodada de homologação física aprovada 100%: indicador "Conectado", notificações/filtro/contador de atrasados em Relacionamento atualizando automaticamente, sem F5, em ambiente real. Indicador de diagnóstico removido antes do merge.
 
 ### Estado no momento deste handoff
 
-- Branch `fix/atualizacao-dados-pos-mutacao`, **não mergeada** em `main`.
-- Migration 066 aplicada **somente em staging**.
+- Branch `fix/atualizacao-dados-pos-mutacao` mergeada em `main` (fast-forward).
+- Migration 066 aplicada em staging e em produção.
 - Nenhuma regra de negócio alterada. Nenhum schema funcional de `avisos` alterado.
-- Aguardando homologação humana antes de qualquer merge/deploy em produção.
+- Deploy de produção: ver STATE.md / relatório final desta conversa para hash exato.
 
 ### Dados fictícios deixados em staging (não removidos)
 
@@ -157,5 +158,5 @@ Sem filtro de `loja_id` no client. A RLS já existente em `avisos` (`membros_vee
 
 - Teste de isolamento entre lojas com uma segunda sessão de navegador **ao vivo** (não apenas simulação de RLS via SQL) depende de uma credencial de teste fictícia válida para um usuário restrito a uma única loja diferente — não disponível nesta sessão.
 - Reconexão de rede (Teste 6 do pilot) não foi testada ao vivo (queda/retomada de conexão); o comportamento de reconexão automática do `supabase-js` é o padrão da biblioteca, sem código adicional neste piloto.
-- Limpeza de dados fictícios de staging segue como item de organização futura.
+- Limpeza de dados fictícios de staging (deste e de pilotos anteriores) segue como item de organização futura.
 - Retomada das Fases 2b/3/4 do F5 OS segue pendente de autorização explícita separada.

@@ -5,7 +5,7 @@
 ## Estado atual
 
 - `main`: sincronizada com `origin/main`.
-- Produção (`nhcppfovsxcsulyvwvgs`): estável, sem migrations pendentes conhecidas além das já aplicadas (até `065_fix_templates_legado_plural`).
+- Produção (`nhcppfovsxcsulyvwvgs`): estável, migrations até `066_enable_realtime_avisos` aplicadas.
 - Staging (`ynrffhacpjzohrhkpuiq`): paridade com produção nas migrations do fluxo de recompra; contém dados fictícios adicionais de homologação (ver HANDOFF.md).
 
 ## PILOT-0001 — Cadastro rápido de produto na confirmação de recompra
@@ -25,14 +25,15 @@
 
 ## PILOT-0003 — Dados novos não aparecem sem recarregar a página
 
-- **Status:** STAGING PRONTO PARA HOMOLOGAÇÃO (aguardando aprovação humana). Não mergeado em `main`.
-- **Branch:** `fix/atualizacao-dados-pos-mutacao`.
+- **Status:** CONCLUÍDO — homologado em staging (automatizado) e fisicamente (Windows + macOS reais, duas sessões independentes), promovido a produção.
+- **Branch:** `fix/atualizacao-dados-pos-mutacao` (mergeada em `main` via fast-forward).
 - **Causas raiz (duas, sequenciais):**
-  1. `AvisosPageClient` guardava os dados iniciais em `useState` sem sincronizar com props atualizadas — a lista da própria sessão que fez a mutação ficava congelada até F5. **Corrigido** (remoção do `useState` redundante) e comprovado com testes automatizados e homologação humana real (Silvana/Cleison).
+  1. `AvisosPageClient` guardava os dados iniciais em `useState` sem sincronizar com props atualizadas — a lista da própria sessão que fez a mutação ficava congelada até F5. **Corrigido** (remoção do `useState` redundante).
   2. Mesmo corrigido (1), uma **sessão diferente e independente**, já aberta em `/avisos`, nunca recebia a atualização — comprovado com um teste distribuído real de duas sessões (PILOT-0003B): 210 segundos parado, sem navegar, sem F5, sem nenhuma mudança visível. `revalidatePath` só invalida cache de rota para navegações futuras da própria sessão; não existe push entre sessões.
-- **Correção (2):** Supabase Realtime (Postgres Changes) em `public.avisos` — `useAvisosRealtime` (hook em `AvisosLista`) assina INSERT/UPDATE/DELETE, agrupa rajadas com debounce de 700ms e chama `router.refresh()`. Testado em staging: sincronização em ~2s entre sessões, sem F5, sem navegar.
-- **Migration:** `066_enable_realtime_avisos.sql` — habilita `public.avisos` na publicação `supabase_realtime`. Aplicada **somente em staging**. Idempotente, sem mudança de schema funcional.
-- **Segurança entre lojas:** sem filtro de `loja_id` no client — a RLS já existente (`membros_veem_avisos`, escopada por `loja_id IN lojas_do_usuario()`) é aplicada pelo Realtime por assinante. Requer `supabase.realtime.setAuth(session.access_token)` explícito antes de assinar (sem isso a conexão fica no papel anon e não recebe nada — comprovado empiricamente).
+- **Correção (2):** Supabase Realtime (Postgres Changes) em `public.avisos` — `useAvisosRealtime` (hook em `AvisosLista`) assina INSERT/UPDATE/DELETE, agrupa rajadas com debounce de 700ms e chama `router.refresh()`. Homologado em ambiente físico real (Windows/Silvana + macOS/Cleison): notificações, filtro da Fila e contador de avisos atrasados em Relacionamento atualizaram automaticamente, sem F5.
+- **Migration:** `066_enable_realtime_avisos.sql` — habilita `public.avisos` na publicação `supabase_realtime`. Idempotente, sem mudança de schema funcional. Aplicada em staging e em produção (`nhcppfovsxcsulyvwvgs`).
+- **Segurança entre lojas:** sem filtro de `loja_id` no client — a RLS já existente (`membros_veem_avisos`, escopada por `loja_id IN lojas_do_usuario()`) é aplicada pelo Realtime por assinante. Requer `supabase.realtime.setAuth(session.access_token)` explícito antes de assinar (sem isso a conexão fica no papel anon e não recebe nada — comprovado empiricamente). Um único channel (`avisos-realtime-sync`) por sessão.
+- Indicador de diagnóstico de status da conexão (usado só para a homologação física) foi removido antes do merge — nenhum código de debug foi para produção.
 
 ## Pausa operacional do F5 OS
 
