@@ -25,6 +25,7 @@ interface Resultado {
   lojasInstaladas: number
   produtosInseridos: number
   produtosIgnorados: number
+  produtosComErro?: number
   erro?: string
 }
 
@@ -377,6 +378,9 @@ export function BibliotecasClient({ bibliotecas, lojas, lojaId, instalados: inst
                       <p>{resultado.produtosInseridos} produto{resultado.produtosInseridos !== 1 ? 's' : ''} adicionado{resultado.produtosInseridos !== 1 ? 's' : ''}</p>
                       {resultado.produtosIgnorados > 0 && (
                         <p>{resultado.produtosIgnorados} já existia{resultado.produtosIgnorados !== 1 ? 'm' : ''} (ignorado{resultado.produtosIgnorados !== 1 ? 's' : ''})</p>
+                      )}
+                      {!!resultado.produtosComErro && resultado.produtosComErro > 0 && (
+                        <p className="text-destructive">{resultado.erro}</p>
                       )}
                     </div>
                     <button
