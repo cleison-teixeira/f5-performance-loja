@@ -8,6 +8,7 @@ import { CardAviso } from './CardAviso'
 import { CardGrupoRecompra } from './CardGrupoRecompra'
 import type { AvisoDetalhado, GrupoRecompra, ItemVendaGrupo } from './types'
 import { filtrarAvisosPorBusca } from '@/lib/avisos/filtrarAvisos'
+import { useAvisosRealtime } from '@/lib/avisos/useAvisosRealtime'
 import type { CatalogoProduto } from './page'
 import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 
@@ -278,6 +279,7 @@ export function avisoCombinaProduto(
 
 export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false, taxaConversao, itensVendaPorVenda }: AvisosListaProps) {
   const router = useRouter()
+  useAvisosRealtime()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
   const [lista, setLista] = useState<AvisoDetalhado[]>(avisosIniciais)
