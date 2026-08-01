@@ -289,9 +289,6 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
 
   // Sync with fresh server data after router.refresh()
   useEffect(() => {
-    console.log('[PILOT0003-CHAIN][AvisosLista-effect]', JSON.stringify({
-      ts: new Date().toISOString(), avisosIniciaisCount: avisosIniciais.length,
-    }))
     setLista(avisosIniciais)
   }, [avisosIniciais])
 
