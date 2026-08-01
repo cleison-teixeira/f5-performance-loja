@@ -179,6 +179,10 @@ export default async function AvisosPage() {
     }
   })
 
+  console.log('[PILOT0003-CHAIN][SERVER]', JSON.stringify({
+    ts: new Date().toISOString(), initialAvisosCount: avisos.length,
+  }))
+
   const taxaConversao = await calcularTaxaRecompraMes(ctx.lojaIds, admin, inicioMes)
 
   // Fetch all recurrent itens_venda for every unique venda_id that has active avisos
