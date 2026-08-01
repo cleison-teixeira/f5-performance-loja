@@ -18,15 +18,25 @@ export function useAvisosRealtime() {
   useEffect(() => {
     const supabase = createClient()
     const { agendar, cancelar } = criarAgendadorDebounce(() => router.refresh(), DEBOUNCE_MS)
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelado = false
 
-    const channel = supabase
-      .channel('avisos-realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos' }, agendar)
-      .subscribe()
+    // O JWT da sessão precisa estar explicitamente setado no client Realtime
+    // antes de assinar — sem isso a conexão fica no papel anon, que não tem
+    // policy de SELECT em avisos, e nenhum evento é entregue.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelado) return
+      if (session?.access_token) supabase.realtime.setAuth(session.access_token)
+      channel = supabase
+        .channel('avisos-realtime-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos' }, agendar)
+        .subscribe()
+    })
 
     return () => {
+      cancelado = true
       cancelar()
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [router])
 }
