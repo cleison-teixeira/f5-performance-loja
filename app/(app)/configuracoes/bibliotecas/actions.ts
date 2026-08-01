@@ -43,9 +43,10 @@ export async function instalarBiblioteca(dados: {
   lojasInstaladas: number
   produtosInseridos: number
   produtosIgnorados: number
+  produtosComErro: number
   erro?: string
 }> {
-  const zero = { ok: false, lojasInstaladas: 0, produtosInseridos: 0, produtosIgnorados: 0 }
+  const zero = { ok: false, lojasInstaladas: 0, produtosInseridos: 0, produtosIgnorados: 0, produtosComErro: 0 }
 
   try {
     const supabase = await createClient()
@@ -89,6 +90,7 @@ export async function instalarBiblioteca(dados: {
       .eq('ativo', true)
 
     if (itensErr || !itens) return { ...zero, erro: itensErr?.message ?? 'Biblioteca não encontrada' }
+    if (itens.length === 0) return { ...zero, erro: 'Esta biblioteca ainda não possui produtos cadastrados' }
 
     // Resolve parceiro names for TEXT legacy field
     const parceiroIds = [...new Set(itens.map(i => i.parceiro_id as string | null).filter(Boolean))] as string[]
@@ -101,6 +103,7 @@ export async function instalarBiblioteca(dados: {
     let lojasInstaladas = 0
     let produtosInseridos = 0
     let produtosIgnorados = 0
+    let produtosComErro = 0
 
     for (const lojaId of dados.loja_ids) {
       // Auto-enable biblioteca nicho in the loja if not present
@@ -177,12 +180,15 @@ export async function instalarBiblioteca(dados: {
           .select('id')
           .single()
 
-        if (prodErr || !novoProduto) continue
+        if (prodErr || !novoProduto) {
+          produtosComErro++
+          continue
+        }
 
         const produtoId = novoProduto.id as string
         const ordens = ORDENS_POR_MODELO[qtd]
 
-        await admin.from('mensagens_produto').insert(
+        const { error: msgErr } = await admin.from('mensagens_produto').insert(
           ordens.map(ordem => {
             const tipo = TIPO_POR_ORDEM[ordem]
             return {
@@ -196,6 +202,7 @@ export async function instalarBiblioteca(dados: {
             }
           })
         )
+        if (msgErr) produtosComErro++
 
         porItemId.add(item.id as string)
         porNomeNorm.add(normalizarNome(item.nome as string))
@@ -203,7 +210,14 @@ export async function instalarBiblioteca(dados: {
       }
     }
 
-    return { ok: true, lojasInstaladas, produtosInseridos, produtosIgnorados }
+    return {
+      ok: true,
+      lojasInstaladas,
+      produtosInseridos,
+      produtosIgnorados,
+      produtosComErro,
+      ...(produtosComErro > 0 && { erro: `${produtosComErro} produto${produtosComErro !== 1 ? 's' : ''} não pôde${produtosComErro !== 1 ? 'ram' : ''} ser instalado${produtosComErro !== 1 ? 's' : ''}` }),
+    }
   } catch (err) {
     return { ...zero, erro: err instanceof Error ? err.message : 'Erro inesperado' }
   }
