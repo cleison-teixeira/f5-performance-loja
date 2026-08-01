@@ -13,6 +13,11 @@ dist/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.preview
+.env.production
+.env.test
+.env.staging
 
 # logs
 npm-debug.log*

@@ -140,6 +140,21 @@ Sem todas as cinco condições, realizar somente smoke test de leitura (navegaç
 
 Em caso de dúvida: abortar, fazer logout, auditar banco antes de continuar.
 
+## Proteção de segredos (OPS-0001) — regra permanente
+
+Nunca ler, imprimir, resumir, copiar, codificar ou transmitir o conteúdo de arquivos sensíveis: `.env` e variantes (`.local`/`.development`/`.preview`/`.production`/`.staging`/`.test`), `*.pem`, `*.key`, `id_rsa*`, `credentials*`, `secrets*`, `service-account*`, arquivos de autenticação da Vercel/Supabase/GitHub/Claude Code. `.env.example` (sanitizado) é sempre permitido.
+
+Se uma tarefa precisar de um segredo:
+- Pedir para o usuário inserir o valor diretamente no dashboard do serviço (Vercel/Supabase), nunca no chat.
+- Validar apenas presença, nome ou tamanho de uma variável, quando isso não permitir inferir o valor.
+- Nunca pedir para o usuário colar uma chave no chat.
+
+Controles técnicos (não remover sem autorização explícita):
+- `.claude/settings.json` → `permissions.deny`: bloqueia leitura direta, utilitários shell, interpretadores inline, cópia/renomeio e `git add` desses arquivos.
+- `.claude/hooks/block_secret_reads.py` (`hooks.PreToolUse`): defesa em profundidade para os vetores que as regras declarativas não cobrem sozinhas (ex.: variantes menos comuns, `env`/`printenv` que imprimem, execução de código inline). Falha fechada: erro interno ou JSON inesperado bloqueia a chamada, não libera.
+
+**Limitação conhecida:** um script Node/Python que abra um arquivo sensível diretamente pelo próprio código (não via um comando reconhecível na string do Bash) pode não ser bloqueado pelas camadas acima. Proteção completa exigiria `sandbox.enabled` (isolamento a nível de SO via Seatbelt no macOS) — não implementado nesta tarefa por isolar também a rede, exigindo allowlist de domínio para todo comando Bash (Supabase/Vercel/GitHub/npm); ver recomendação registrada em STATE.md/HANDOFF.md.
+
 ## Relatórios finais
 
 Ao finalizar uma fase, responder curto:
