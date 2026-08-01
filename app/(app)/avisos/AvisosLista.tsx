@@ -9,6 +9,7 @@ import { CardGrupoRecompra } from './CardGrupoRecompra'
 import type { AvisoDetalhado, GrupoRecompra, ItemVendaGrupo } from './types'
 import { filtrarAvisosPorBusca } from '@/lib/avisos/filtrarAvisos'
 import { useAvisosRealtime } from '@/lib/avisos/useAvisosRealtime'
+import { RealtimeDebugIndicator } from '@/lib/avisos/RealtimeDebugIndicator'
 import type { CatalogoProduto } from './page'
 import type { TaxaConversaoRecompra } from '@/lib/metricas/taxa-conversao'
 
@@ -279,7 +280,7 @@ export function avisoCombinaProduto(
 
 export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuaisPorVendedora, vendedorasLoja, loja_id, loja_nome = '', isVendedora, mode, totalRecomprasValorMes = 0, qtdRecomprasMes = 0, mostrarLoja = false, taxaConversao, itensVendaPorVenda }: AvisosListaProps) {
   const router = useRouter()
-  useAvisosRealtime()
+  const diagnosticoRealtime = useAvisosRealtime()
   const [periodo, setPeriodo] = useState<Periodo>('todos')
   const [tipo, setTipo] = useState<TipoFiltro>('todos')
   const [lista, setLista] = useState<AvisoDetalhado[]>(avisosIniciais)
@@ -467,6 +468,8 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
   ]
 
   return (
+    <>
+    <RealtimeDebugIndicator diagnostico={diagnosticoRealtime} />
     <div className="space-y-4">
 
       {/* ── Cards de resumo (reactivos ao estado local) ── */}
@@ -933,5 +936,6 @@ export function AvisosLista({ avisos: avisosIniciais, hoje, catalogo, percentuai
       )}
 
     </div>
+    </>
   )
 }
