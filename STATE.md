@@ -5,7 +5,7 @@
 ## Estado atual
 
 - `main`: sincronizada com `origin/main`.
-- Produção (`nhcppfovsxcsulyvwvgs`): estável, migrations até `067_sec_rls_tabelas_e_revoga_enumeracao` aplicadas.
+- Produção (`nhcppfovsxcsulyvwvgs`): estável, migrations até `068_sec_hardening_grants_tabelas` aplicadas.
 - Staging (`ynrffhacpjzohrhkpuiq`): paridade com produção nas migrations do fluxo de recompra; contém dados fictícios adicionais de homologação (ver HANDOFF.md).
 
 ## PILOT-0001 — Cadastro rápido de produto na confirmação de recompra
@@ -44,6 +44,15 @@
 - **Migration:** `067_sec_rls_tabelas_e_revoga_enumeracao.sql` — habilita RLS nas 7 tabelas (sem policies — 100% do acesso legítimo já passa pelo client `admin`/service role, que bypassa RLS) e revoga `EXECUTE` de `anon`/`authenticated` em `buscar_auth_user_por_email(text)`. Idempotente. Aplicada em staging e em produção.
 - **Forense:** sem evidência de exploração histórica em staging ou produção (nenhuma linha `pendente`/`admin_f5` suspeita em `liberacoes_acesso`, nenhum `membros_loja` órfão).
 - **Riscos residuais / SEC-0002 recomendado:** grants de tabela (`GRANT ALL`) continuam amplos para `anon`/`authenticated` nas 7 tabelas — a proteção hoje é só via RLS sem policy; revisar/apertar esses grants como defesa em profundidade fica para uma tarefa separada (SEC-0002).
+
+## SEC-0002 — Hardening de grants excessivos nas 7 tabelas
+
+- **Status:** CONCLUÍDO — auditado, corrigido, homologado em staging, promovido a produção.
+- **Branch:** `fix/sec-0002-hardening-grants` (mergeada em `main` via PR #3, squash, commit `27ac151`).
+- **O que fez:** `REVOKE ALL PRIVILEGES` de `anon`/`authenticated`/`PUBLIC` nas 7 tabelas do SEC-0001, com base em auditoria de uso real (37/37 acessos via client admin no código). Não concede nada novo, não altera RLS/dados/triggers/owners.
+- **Migration:** `068_sec_hardening_grants_tabelas.sql`. Aplicada em staging e em produção (`nhcppfovsxcsulyvwvgs`).
+- **Validação pós-produção:** GRANTs restantes = só `service_role`; RLS 7/7 inalterado (`true`); matriz `has_table_privilege` = `service_role` true / `anon` e `authenticated` false em tudo; teste REST real com chave `anon` → `401 permission denied` nas 7 tabelas; `vitest` 128/128; `build` OK; deploy de produção `dpl_5Kja41GToMC3qkehu2at4Le8g9VP` READY.
+- **Fora de escopo (registrado separadamente):** SEC-0002B (`ALTER DEFAULT PRIVILEGES` no schema `public`, afeta tabelas futuras) — ver "Débitos técnicos conhecidos" abaixo.
 
 ## Pausa operacional do F5 OS
 

@@ -221,8 +221,53 @@ SELECT count(*) FROM pg_policies WHERE schemaname='public'
 ### Pendências / próximos passos
 
 - Homologação humana com login real em produção (ver limitação acima) — opcional, não bloqueante.
-- SEC-0002 (grants excessivos) — em andamento, ver seção própria abaixo.
+- SEC-0002 (grants excessivos) — CONCLUÍDO, ver seção própria abaixo.
 - Housekeeping dos scripts `.mjs` soltos na raiz do repo — tarefa separada, já registrada, não relacionada a este incidente.
+
+## SEC-0002 — Hardening de grants excessivos nas 7 tabelas (defesa em profundidade)
+
+### Resumo
+
+Recomendado como risco residual do SEC-0001: mesmo com RLS deny-all ativo nas 7 tabelas (`liberacoes_acesso`, `assinaturas`, `planos`, `parceiros`, `bibliotecas`, `biblioteca_itens`, `instalacoes_biblioteca`), os `GRANT`s de tabela no catálogo continuavam amplos (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`/`REFERENCES`/`TRIGGER`) para `anon`/`authenticated`. A proteção real dependia inteiramente do RLS — sem defesa em profundidade no nível de grant.
+
+Auditoria de uso real (código-fonte, staging e produção, somente leitura): 37 ocorrências de acesso a essas 7 tabelas em toda a aplicação, 37/37 via client `admin` (service role). Zero uso de client `anon`/`authenticated` (browser ou sessão). `assinaturas` sem nenhum uso no código. Única função que referencia essas tabelas (`aplicar_liberacoes_pendentes`, `SECURITY DEFINER`, dono `postgres`) roda com privilégio do dono, não afetada pela revogação. Zero views, materialized views ou triggers nas 7 tabelas.
+
+### O que mudou
+
+- `supabase/migrations/068_sec_hardening_grants_tabelas.sql` (novo) — único arquivo do PR:
+  - `REVOKE ALL PRIVILEGES ... FROM PUBLIC, anon, authenticated` nas 7 tabelas.
+  - Não concede nenhum privilégio novo. Não altera RLS, dados, triggers, schema ou owners. Idempotente, com rollback documentado (comentado).
+
+Nenhum código de aplicação foi alterado — a auditoria confirmou que nenhum fluxo legítimo depende do grant direto (só do client admin).
+
+### Como confirmar
+
+```sql
+-- grants restantes nas 7 tabelas (deve retornar só service_role)
+SELECT table_name, grantee, string_agg(privilege_type, ', ') AS privileges
+FROM information_schema.role_table_grants
+WHERE table_schema='public'
+  AND table_name IN ('liberacoes_acesso','assinaturas','planos','parceiros','bibliotecas','biblioteca_itens','instalacoes_biblioteca')
+  AND grantee IN ('anon','authenticated','PUBLIC','service_role')
+GROUP BY table_name, grantee;
+```
+
+### Testes cobertos
+
+- Staging: GRANTs revogados confirmados no catálogo, RLS 7/7 ativo (inalterado), matriz `has_table_privilege`/`SET LOCAL ROLE` para `service_role`/`anon`/`authenticated` (sem senha, sem JWT, sem arquivo temporário), `vitest` 128/128, `tsc`, `build` OK.
+- Produção, pós-aplicação: `information_schema.role_table_grants` confirma zero linhas para `anon`/`authenticated`/`PUBLIC` nas 7 tabelas (só `service_role`); RLS 7/7 `relrowsecurity = true` (inalterado); matriz `has_table_privilege` — `service_role` = true em SELECT/INSERT/UPDATE/DELETE nas 7 tabelas, `anon` e `authenticated` = false em tudo; chamada REST real (somente leitura, `GET .../rest/v1/<tabela>?limit=1`) com a chave `anon` pública retorna `401 permission denied` (código `42501`) nas 7 tabelas, confirmando bloqueio em produção real, no nível de grant, antes mesmo de avaliar RLS; `get_advisors` (security) sem novo achado além dos 7 `rls_enabled_no_policy` já esperados (mesmos do SEC-0001); `vitest` 128/128; `npm run build` OK (todas as rotas geradas); `tsc --noEmit` com 3 erros pré-existentes e não relacionados (arquivos de teste `avisosProdutoSeletor`, `avisosSearch`, `editarRecompra` — nenhum deles toca as 7 tabelas nem foi alterado por esta migration).
+
+### Estado no momento deste handoff
+
+- Branch `fix/sec-0002-hardening-grants` mergeada em `main` via PR #3 (squash) — commit `27ac151`.
+- Migration `068_sec_hardening_grants_tabelas.sql` aplicada em staging e em produção (`nhcppfovsxcsulyvwvgs`).
+- Deploy de produção do commit `27ac151`: `dpl_5Kja41GToMC3qkehu2at4Le8g9VP`, READY.
+- Checksum SHA-256 do arquivo da migration confirmado idêntico entre a branch mergeada e `origin/main` pós-merge.
+
+### Riscos residuais
+
+- **SEC-0002B (registrado, não iniciado):** `ALTER DEFAULT PRIVILEGES` no schema `public` continua concedendo privilégio total a `anon`/`authenticated`/`service_role` em tabelas futuras — ver seção própria abaixo. Não corrigido nesta migration, deliberadamente.
+- Housekeeping dos `.mjs` e gap de leitura de `.env` (PILOT-0004) seguem pendentes, fora de escopo deste incidente.
 
 ## SEC-0002B — Default privileges excessivos no schema `public` (registrado, não iniciado)
 
