@@ -155,6 +155,168 @@ Controles técnicos (não remover sem autorização explícita):
 
 **Limitação conhecida:** um script Node/Python que abra um arquivo sensível diretamente pelo próprio código (não via um comando reconhecível na string do Bash) pode não ser bloqueado pelas camadas acima. Proteção completa exigiria `sandbox.enabled` (isolamento a nível de SO via Seatbelt no macOS) — não implementado nesta tarefa por isolar também a rede, exigindo allowlist de domínio para todo comando Bash (Supabase/Vercel/GitHub/npm); ver recomendação registrada em STATE.md/HANDOFF.md.
 
+## Tradutor Técnico (SEC-TRAD-0001) — regra permanente
+
+Antes de qualquer chamada de ferramenta que não seja leitura segura, é
+obrigatório comunicar a ação em português simples ANTES da tool call (nunca
+depois). O nível de detalhe depende do risco:
+
+- **AMARELO e VERMELHO**: sempre exigem o painel completo (formato abaixo).
+- **VERDE que já é auto-aprovado** por `.claude/settings.json` (não gera
+  prompt de aprovação ao usuário): basta uma frase curta, de uma linha,
+  dizendo o que será lido — sem o painel completo.
+- **VERDE que gerar um prompt de aprovação** (ex.: comando não coberto por
+  uma regra `allow`): exibir o painel completo normalmente, como qualquer
+  outra ação que peça aprovação.
+
+### Formato do painel completo
+
+RISCO:
+🟢 VERDE | 🟡 AMARELO | 🔴 VERMELHO
+
+AMBIENTE:
+LOCAL | GitHub (pode gerar Preview) | STAGING | PRODUÇÃO | NÃO SE APLICA
+
+AFETA:
+☐ Arquivos do projeto
+☐ Git local
+☐ GitHub
+☐ Banco
+☐ Produção
+☐ Configuração global
+
+O QUE VAI FAZER:
+(máximo 3 linhas, português simples, sem jargão técnico)
+
+O QUE PODE ALTERAR:
+☐ Arquivos do projeto
+☐ Git local
+☐ GitHub
+☐ Deploy Preview (automático, se configurado)
+☐ Staging
+☐ Banco
+☐ Produção
+☐ Configuração global
+☐ Arquivos fora do repositório
+
+EFEITOS INDIRETOS CONHECIDOS:
+(ex.: "push para esta branch pode disparar deploy Preview na Vercel";
+"merge em main pode disparar deploy de produção"; ou, quando não houver
+efeitos, usar exatamente: "Nenhum efeito indireto conhecido.")
+
+POR QUE ESTA APROVAÇÃO É NECESSÁRIA:
+(uma frase)
+
+REVERSIBILIDADE:
+reversível | reversível com rollback | parcialmente reversível | irreversível | não determinado — parar para revisão
+
+MINHA RECOMENDAÇÃO:
+EXECUTAR — SOMENTE LEITURA (só para VERDE) | APROVAR UMA VEZ | 🛑 PARAR PARA REVISÃO | NÃO APROVAR
+
+### Regra de preenchimento do AFETA e do O QUE PODE ALTERAR
+
+Nos dois campos, no painel efetivamente exibido, marcar (☑) somente os itens
+realmente afetados pela ação; os demais permanecem desmarcados (☐) e não
+precisam ser listados na versão preenchida — mostrar só os itens marcados.
+Quando só um item for marcado, acrescentar logo abaixo a frase "Nenhum outro
+ambiente será alterado." Exemplos:
+
+- Editar arquivo → ☑ Arquivos do projeto
+- Commit → ☑ Arquivos do projeto, ☑ Git local
+- Push → ☑ Arquivos do projeto, ☑ Git local, ☑ GitHub, ☑ Deploy Preview (automático, se configurado)
+- Migration em produção → ☑ Arquivos do projeto, ☑ Git local, ☑ GitHub, ☑ Banco, ☑ Produção
+- Alteração de ~/.claude → ☑ Configuração global
+
+### Regra de preenchimento do AMBIENTE
+
+Push/PR que afetam apenas o repositório remoto usam
+`GitHub (pode gerar Preview)`, não `STAGING` — o push em si não coloca nada
+em staging; o deploy Preview é uma consequência automática da Vercel, não o
+ambiente da própria ação. Nesses casos, marcar também "Deploy Preview
+(automático, se configurado)" em O QUE PODE ALTERAR.
+
+### Classificação mínima
+
+VERDE:
+- git status / diff / log / show
+- build
+- testes
+- leitura segura
+- consultas somente leitura
+
+AMARELO:
+- criação/edição de arquivo, **incluindo criar/editar um arquivo de
+  migration** (o arquivo em si, ainda não aplicado)
+- git add
+- commit
+- push para branch de feature
+- instalação de dependência
+- deploy Preview
+- configuração local do projeto
+
+VERMELHO:
+- **aplicar migration em staging**
+- **aplicar migration em produção** — gate crítico separado (ver seção
+  abaixo)
+- SQL de escrita
+- Supabase produção
+- Vercel produção
+- push para main
+- merge
+- force push
+- reset --hard
+- rm -rf
+- segredos
+- configuração global
+- alteração de permissões
+
+### Regras de desempate
+
+- Em caso de dúvida sobre a classificação, classificar como AMARELO — nunca
+  como VERDE.
+- Comandos compostos (`a && b`, pipelines, scripts que disparam múltiplas
+  ações) recebem a classificação da ação mais arriscada entre as que os
+  compõem.
+- Nunca recomendar "sempre aprovar"/"always allow" para ações AMARELAS ou
+  VERMELHAS.
+
+### Gate crítico de produção (ações VERMELHAS)
+
+- Nunca recomendar "APROVAR UMA VEZ" para uma ação VERMELHA sem citar
+  explicitamente o gate aplicável e as pré-condições necessárias (ex.:
+  autorização explícita já dada pelo usuário para esta ação específica,
+  ambiente confirmado, plano de rollback/backup disponível).
+- As categorias **produção, merge para main, migration aplicada (staging ou
+  produção), SQL de escrita e alteração de permissões** sempre recomendam
+  PARAR PARA REVISÃO até que exista autorização explícita do usuário para
+  aquela ação específica. Somente depois dessa autorização explícita uma
+  nova invocação do painel pode citar o gate/pré-condições atendidas e
+  recomendar APROVAR UMA VEZ.
+- Ao recomendar 🛑 PARAR PARA REVISÃO, incluir logo abaixo uma linha
+  "Motivo:" com uma frase curta explicando por que a ação exige o processo
+  completo de Gate do F5, além do gate e das pré-condições já exigidos
+  acima.
+- Para ações VERMELHAS que envolvem produção, incluir também, logo abaixo do
+  Motivo, a linha:
+  ```
+  PROCESSO OBRIGATÓRIO:
+  Seguir o Gate de Produção do F5 antes de qualquer execução.
+  ```
+  (a numeração dos Gates ainda não foi definida; não inventar números de
+  Gate até que isso seja formalizado).
+
+### Limites desta regra
+
+Este painel é uma camada informativa e comportamental. Ele não substitui,
+não simula e não deve ser apresentado como equivalente ao controle técnico
+de `.claude/settings.json` (allow/ask/deny) nem a qualquer hook. O painel
+deve ser exibido mesmo quando a ação já é tecnicamente auto-aprovada — e,
+mesmo quando recomendar PARAR PARA REVISÃO ou NÃO APROVAR, a trava real
+depende das permissões configuradas, não do texto do painel. Esta regra não
+modifica hooks: o `PreToolUse` de proteção de segredos
+(`block_secret_reads.py`) permanece a única camada técnica de bloqueio
+automático.
+
 ## Relatórios finais
 
 Ao finalizar uma fase, responder curto:
