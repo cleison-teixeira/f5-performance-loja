@@ -189,11 +189,20 @@ O QUE VAI FAZER:
 (máximo 3 linhas, português simples, sem jargão técnico)
 
 O QUE PODE ALTERAR:
-(uma ou mais opções: nada / arquivos do projeto / Git local / GitHub / Deploy Preview (automático, se configurado) / staging / banco / produção / configuração global / arquivos fora do repositório)
+☐ Arquivos do projeto
+☐ Git local
+☐ GitHub
+☐ Deploy Preview (automático, se configurado)
+☐ Staging
+☐ Banco
+☐ Produção
+☐ Configuração global
+☐ Arquivos fora do repositório
 
 EFEITOS INDIRETOS CONHECIDOS:
 (ex.: "push para esta branch pode disparar deploy Preview na Vercel";
-"merge em main pode disparar deploy de produção"; ou "nenhum conhecido")
+"merge em main pode disparar deploy de produção"; ou, quando não houver
+efeitos, usar exatamente: "Nenhum efeito indireto conhecido.")
 
 POR QUE ESTA APROVAÇÃO É NECESSÁRIA:
 (uma frase)
@@ -204,14 +213,17 @@ reversível | reversível com rollback | parcialmente reversível | irreversíve
 MINHA RECOMENDAÇÃO:
 EXECUTAR — SOMENTE LEITURA (só para VERDE) | APROVAR UMA VEZ | 🛑 PARAR PARA REVISÃO | NÃO APROVAR
 
-### Regra de preenchimento do AFETA
+### Regra de preenchimento do AFETA e do O QUE PODE ALTERAR
 
-No painel efetivamente exibido, marcar (☑) somente os itens realmente
-afetados pela ação; os demais permanecem desmarcados (☐). Exemplos:
+Nos dois campos, no painel efetivamente exibido, marcar (☑) somente os itens
+realmente afetados pela ação; os demais permanecem desmarcados (☐) e não
+precisam ser listados na versão preenchida — mostrar só os itens marcados.
+Quando só um item for marcado, acrescentar logo abaixo a frase "Nenhum outro
+ambiente será alterado." Exemplos:
 
 - Editar arquivo → ☑ Arquivos do projeto
 - Commit → ☑ Arquivos do projeto, ☑ Git local
-- Push → ☑ Arquivos do projeto, ☑ Git local, ☑ GitHub
+- Push → ☑ Arquivos do projeto, ☑ Git local, ☑ GitHub, ☑ Deploy Preview (automático, se configurado)
 - Migration em produção → ☑ Arquivos do projeto, ☑ Git local, ☑ GitHub, ☑ Banco, ☑ Produção
 - Alteração de ~/.claude → ☑ Configuração global
 
@@ -220,7 +232,8 @@ afetados pela ação; os demais permanecem desmarcados (☐). Exemplos:
 Push/PR que afetam apenas o repositório remoto usam
 `GitHub (pode gerar Preview)`, não `STAGING` — o push em si não coloca nada
 em staging; o deploy Preview é uma consequência automática da Vercel, não o
-ambiente da própria ação.
+ambiente da própria ação. Nesses casos, marcar também "Deploy Preview
+(automático, se configurado)" em O QUE PODE ALTERAR.
 
 ### Classificação mínima
 
@@ -283,6 +296,14 @@ VERMELHO:
   "Motivo:" com uma frase curta explicando por que a ação exige o processo
   completo de Gate do F5, além do gate e das pré-condições já exigidos
   acima.
+- Para ações VERMELHAS que envolvem produção, incluir também, logo abaixo do
+  Motivo, a linha:
+  ```
+  PROCESSO OBRIGATÓRIO:
+  Seguir o Gate de Produção do F5 antes de qualquer execução.
+  ```
+  (a numeração dos Gates ainda não foi definida; não inventar números de
+  Gate até que isso seja formalizado).
 
 ### Limites desta regra
 
