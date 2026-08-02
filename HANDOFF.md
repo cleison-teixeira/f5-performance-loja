@@ -266,17 +266,43 @@ GROUP BY table_name, grantee;
 
 ### Riscos residuais
 
-- **SEC-0002B (registrado, não iniciado):** `ALTER DEFAULT PRIVILEGES` no schema `public` continua concedendo privilégio total a `anon`/`authenticated`/`service_role` em tabelas futuras — ver seção própria abaixo. Não corrigido nesta migration, deliberadamente.
+- **SEC-0002B — Etapa B concluída; correção funcional pendente:** `ALTER DEFAULT PRIVILEGES` no schema `public` continua concedendo privilégio total a `anon`/`authenticated`/`service_role` em tabelas futuras — ver seção própria abaixo. Não corrigido nesta migration, deliberadamente.
 - Housekeeping dos `.mjs` e gap de leitura de `.env` (PILOT-0004) seguem pendentes, fora de escopo deste incidente.
 
-## SEC-0002B — Default privileges excessivos no schema `public` (registrado, não iniciado)
+## SEC-0002B — Default privileges excessivos no schema `public`
 
-Durante a auditoria do SEC-0002, foi confirmado que `postgres` e `supabase_admin` têm `ALTER DEFAULT PRIVILEGES` configurado no schema `public` concedendo automaticamente privilégio total (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`/`REFERENCES`/`TRIGGER`) a `anon`/`authenticated`/`service_role` em **qualquer tabela nova** criada nesse schema.
+### Resumo
 
-**Não faz parte da migration 068 nem do escopo do SEC-0002** — aquele incidente tratou só os grants já existentes nas 7 tabelas específicas auditadas. Este é um problema sistêmico e prospectivo (afeta tabelas ainda não criadas), tratado deliberadamente como incidente separado por exigir, antes de qualquer `ALTER DEFAULT PRIVILEGES`:
+Durante a auditoria do SEC-0002, foi confirmado que `postgres` e `supabase_admin` têm `ALTER DEFAULT PRIVILEGES` configurado no schema `public` concedendo automaticamente privilégio total (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`/`REFERENCES`/`TRIGGER`) a `anon`/`authenticated`/`service_role` em **qualquer tabela nova** criada nesse schema. Não faz parte da migration 068 nem do escopo do SEC-0002 — problema sistêmico e prospectivo (afeta tabelas ainda não criadas), tratado como incidente separado, com investigação e prova controlada antes de qualquer correção.
 
-- mapear qual role efetivamente cria tabelas em produção hoje (migrations rodam como qual role?);
-- confirmar em qual(is) schema(s) o problema se repete;
-- avaliar risco de quebrar migrations futuras que dependem do comportamento atual (ex.: uma migration que cria tabela e espera que o service role já tenha acesso implícito).
+### Etapa B — prova controlada (concluída)
 
-Não iniciado. Sem branch, sem investigação além da constatação inicial.
+Sequência de gates (Escopo → Planejamento → leitura de catálogo em staging e produção → prova ativa em staging → PR → Merge → Validação pós-merge), cada um com autorização explícita separada.
+
+- Leitura de catálogo (staging `ynrffhacpjzohrhkpuiq` e produção `nhcppfovsxcsulyvwvgs`): confirmou defaults perigosos independentes em `postgres` e `supabase_admin`, paridade total entre staging e produção nesse recorte, e que os defaults também atingem sequences/functions (fora do escopo desta correção). `postgres` não é superuser neste projeto (`supabase_admin` é); `supabase_admin` é membro de `postgres` (não o inverso), mas membership não implica herança de default privileges.
+- Prova ativa em staging: migration `069_sec_0002b_etapa_b_prova_default_privileges.sql`, instrução única e autocontida (`DO $$ ... END $$;`, sem `BEGIN`/`COMMIT` externos — atomicidade garantida pela própria instrução, não pela ferramenta), cria uma tabela descartável, valida objetivamente owner e ACL de `anon`/`authenticated`/`service_role` (com `RAISE EXCEPTION` bloqueante em caso de divergência), remove a tabela e confirma a remoção antes de retornar sucesso.
+- **Aplicada e validada em staging**: `apply_migration` retornou `{"success": true}` — só possível porque owner (`postgres`) e as três ACLs bateram exatamente com o previsto. Verificação externa pós-aplicação: objeto de prova inexistente, migration registrada oficialmente em `supabase_migrations.schema_migrations`.
+- **Não aplicada em produção** — fora do escopo desta etapa, deliberadamente.
+- **Efeito líquido no schema: zero** (create + drop se cancelam dentro da mesma instrução, em qualquer desfecho).
+- Papel efetivo de `apply_migration` neste projeto: **`postgres`** (comprovado pela criação real do objeto de prova, não só por leitura de catálogo).
+
+### O que mudou
+
+- `supabase/migrations/069_sec_0002b_etapa_b_prova_default_privileges.sql` (novo) — migration de prova, não a correção funcional.
+
+### Testes cobertos
+
+- Revisão técnica independente da PR #5 (SQL, atomicidade, consultas de ACL, riscos, coerência com staging) — nenhum defeito encontrado.
+- Auditoria pós-merge: merge em `main` dispara deploy automático de produção da **aplicação** (padrão consistente em todo o histórico do projeto), mas nenhum workflow/script/configuração aplica migrations automaticamente — a 069 não seria executada em produção sem uma chamada `apply_migration` explícita e separada. Sem branch protection em `main`.
+
+### Estado no momento deste handoff
+
+- PR #5 (`security/sec-0002b-etapa-b-migration-069` → `main`) **mesclada** via merge commit `96fb9c3debdc1923869e5aa12365224cd5e0ef9d`.
+- Deploy de produção do commit `96fb9c3`: `dpl_98Y2aAsysV2rxGTqyGAu1AaDvFdh`, **READY**. Verificação pública única (HEAD, não autenticada, sem login/escrita): `HTTP/2 302` → `/login` (esperado).
+- **Correção funcional do SEC-0002B (`ALTER DEFAULT PRIVILEGES ... REVOKE`) não foi iniciada.**
+
+### Riscos residuais / Pendências
+
+- Papel `supabase_admin` nunca teve criação ativa de objeto testada (limitação de ferramental: `postgres` não é membro de `supabase_admin`, não pode `SET ROLE`) — fica para plano e autorização próprios, se necessário.
+- Defaults perigosos em sequences/functions do schema `public` — fora do escopo desta correção, candidato a incidente separado.
+- **Próximas decisões pendentes:** (1) gate próprio para desenhar e eventualmente aplicar a correção funcional (`ALTER DEFAULT PRIVILEGES ... REVOKE`); e (2), separadamente, decidir se/quando a migration `069`, de efeito líquido zero, deve ser aplicada em produção somente para completar o histórico de migrations.
