@@ -1,0 +1,56 @@
+-- SEC-0002B — Correção funcional dos default privileges de tabelas futuras
+-- no schema public.
+--
+-- Esta correção alcança somente tabelas futuras criadas por postgres no
+-- schema public. Tabelas já existentes não são modificadas por este
+-- comando (ALTER DEFAULT PRIVILEGES não é retroativo).
+--
+-- Escopo reduzido a postgres, por decisão formal, com base em evidência
+-- de catálogo (Gate 2B, staging): todas as 43 tabelas atuais do schema
+-- public pertencem a postgres; nenhuma migration versionada deste
+-- repositório utiliza ou referencia supabase_admin.
+--
+-- O bloco equivalente para supabase_admin foi deliberadamente retirado
+-- desta migration: o canal de execução disponível (apply_migration)
+-- conecta como postgres, que não é superuser, não é membro de
+-- supabase_admin, e não possui USAGE nem capacidade de SET ROLE
+-- supabase_admin (pg_has_role comprovou os três como false) — logo não
+-- tem autoridade para executar ALTER DEFAULT PRIVILEGES FOR ROLE
+-- supabase_admin.
+--
+-- Isto NÃO significa que supabase_admin esteja seguro, corrigido ou
+-- irrelevante. Os default privileges excessivos de supabase_admin para
+-- (public, TABLES) permanecem configurados e continuam um risco
+-- residual administrativo em aberto — hoje sem uso comprovado neste
+-- projeto (nenhum objeto de public pertence a supabase_admin), mas não
+-- corrigidos. Essa pendência deverá ser tratada futuramente, em migration
+-- própria e versionada, por um canal oficial autorizado a agir como
+-- supabase_admin ou superuser — nenhum está disponível nesta sessão.
+--
+-- PUBLIC não é tratado nesta migration: o Gate 0B (leitura de catálogo em
+-- staging) comprovou que PUBLIC não possui nenhuma entrada em
+-- pg_default_acl para (public, TABLES) em nenhum dos dois papéis — não há
+-- privilégio a revogar dele nesse recorte.
+--
+-- service_role é deliberadamente preservado (não revogado): tecnicamente
+-- ainda precisa do grant de tabela mesmo tendo rolbypassrls=true, e é o
+-- papel usado pelo client admin desta aplicação para acesso privilegiado
+-- a tabelas futuras.
+--
+-- Tabelas existentes, sequences e functions estão fora do escopo desta
+-- correção.
+--
+-- A migration 069 (prova controlada, efeito líquido zero) permanece
+-- independente desta migration — não é executada nem incorporada por
+-- esta decisão; já foi aplicada em staging e mesclada em main
+-- separadamente.
+--
+-- O comando REVOKE abaixo é reaplicável sem produzir grants adicionais:
+-- revogar um privilégio que já não existe não é erro.
+--
+-- Com um único comando de nível superior, deixa de existir o risco de
+-- sucesso parcial entre dois owners que a versão anterior desta migration
+-- apresentava.
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated;
