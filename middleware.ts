@@ -2,6 +2,15 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const isConviteRoute = pathname.startsWith('/convite/')
+  const isApiRoute = pathname.startsWith('/api/')
+  const isDebugRoute = pathname.startsWith('/debug/')
+
+  if (isApiRoute || isConviteRoute || isDebugRoute) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -25,22 +34,12 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
   // Rotas públicas: acessíveis sem autenticação, sem redirect para dashboard
   const publicRoutes = ['/login', '/cadastro', '/recuperar-senha', '/atualizar-senha']
   // Destas, só estas redirecionam usuário autenticado para o dashboard
   const redirectToDashboard = ['/login', '/cadastro', '/recuperar-senha']
 
   const isPublicRoute = publicRoutes.some(r => pathname.startsWith(r))
-  const isConviteRoute = pathname.startsWith('/convite/')
-  const isApiRoute = pathname.startsWith('/api/')
-
-  const isDebugRoute = pathname.startsWith('/debug/')
-
-  if (isApiRoute || isConviteRoute || isDebugRoute) {
-    return supabaseResponse
-  }
 
   if (!user && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url)
