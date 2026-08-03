@@ -1,0 +1,31 @@
+{
+  "contrato_versao": "1.0",
+  "origem": { "sistema": "teste_f5", "versao_integracao": "1.0.0" },
+  "evento": {
+    "evento_externo_id": "evento-teste-pilot0006c-0002",
+    "tipo_evento": "venda_criada",
+    "timestamp_evento": "2026-08-02T10:05:00-03:00"
+  },
+  "empresa_loja": { "loja_externa_id": "loja-teste-pilot0006c" },
+  "venda": {
+    "venda_externa_id": "venda-teste-pilot0006c-0001",
+    "data_venda": "2026-08-02"
+  },
+  "cliente": {
+    "nome": "Cliente Teste Pilot0006C",
+    "telefone": "48999990001",
+    "sem_canal_contato": false
+  },
+  "vendedor_origem": {
+    "identificador_externo": "__VENDEDOR_ID_PLACEHOLDER__",
+    "nome": "Vendedor Teste Pilot0006C"
+  },
+  "itens": [
+    {
+      "produto": { "nome_origem": "Creatina Monohidratada 300g" },
+      "quantidade": 1,
+      "valor_unitario": 89.90
+    }
+  ],
+  "totais": { "valor_total": 89.90 }
+}
