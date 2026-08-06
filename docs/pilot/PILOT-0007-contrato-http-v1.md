@@ -145,3 +145,37 @@ Depois dos testes:
 2. o Dono do Produto restaurará manualmente o `.env.local` anterior;
 3. Claude aguardará a frase exata **AMBIENTE RESTAURADO**;
 4. somente depois disso poderá ocorrer o `delete_branch`.
+
+## 10. Infraestrutura permanente de homologação (a partir do PILOT-0010)
+
+**As seções 6-9 acima descrevem o resultado histórico do PILOT-0007** —
+10/10 cenários homologados contra uma branch Supabase efêmera
+(`kswsfgimadapaezoiprc`), já deletada. Esse resultado permanece válido
+como registro do que foi provado naquele momento; não é reescrito aqui.
+
+**A partir do PILOT-0010, as regressões H01-H10 usam uma infraestrutura
+diferente e permanente**, criada por
+`scripts/staging/seed_homologacao_integracoes.sql` no projeto de staging
+(`f5-recompra-staging`, `ynrffhacpjzohrhkpuiq`) — não mais uma branch
+efêmera. Resumo do que mudou:
+
+- `empresa_loja.loja_externa_id` passa a ser `homologacao-integracoes`
+  (namespace permanente, não vinculado a nenhum piloto específico) — não
+  mais `loja-teste-pilot0007`.
+- Os produtos de homologação passam a ser `F5 HOMOLOGACAO - PRODUTO
+  VALIDO` e `F5 HOMOLOGACAO - PRODUTO AMBIGUO` — não mais `Creatina
+  Monohidratada 300g` nem `TESTE_PILOT_0007_GATE2A_RUN_001 - Produto
+  Ambiguo`.
+- O vendedor de homologação (`VENDEDOR_HOMOLOGACAO_ID`) já tem default
+  versionado no script — o id público e sintético de Vend1 Teste
+  Angeloni (`f5feed00-0000-0000-0002-000000000003`), não é credencial.
+  Não é obrigatório editar `.env.local` só por causa dele; o operador só
+  precisa sobrescrever a variável de ambiente se quiser usar outro
+  vendedor de homologação.
+- A URL do servidor local (`BASE_URL`) também tem default versionado
+  (`http://localhost:3000`), sobrescrevível por ambiente sem editar o
+  script.
+- `origem.sistema` continua `teste_f5` — restrição técnica da RPC 071,
+  não um namespace escolhido, e não mudou.
+- Nenhuma branch Supabase efêmera é necessária para repetir H05-H09 —
+  a infraestrutura permanente já existe em staging.
