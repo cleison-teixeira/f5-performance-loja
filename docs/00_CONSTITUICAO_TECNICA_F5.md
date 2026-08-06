@@ -34,11 +34,13 @@
 22. A autoridade final sobre produto, arquitetura, banco de dados, segurança e produção pertence sempre a Cleison ou a quem ele designar explicitamente, consistente com o princípio 6.
 23. Existe uma barreira absoluta entre staging e produção: nenhum agente, script ou automação pode atravessá-la sem autorização humana explícita e específica.
 24. A arquitetura do F5 OS deve evoluir na velocidade da dor real que resolve, nunca à frente dela.
+25. Nenhuma investigação técnica crítica do F5 OS será considerada concluída enquanto o conhecimento produzido não estiver documentado, versionado, indexado, referenciado e aprovado pelo Knowledge Preservation Gate (KPG).
 
 ## Documentos subordinados
 
 - `docs/01_PLAYBOOK_FABRICA_F5.md`
 - `docs/02_AI_RULES_F5.md`
 - `docs/03_DECISOES_ARQUITETURAIS.md`
+- `docs/04_KPG_KNOWLEDGE_PRESERVATION_GATE.md`
 - `ai/COMMON_RULES.md`
 - `knowledge/REGRAS_NEGOCIO.md`
