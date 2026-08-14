@@ -655,9 +655,13 @@ export default async function DashboardPage() {
     .sort((a, b) => b.totalMes - a.totalMes)
 
   // Dinheiro na Mesa (regra canônica 90 dias)
-  const seenOport = new Set<string>()
-  const oportunidades = avisos
+  const oportunidadesBase = avisos
     .filter(a => (a.tipo === 'recompra' || a.tipo === 'oferta') && a.data_aviso <= em90DiasStr)
+
+  // Oportunidade = venda + produto (granularidade documentada em CLAUDE.md).
+  // Usada só para contagem — cada produto é uma ação de contato distinta.
+  const seenOport = new Set<string>()
+  const oportunidades = oportunidadesBase
     .filter(a => {
       const key = `${a.venda_id ?? ''}__${a.produto_id ?? ''}`
       if (seenOport.has(key)) return false
@@ -665,10 +669,24 @@ export default async function DashboardPage() {
       return true
     })
   const oport7Dias = oportunidades.filter(a => a.data_aviso >= hoje && a.data_aviso <= em7DiasStr)
+
+  // Valor financeiro = uma vez por venda. valor_produto já representa o total
+  // recorrente da venda inteira (ver hotfix 322ecd7); somar por linha de aviso
+  // multiplicaria o valor quando a venda tem mais de um produto_id ativo.
+  const seenVendaValor = new Set<string>()
+  const oportunidadesPorVenda = oportunidadesBase
+    .filter(a => {
+      if (seenVendaValor.has(a.venda_id)) return false
+      seenVendaValor.add(a.venda_id)
+      return true
+    })
+  const oportunidadesPorVenda7Dias = oportunidadesPorVenda
+    .filter(a => a.data_aviso >= hoje && a.data_aviso <= em7DiasStr)
+
   const dinheiroMesaInfo: DinheiroMesaInfo = {
-    totalPotencial: oportunidades.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
+    totalPotencial: oportunidadesPorVenda.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
     qtdOportunidades: oportunidades.length,
-    potencial7Dias: oport7Dias.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
+    potencial7Dias: oportunidadesPorVenda7Dias.reduce((s, a) => s + (a.valor_produto || a.valor_venda || 0), 0),
     qtdClientes7Dias: new Set(oport7Dias.map(a => a.cliente_nome)).size,
   }
 
