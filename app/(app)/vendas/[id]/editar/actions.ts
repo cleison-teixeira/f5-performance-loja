@@ -2,9 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { gerarAvisos } from '@/lib/avisos/gerador'
-import { ORDENS_POR_MODELO } from '@/lib/mensagens/modelos'
+import { planejarAvisosParaVenda, type ItemParaPlanejamento } from '@/lib/avisos/planejarParaVenda'
 import { gravarComissaoVenda } from '@/lib/comissoes/gravar'
+import {
+  planejarReconciliacaoAvisos,
+  resolverCicloRecompraPorProduto,
+  type AvisoExistenteParaReconciliacao,
+} from './reconciliacaoAvisos'
 
 const STATUS_ATIVOS = ['pendente', 'enviado', 'aberta', 'contato_feito', 'reagendada'] as const
 
@@ -72,10 +76,10 @@ export async function editarVenda(dados: {
     const dataMudou = dados.data_compra !== dataAnterior
     const vendedoraMudou = dados.vendedora_id !== vendedoraAnterior
 
-    // 2. Buscar itens atuais
+    // 2. Buscar itens atuais (inclui campos usados na eleição de âncora)
     const { data: itensAtuaisRaw } = await admin
       .from('itens_venda')
-      .select('id, produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente, comissionavel')
+      .select('id, produto_id, produto_nome, quantidade, valor_unitario, subtotal, recorrente, comissionavel, ciclo_recompra_dias, categoria, parceiro')
       .eq('venda_id', dados.venda_id)
 
     const itensAtuaisMap = new Map(
@@ -88,25 +92,12 @@ export async function editarVenda(dados: {
     const idsRemovidos = [...itensAtuaisMap.keys()].filter(id => !idsNovosSet.has(id))
 
     let avisos_removidos = 0
-    let avisos_recalculados = 0
+    const avisos_recalculados = 0
     let avisos_criados = 0
 
-    // 3. Itens removidos: cancelar avisos ativos e deletar itens_venda
-    for (const idRemovido of idsRemovidos) {
-      const { data: removed } = await admin
-        .from('avisos')
-        .delete()
-        .eq('item_venda_id', idRemovido)
-        .in('status', [...STATUS_ATIVOS])
-        .is('recompra_id', null)
-        .select('id')
-      avisos_removidos += (removed ?? []).length
-
-      // Tenta deletar itens_venda; ignora FK se houver histórico encerrado
-      await admin.from('itens_venda').delete().eq('id', idRemovido)
-    }
-
-    // 4. Itens existentes: atualizar quantidade/preço/recorrente
+    // 3. Itens existentes: atualizar quantidade/preço/recorrente
+    // (avisos não são tocados aqui — a reconciliação de âncora única, no
+    // passo 8, decide o que preservar/desancorar/remover para a venda inteira)
     for (const item of itensExistentes) {
       const atual = itensAtuaisMap.get(item.item_venda_id!)
       if (!atual) continue
@@ -120,21 +111,9 @@ export async function editarVenda(dados: {
           recorrente: item.recorrente,
         })
         .eq('id', item.item_venda_id!)
-
-      // Tornou-se não-recorrente: cancelar avisos ativos
-      if ((atual.recorrente as boolean) && !item.recorrente) {
-        const { data: removed } = await admin
-          .from('avisos')
-          .delete()
-          .eq('item_venda_id', item.item_venda_id!)
-          .in('status', [...STATUS_ATIVOS])
-          .is('recompra_id', null)
-          .select('id')
-        avisos_removidos += (removed ?? []).length
-      }
     }
 
-    // 5. Atualizar cabeçalho da venda
+    // 4. Atualizar cabeçalho da venda
     const novoValorTotal = dados.itens.reduce(
       (acc, i) => acc + i.quantidade * i.preco_unitario, 0
     )
@@ -148,168 +127,75 @@ export async function editarVenda(dados: {
       })
       .eq('id', dados.venda_id)
 
-    // Fetch context for text regeneration (used in steps 6 and 8)
+    // Contexto para o planejamento de avisos (passo 8)
     const { data: clienteData } = await admin
       .from('clientes').select('nome').eq('id', cliente_id).single()
     const cliente_nome = (clienteData?.nome as string) ?? ''
 
-    const itensRec = dados.itens.filter(i => i.recorrente)
-    const nomesProd = itensRec.map(i => i.produto_nome)
-    const produto_nome_lista = nomesProd.length === 0
-      ? (dados.itens[0]?.produto_nome ?? '')
-      : nomesProd.length === 1 ? nomesProd[0]
-      : nomesProd.length === 2 ? `${nomesProd[0]} e ${nomesProd[1]}`
-      : `${nomesProd.slice(0, -1).join(', ')} e ${nomesProd[nomesProd.length - 1]}`
-    const n_produtos = Math.max(1, itensRec.length)
-
-    // 6. Regenerar texto_renderizado sempre; recalcular data_aviso se data_compra mudou
-    {
-      const { data: avisosAtivos } = await admin
-        .from('avisos')
-        .select('id, mensagem_id, item_venda_id')
-        .eq('venda_id', dados.venda_id)
-        .in('status', [...STATUS_ATIVOS])
-        .is('recompra_id', null)
-
-      if (avisosAtivos && avisosAtivos.length > 0) {
-        const mensagemIds = [...new Set(avisosAtivos.map(a => a.mensagem_id as string))]
-        const { data: mensagens } = await admin
-          .from('mensagens_produto')
-          .select('id, tipo, texto, dias_apos_venda, tipo_incentivo, cupom_codigo, desconto_percentual, desconto_valor, beneficio_texto, validade_oferta')
-          .in('id', mensagemIds)
-
-        const mensagemMap = new Map(
-          (mensagens ?? []).map(m => [m.id as string, m])
-        )
-
-        const { data: itensVendaDB } = await admin
-          .from('itens_venda')
-          .select('ciclo_recompra_dias, categoria, parceiro')
-          .eq('venda_id', dados.venda_id)
-          .eq('recorrente', true)
-
-        type AnchorInfo = { ciclo_recompra_dias: number | null; categoria: string | null; parceiro: string | null }
-        const anchor = ((itensVendaDB ?? []) as AnchorInfo[]).reduce<AnchorInfo | null>(
-          (a, b) => !a ? b : ((a.ciclo_recompra_dias ?? 30) <= (b.ciclo_recompra_dias ?? 30) ? a : b),
-          null
-        )
-        const minCiclo = anchor?.ciclo_recompra_dias ?? 30
-        const agora = new Date().toISOString()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pendingUpdates: any[] = []
-
-        for (const aviso of avisosAtivos) {
-          const raw = mensagemMap.get(aviso.mensagem_id as string)
-          if (!raw) continue
-
-          const msgObj = {
-            id: raw.id as string,
-            tipo: (raw as any).tipo as string,
-            texto: raw.texto as string,
-            dias_apos_venda: raw.dias_apos_venda as number,
-            estilo: null as string | null,
-            tipo_incentivo: (raw as any).tipo_incentivo as string | null,
-            cupom_codigo: (raw as any).cupom_codigo as string | null,
-            desconto_percentual: (raw as any).desconto_percentual != null ? Number((raw as any).desconto_percentual) : null,
-            desconto_valor: (raw as any).desconto_valor != null ? Number((raw as any).desconto_valor) : null,
-            beneficio_texto: (raw as any).beneficio_texto as string | null,
-            validade_oferta: (raw as any).validade_oferta as string | null,
-          }
-
-          const [generated] = gerarAvisos([msgObj], {
-            venda_id: dados.venda_id,
-            item_venda_id: aviso.item_venda_id as string,
-            loja_id,
-            cliente_id,
-            vendedora_id: dados.vendedora_id,
-            cliente_nome,
-            produto_nome: produto_nome_lista,
-            n_produtos,
-            vendedora_nome: dados.vendedora_nome,
-            loja_nome: dados.loja_nome,
-            categoria: anchor?.categoria ?? null,
-            parceiro: anchor?.parceiro ?? null,
-          }, dados.data_compra, minCiclo)
-
-          if (!generated) continue
-
-          const patch: Record<string, unknown> = {
-            texto_renderizado: generated.texto_renderizado,
-            updated_at: agora,
-          }
-
-          if (dataMudou) {
-            patch.data_aviso = generated.data_aviso
-          }
-
-          pendingUpdates.push(
-            admin.from('avisos').update(patch).eq('id', aviso.id as string)
-          )
-        }
-
-        avisos_recalculados = pendingUpdates.length
-        await Promise.all(pendingUpdates)
-      }
-    }
-
-    // 7. Atualizar vendedora_id nos avisos ativos se mudou
+    // 5. Atualizar vendedora_id nos avisos existentes se mudou (inclui
+    // histórico/enviado — só corrige responsável, não apaga nada)
     if (vendedoraMudou) {
       await admin
         .from('avisos')
         .update({ vendedora_id: dados.vendedora_id, updated_at: new Date().toISOString() })
         .eq('venda_id', dados.venda_id)
         .in('status', [...STATUS_ATIVOS])
-        .is('recompra_id', null)
     }
 
-    // 8. Gerar avisos para itens novos e itens que viraram recorrentes
+    // 6. Reconciliar avisos existentes da venda inteira: desancorar os
+    // protegidos (enviados / com recompra_id / histórico) de itens removidos
+    // antes de apagar o item (evita perda por ON DELETE CASCADE) e remover
+    // os substituíveis (pendente/reagendada, nunca enviados, sem recompra_id)
+    // — independentemente de qual item_venda_id eles apontam hoje, pois serão
+    // superados pelo plano de âncora única do passo 8.
+    const { data: avisosExistentesRaw } = await admin
+      .from('avisos')
+      .select('id, item_venda_id, status, enviado_em, recompra_id')
+      .eq('venda_id', dados.venda_id)
 
-    // Itens existentes que viraram recorrentes
-    for (const item of itensExistentes) {
-      const atual = itensAtuaisMap.get(item.item_venda_id!)
-      if (!atual || (atual.recorrente as boolean) || !item.recorrente || !item.produto_id) continue
+    const avisosExistentes: AvisoExistenteParaReconciliacao[] = (avisosExistentesRaw ?? []).map(a => ({
+      id: a.id as string,
+      item_venda_id: (a.item_venda_id as string | null) ?? null,
+      status: a.status as string,
+      enviado_em: (a.enviado_em as string | null) ?? null,
+      recompra_id: (a.recompra_id as string | null) ?? null,
+    }))
 
-      const { data: prodData } = await admin
-        .from('produtos').select('qtd_mensagens').eq('id', item.produto_id).single()
-      const qtd = ((prodData as unknown as { qtd_mensagens: number } | null)?.qtd_mensagens ?? 3) as 1 | 2 | 3 | 4
+    const { idsParaRemover, idsParaDesancorar } = planejarReconciliacaoAvisos({
+      avisos: avisosExistentes,
+      itensRemovidosIds: idsRemovidos,
+    })
 
-      const { data: msgs } = await supabase
-        .from('mensagens_produto')
-        .select('id, ordem, tipo, texto, dias_apos_venda')
-        .eq('produto_id', item.produto_id)
-        .order('ordem')
-
-      if (!msgs?.length) continue
-      const ordensAtivas = ORDENS_POR_MODELO[qtd]
-      const mensagens = msgs
-        .filter(m => ordensAtivas.includes(m.ordem as number))
-        .map(m => ({
-          id: m.id as string,
-          tipo: (m as unknown as { tipo: string }).tipo ?? 'recompra',
-          texto: m.texto as string,
-          dias_apos_venda: m.dias_apos_venda as number,
-        }))
-
-      if (!mensagens.length) continue
-      const avisos = gerarAvisos(mensagens, {
-        venda_id: dados.venda_id,
-        item_venda_id: item.item_venda_id!,
-        loja_id, cliente_id, vendedora_id: dados.vendedora_id,
-        cliente_nome, produto_nome: produto_nome_lista, n_produtos,
-        vendedora_nome: dados.vendedora_nome, loja_nome: dados.loja_nome,
-      }, dados.data_compra)
-
-      if (avisos.length > 0) {
-        await supabase.from('avisos').insert(avisos)
-        avisos_criados += avisos.length
-      }
+    if (idsParaDesancorar.length > 0) {
+      await admin
+        .from('avisos')
+        .update({ item_venda_id: null, updated_at: new Date().toISOString() })
+        .in('id', idsParaDesancorar)
     }
 
-    // Itens novos
-    for (const item of itensNovos) {
-      const { data: novoItemData } = await supabase
+    if (idsParaRemover.length > 0) {
+      await admin.from('avisos').delete().in('id', idsParaRemover)
+      avisos_removidos = idsParaRemover.length
+    }
+
+    // 7. Agora é seguro deletar itens_venda removidos: avisos protegidos já
+    // foram desancorados e os substituíveis já foram removidos acima.
+    for (const idRemovido of idsRemovidos) {
+      await admin.from('itens_venda').delete().eq('id', idRemovido)
+    }
+
+    // Itens novos: inserir com item_venda_id pré-gerado, para que o plano de
+    // avisos (passo 8) já possa referenciá-los antes da própria inserção.
+    const itensNovosComId = itensNovos.map(item => ({
+      ...item,
+      item_venda_id: crypto.randomUUID(),
+    }))
+
+    for (const item of itensNovosComId) {
+      await admin
         .from('itens_venda')
         .insert({
+          id: item.item_venda_id,
           venda_id: dados.venda_id,
           produto_id: item.produto_id,
           produto_nome: item.produto_nome,
@@ -319,46 +205,84 @@ export async function editarVenda(dados: {
           recorrente: item.recorrente,
           comissionavel: item.comissionavel,
         })
-        .select('id')
-        .single()
+    }
 
-      if (!novoItemData || !item.recorrente || !item.produto_id) continue
+    // Ciclo real dos itens novos: itens existentes já têm ciclo_recompra_dias
+    // persistido em itens_venda, mas itens novos não passam por esse campo em
+    // ItemEditarInput. Sem resolver o ciclo real aqui, todo item novo cairia
+    // no fallback 30 do planner, podendo eleger a âncora errada quando o
+    // ciclo real do produto novo difere de 30. Mesma fonte já usada em
+    // vendas/nova/page.tsx (cicloMap) e como fallback interno de gerarAvisos:
+    // mensagens_produto.dias_apos_venda onde tipo='recompra'.
+    const produtoIdsNovosRecorrentes = [...new Set(
+      itensNovosComId.filter(i => i.recorrente && i.produto_id).map(i => i.produto_id as string)
+    )]
 
-      const item_venda_id = novoItemData.id as string
-      const { data: prodData } = await admin
-        .from('produtos').select('qtd_mensagens').eq('id', item.produto_id).single()
-      const qtd = ((prodData as unknown as { qtd_mensagens: number } | null)?.qtd_mensagens ?? 3) as 1 | 2 | 3 | 4
-
-      const { data: msgs } = await supabase
+    let cicloRealPorProduto = new Map<string, number>()
+    if (produtoIdsNovosRecorrentes.length > 0) {
+      const { data: mensagensRecompra } = await admin
         .from('mensagens_produto')
-        .select('id, ordem, tipo, texto, dias_apos_venda')
-        .eq('produto_id', item.produto_id)
-        .order('ordem')
+        .select('produto_id, dias_apos_venda')
+        .eq('tipo', 'recompra')
+        .in('produto_id', produtoIdsNovosRecorrentes)
 
-      if (!msgs?.length) continue
-      const ordensAtivas = ORDENS_POR_MODELO[qtd]
-      const mensagens = msgs
-        .filter(m => ordensAtivas.includes(m.ordem as number))
-        .map(m => ({
-          id: m.id as string,
-          tipo: (m as unknown as { tipo: string }).tipo ?? 'recompra',
-          texto: m.texto as string,
+      cicloRealPorProduto = resolverCicloRecompraPorProduto(
+        (mensagensRecompra ?? []).map(m => ({
+          produto_id: m.produto_id as string,
           dias_apos_venda: m.dias_apos_venda as number,
         }))
+      )
+    }
+    // Produto sem mensagem de recompra: preserva o fallback 30 já usado em
+    // todo o sistema (aplicado abaixo, na montagem de itensFinal) — não
+    // bloqueia a edição, não gera erro.
 
-      if (!mensagens.length) continue
-      const avisos = gerarAvisos(mensagens, {
-        venda_id: dados.venda_id,
-        item_venda_id,
-        loja_id, cliente_id, vendedora_id: dados.vendedora_id,
-        cliente_nome, produto_nome: produto_nome_lista, n_produtos,
-        vendedora_nome: dados.vendedora_nome, loja_nome: dados.loja_nome,
-      }, dados.data_compra)
+    // 8. Eleger a âncora única sobre o estado FINAL da venda (existentes
+    // atualizados + novos) e planejar os avisos — reutiliza
+    // planejarAvisosParaVenda (lib/avisos/planejarParaVenda.ts) sem
+    // modificá-la, garantindo a mesma regra de menor ciclo_recompra_dias já
+    // usada na criação e na edição de recompra.
+    const itensFinal: ItemParaPlanejamento[] = [
+      ...itensExistentes.map(item => {
+        const atual = itensAtuaisMap.get(item.item_venda_id!)
+        return {
+          id: item.item_venda_id!,
+          produto_id: item.produto_id,
+          produto_nome: item.produto_nome,
+          recorrente: item.recorrente,
+          ciclo_recompra_dias: (atual?.ciclo_recompra_dias as number | null | undefined) ?? null,
+          categoria: (atual?.categoria as string | null | undefined) ?? null,
+          parceiro: (atual?.parceiro as string | null | undefined) ?? null,
+        }
+      }),
+      ...itensNovosComId.map(item => ({
+        id: item.item_venda_id,
+        produto_id: item.produto_id,
+        produto_nome: item.produto_nome,
+        recorrente: item.recorrente,
+        ciclo_recompra_dias: item.produto_id ? (cicloRealPorProduto.get(item.produto_id) ?? 30) : null,
+        categoria: null,
+        parceiro: null,
+      })),
+    ]
 
-      if (avisos.length > 0) {
-        await supabase.from('avisos').insert(avisos)
-        avisos_criados += avisos.length
-      }
+    const { avisos: avisosPlaneados } = await planejarAvisosParaVenda({
+      venda_id: dados.venda_id,
+      loja_id,
+      cliente_id,
+      vendedora_id: dados.vendedora_id,
+      cliente_nome,
+      vendedora_nome: dados.vendedora_nome,
+      loja_nome: dados.loja_nome,
+      data_base: dados.data_compra,
+      origem: 'venda_manual',
+      itens: itensFinal,
+      db: admin,
+    })
+
+    if (avisosPlaneados.length > 0) {
+      await admin.from('avisos').insert(avisosPlaneados)
+      avisos_criados = avisosPlaneados.length
     }
 
     // 9. Recalcular comissão se houve mudança substantiva
